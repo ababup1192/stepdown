@@ -1,33 +1,13 @@
-// HudView — 3D の場面の上に重ねる 2D（純粋）: 上の帯（階・HP・剣と盾の枠・小さい地図）・下の帯（記録 1 行・持ち物 3 枠）・
-// 場面の上の印（方向の予告のアイコン・眠りの z）・題名と終わりの板・終了の確認の窓。
-// 字は階・数・記録・板にだけ使い、ほかは小さな絵で見せる。
+// HudView — 3D の場面の上に重ねる上の帯と下の帯（純粋）: 上は階・経験値とレベル・HP・満腹度・剣と盾・小さい地図、
+// 下は記録 1 行と持ち物 3 枠。ほかに題名と終わりの板・終了の確認の窓・受けた時に画面の周りを赤く滲ませる幕。
+// 字は階・数・記録・板にだけ使い、ほかは小さな絵で見せる。場面の上の印は MarkView、カードは CardView。
 // 寸法と色は 540×960 の design の px（手本は UI の下書き）。
 mod HudView {
-    use fge::{Color, FontAtlas, RawDraw, Render, TextDraw, Vec2}
+    use fge::{Color, FontAtlas, Num, RawDraw, Render, Vec2}
+    use PartsView.{p, text, centered, icon, plate, band, sideBand, faded, heart, star, bar, fill, cue}
 
-    /// 予告のアイコン: 絵・足あと（動く）・階段（降りる）・砂時計（待つ）。
-    pub enum Glyph with Eq {
-        case Picture(Art.Icon)
-        case Steps
-        case Stairs
-        case Hourglass
-    }
-
-    /// 方向の予告 1 つ。at = アイコンの真ん中・hurt = 受けるダメージ（無ければ 0）・color = 枠の色。
-    pub type alias Badge = { at = Vec2.Vec2, glyph = Glyph, hurt = Int32, color = Color }
-
-    /// 持ち物が発動する条件（枠の中の小さな絵の形）。
-    pub enum Cue with Eq {
-        /// 主人公から上下左右へ伸びる列に敵が入ると（絵は十字の列と、上の先の敵 1 体）。
-        case Line
-        /// まわりの n 体に囲まれると。
-        case Surround(Int32)
-        /// HP が最大のこの割合以下になると。
-        case LowHp(Float64)
-    }
-
-    /// 持ち物の枠 1 つ。icon = 絵・count = 数・cue = 発動の条件・tier = ふちの色・held = 持っているか・glow = 上位を拾った光（0..1）。
-    pub type alias Slot = { icon = Art.Icon, count = Int32, cue = Cue, tier = Color, held = Bool, glow = Float64 }
+    /// 持ち物の枠 1 つ。icon = 絵・count = 数・cue = 発動の条件・tier = ふちの色・glow = 上位を拾った光（0..1）。
+    pub type alias Slot = { icon = Art.Icon, count = Int32, cue = PartsView.Cue, tier = Color, glow = Float64 }
 
     /// 剣か盾の枠 1 つ。icon = 絵・tier = ふちの色・held = 持っているか。
     pub type alias Gear = { icon = Art.Icon, tier = Color, held = Bool }
@@ -38,22 +18,31 @@ mod HudView {
     /// 前に重ねる板（題名・倒れた・抜けた）。
     pub type alias Card = { title = String, prompt = String }
 
-    /// 描くのに要る値。log = 記録の 1 行（無ければ空）。
+    /// HP の棒の今の形（Popup.barOf の値）と最大。
+    pub type alias Hp = { now = Int32, max = Int32, front = Float64, extra = Float64, healing = Bool }
+
+    /// 満腹度の棒: 今と最大・食べた光（0..1）・空腹で減った赤い点滅（0..1）。
+    pub type alias Fullness = { now = Int32, max = Int32, glow = Float64, alarm = Float64 }
+
+    /// 経験値の棒: レベル・今のレベルで貯めた数・次までに要る数。
+    pub type alias Exp = { level = Int32, now = Int32, need = Int32 }
+
+    /// 描くのに要る値。log = 記録の 1 行（無ければ空）・slots = 3 枠（None は空き枠）・edge = 画面の周りの赤（0..1）。
     pub type alias In = {
         theme = ThemeDoc.Rec,
         time = Float64,
         floorLabel = String,
-        hp = Int32,
-        maxHp = Int32,
+        hp = Hp,
+        fullness = Fullness,
+        exp = Exp,
         gear = List[Gear],
         minimap = Minimap,
         log = String,
-        slots = List[Slot],
-        badges = List[Badge],
-        sleepers = List[Vec2.Vec2],
+        slots = List[Option[Slot]],
         card = Option[Card],
         quitPrompt = Option[String],
-        showBars = Bool
+        showBars = Bool,
+        edge = Float64
     }
 
     def width(): Float64 = 540.0
@@ -61,134 +50,6 @@ mod HudView {
 
     /// 下の UI の帯（記録と持ち物）の上の端。ここより下のタップは盤の入力にしない。
     pub def bandTop(): Float64 = 760.0
-    def p(x: Float64, y: Float64): Vec2.Vec2 = { x = x, y = y }
-
-    def text(atlas: FontAtlas, s: String, at: Vec2.Vec2, size: Float64, color: Color, z: Int32): Render.PlacedItem =
-        { at = at, item = Render.textTinted(s, atlas, size, color, z) }
-
-    def centered(atlas: FontAtlas, s: String, center: Vec2.Vec2, size: Float64, color: Color, z: Int32): Render.PlacedItem =
-        TextDraw.centeredAt({ text = s, atlas = atlas, size = size, color = color, z = z, center = center })
-
-    def icon(pic: Art.Picture, center: Vec2.Vec2, side: Float64, z: Int32): Render.PlacedItem =
-        { at = center, item = Render.sprite(pic#name, z) |> Render.scaled(side / Float64.max(pic#width, pic#height)) }
-
-    /// 角の丸い板（ふちの色 edge・ふちの太さ line）。
-    def plate(at: Vec2.Vec2, size: Vec2.Vec2, r: Float64, fill: Render.Item, edge: Color, line: Float64, z: Int32): List[Render.PlacedItem] =
-        { at = Vec2.sub(at, p(line, line)), item = RawDraw.box(Vec2.add(size, p(line * 2.0, line * 2.0)), edge, z) |> Render.rounded(r + line) }
-            :: { at = at, item = fill |> Render.rounded(r) } :: Nil
-
-    /// 上から下へ透け具合の変わる帯（色 color・上の不透明さ a0・下の不透明さ a1）。
-    def band(y: Float64, h: Float64, color: Color, a0: Float64, a1: Float64, z: Int32): Render.PlacedItem =
-        let v = (x: Float64, yy: Float64, a: Float64) -> { pos = p(x, yy), color = color, alpha = a };
-        { at = Vec2.zero(), item = Render.gradPolygon(v(0.0, y, a0) :: v(width(), y, a0) :: v(width(), y + h, a1) :: v(0.0, y + h, a1) :: Nil, z) }
-
-    def faded(alpha: Float64, g: Render.PlacedItem): Render.PlacedItem = { item = g#item |> Render.fade(alpha) | g }
-
-    /// 絶対座標の頂点で組んだ多角形。
-    def shape(vertices: List[Vec2.Vec2], color: Color, z: Int32): Render.PlacedItem =
-        { at = Vec2.zero(), item = RawDraw.polygon(vertices, color, z) }
-
-    // ── 小さな絵（ピクトグラム）──
-
-    /// ハート（真ん中 c・半幅 r）: ふちの色で一回り大きく敷き、上に面、左上に照り。
-    def heart(t: ThemeDoc.Rec, c: Vec2.Vec2, r: Float64, z: Int32): List[Render.PlacedItem] =
-        let body = (k: Float64, color: Color, zz: Int32) ->
-            RawDraw.circleAt(p(c#x - r * 0.5, c#y - r * 0.28), r * 0.56 * k, color, zz)
-                :: RawDraw.circleAt(p(c#x + r * 0.5, c#y - r * 0.28), r * 0.56 * k, color, zz)
-                :: shape(p(c#x - r * 1.02 * k, c#y - r * 0.1) :: p(c#x + r * 1.02 * k, c#y - r * 0.1) :: p(c#x, c#y + r * 0.95 * k) :: Nil, color, zz) :: Nil;
-        List.flatten(body(1.22, t#hpEdge, z) :: body(1.0, t#hpBottom, z + 1)
-            :: (RawDraw.circleAt(p(c#x - r * 0.55, c#y - r * 0.4), r * 0.26, t#hpTop, z + 2) :: Nil) :: Nil)
-
-    /// 盤のマス 1 つ（左上 at・一辺 side）。上から下へ少し暗くして面に見せる。
-    def tile(t: ThemeDoc.Rec, at: Vec2.Vec2, side: Float64, color: Color, z: Int32): Render.PlacedItem =
-        { at = at, item = Render.vgrad(p(side, side), { top = color, bottom = Color.mix(color, t#shade, 0.35) }, z) |> Render.rounded(side * 0.22) }
-
-    /// マス目の絵: 真ん中 c から (dx, dy) マスずれた所に色 color のマス（マスの一辺 side・間 gap）。
-    def tileAt(t: ThemeDoc.Rec, c: Vec2.Vec2, side: Float64, gap: Float64, z: Int32, cell: ((Int32, Int32), Color)): Render.PlacedItem =
-        let ((dx, dy), color) = cell;
-        let pitch = side + gap;
-        tile(t, p(c#x - side / 2.0 + Int32.toFloat64(dx) * pitch, c#y - side / 2.0 + Int32.toFloat64(dy) * pitch), side, color, z)
-
-    /// 発動の条件の絵（真ん中 c）。
-    def cue(t: ThemeDoc.Rec, c: Vec2.Vec2, q: Cue, z: Int32): List[Render.PlacedItem] =
-        let floor = Color.mix(t#mapFloor, t#shade, 0.55);
-        match q {
-            case Cue.Line =>
-                let arm = (dx: Int32, dy: Int32) -> List.range(1, 3) |> List.map(k -> ((dx * k, dy * k), t#markArrow));
-                let cells = ((0, 0), t#mapHero) :: ((0, -3), t#mapEnemy) :: List.flatten(arm(0, -1) :: arm(1, 0) :: arm(0, 1) :: arm(-1, 0) :: Nil);
-                cells |> List.map(tileAt(t, p(c#x, c#y + 4.5), 7.5, 1.5, z))
-            case Cue.Surround(n) =>
-                let ring = (-1, -1) :: (1, -1) :: (1, 1) :: (-1, 1) :: (0, -1) :: (1, 0) :: (0, 1) :: (-1, 0) :: Nil;
-                let foes = List.take(n, ring) |> List.toSet;
-                let colorAt = (d: (Int32, Int32)) -> if (d == (0, 0)) t#mapHero else if (Set.memberOf(d, foes)) t#mapEnemy else floor;
-                List.range(-1, 2) |> List.flatMap(dy -> List.range(-1, 2) |> List.map(dx -> ((dx, dy), colorAt((dx, dy)))))
-                    |> List.map(tileAt(t, c, 14.0, 2.0, z))
-            case Cue.LowHp(ratio) =>
-                let barAt = p(c#x - 26.0, c#y + 8.0);
-                List.flatten(heart(t, p(c#x, c#y - 10.0), 10.0, z)
-                    :: ({ at = Vec2.sub(barAt, p(2.0, 2.0)), item = RawDraw.box(p(56.0, 14.0), t#hpEdge, z) |> Render.rounded(7.0) }
-                        :: { at = barAt, item = RawDraw.box(p(52.0, 10.0), t#hpBack, z + 1) |> Render.rounded(5.0) }
-                        :: { at = barAt, item = Render.vgrad(p(Float64.max(8.0, 52.0 * ratio), 10.0), { top = t#hpTop, bottom = t#hpBottom }, z + 2) |> Render.rounded(5.0) } :: Nil)
-                    :: Nil)
-        }
-
-    // ── 場面の上の印 ──
-
-    /// 方向の予告のアイコンと受けるダメージ・眠りの z。
-    pub def marks(atlas: FontAtlas, w: In): List[Render.PlacedItem] =
-        List.append(w#badges |> List.flatMap(badge(atlas, w)), w#sleepers |> List.flatMap(sleeper(atlas, w)))
-
-    def badge(atlas: FontAtlas, w: In, b: Badge): List[Render.PlacedItem] =
-        let t = w#theme;
-        let face = RawDraw.circleAt(b#at, 19.0, t#badgeFace, 2) :: Nil;
-        let ring = RawDraw.circleAt(b#at, 22.0, t#badgeEdge, 1) :: faded(0.35, RawDraw.circleAt(b#at, 26.0, b#color, 0)) :: Nil;
-        let hurt = if (b#hurt <= 0) Nil else hurtTag(atlas, t, b);
-        List.flatten(ring :: face :: glyph(b#glyph, b#at, t#badgeEdge) :: hurt :: Nil)
-
-    def glyph(g: Glyph, c: Vec2.Vec2, color: Color): List[Render.PlacedItem] = match g {
-        case Glyph.Picture(i) => icon(Art.icon(i), c, 30.0, 3) :: Nil
-        case Glyph.Steps      => steps(c, color)
-        case Glyph.Stairs     => stairs(c, color)
-        case Glyph.Hourglass  => hourglass(c, color)
-    }
-
-    /// 受けるダメージ: アイコンの下の赤いラベルに、小さなハートと数。
-    def hurtTag(atlas: FontAtlas, t: ThemeDoc.Rec, b: Badge): List[Render.PlacedItem] =
-        let s = "-${b#hurt}";
-        let wide = TextDraw.width(s, atlas, 13.0) + 30.0;
-        let at = p(b#at#x - wide / 2.0, b#at#y + 24.0);
-        List.flatten(plate(at, p(wide, 19.0), 9.0, RawDraw.box(p(wide, 19.0), t#labelBack, 5) |> Render.fade(0.92), t#markDanger, 1.0, 4)
-            :: heart(t, p(at#x + 11.0, at#y + 10.0), 5.5, 6)
-            :: (centered(atlas, s, p(at#x + 19.0 + (wide - 22.0) / 2.0, at#y + 9.5), 13.0, t#markDanger, 6) :: Nil) :: Nil)
-
-    /// 足あとの印（左右 2 つ）。
-    def steps(c: Vec2.Vec2, color: Color): List[Render.PlacedItem] =
-        let foot = (dx: Float64, dy: Float64) ->
-            RawDraw.ellipseAt(p(c#x + dx, c#y + dy - 3.0), p(3.6, 5.2), color, 3) :: RawDraw.circleAt(p(c#x + dx, c#y + dy + 5.0), 2.6, color, 3) :: Nil;
-        List.append(foot(-5.0, -2.0), foot(5.0, 2.0))
-
-    /// 階段の印（左上から右下へ 3 段で降りる形と、下向きの矢じり）。
-    def stairs(c: Vec2.Vec2, color: Color): List[Render.PlacedItem] =
-        let v = (x: Float64, y: Float64) -> p(c#x + x, c#y + y);
-        shape(v(-11.0, -9.0) :: v(-4.0, -9.0) :: v(-4.0, -3.0) :: v(3.0, -3.0) :: v(3.0, 3.0) :: v(10.0, 3.0) :: v(10.0, 10.0) :: v(-11.0, 10.0) :: Nil, color, 3)
-            :: shape(v(3.0, -12.0) :: v(11.0, -12.0) :: v(7.0, -6.0) :: Nil, color, 3) :: Nil
-
-    /// 砂時計の印。
-    def hourglass(c: Vec2.Vec2, color: Color): List[Render.PlacedItem] =
-        let v = (x: Float64, y: Float64) -> p(c#x + x, c#y + y);
-        { at = v(-8.0, -11.0), item = RawDraw.box(p(16.0, 3.0), color, 3) |> Render.rounded(1.5) }
-            :: { at = v(-8.0, 8.0), item = RawDraw.box(p(16.0, 3.0), color, 3) |> Render.rounded(1.5) }
-            :: shape(v(-6.0, -8.0) :: v(6.0, -8.0) :: v(0.0, 0.0) :: Nil, color, 3)
-            :: shape(v(0.0, 0.0) :: v(6.0, 8.0) :: v(-6.0, 8.0) :: Nil, color, 3) :: Nil
-
-    /// 眠っている敵の頭の上の z（実時間でゆっくり昇って消える）。
-    def sleeper(atlas: FontAtlas, w: In, at: Vec2.Vec2): List[Render.PlacedItem] =
-        let phase = w#time * 0.6 - Float64.floor(w#time * 0.6);
-        let rise = (k: Float64, size: Float64, dx: Float64) -> {
-            let f = phase + k - Float64.floor(phase + k);
-            faded(1.0 - f, centered(atlas, "z", p(at#x + dx + f * 6.0, at#y - f * 16.0), size, w#theme#sleep, 7))
-        };
-        rise(0.0, 15.0, 0.0) :: rise(0.5, 11.0, 7.0) :: Nil
 
     // ── 上の帯 ──
 
@@ -198,18 +59,47 @@ mod HudView {
 
     def top(atlas: FontAtlas, w: In): List[Render.PlacedItem] =
         let t = w#theme;
-        let ratio = Int32.toFloat64(Int32.max(0, w#hp)) / Int32.toFloat64(Int32.max(1, w#maxHp));
-        let barAt = p(48.0, 70.0);
-        let gear = w#gear |> List.zipWithIndex |> List.flatMap(match (i, g) -> gearSlot(t, p(18.0 + Int32.toFloat64(i) * 52.0, 94.0), g));
+        let gear = w#gear |> List.zipWithIndex |> List.flatMap(match (i, g) -> gearSlot(t, p(18.0 + Int32.toFloat64(i) * 52.0, 124.0), g));
         List.flatten(
-            (band(0.0, 150.0, t#shade, 0.85, 0.0, 0)
-                :: text(atlas, w#floorLabel, p(18.0, 14.0), 34.0, t#ink, 3)
-                :: { at = Vec2.sub(barAt, p(2.0, 2.0)), item = RawDraw.box(p(174.0, 16.0), t#hpEdge, 1) |> Render.rounded(8.0) }
-                :: { at = barAt, item = RawDraw.box(p(170.0, 12.0), t#hpBack, 2) |> Render.rounded(6.0) }
-                :: text(atlas, "${w#hp} / ${w#maxHp}", p(230.0, 64.0), 17.0, t#ink, 3) :: Nil)
-            :: heart(t, p(29.0, 77.0), 10.0, 3)
-            :: (if (ratio <= 0.0) Nil else { at = barAt, item = Render.vgrad(p(Float64.max(12.0, 170.0 * ratio), 12.0), { top = t#hpTop, bottom = t#hpBottom }, 3) |> Render.rounded(6.0) } :: Nil)
-            :: gear :: Nil)
+            (band(Vec2.zero(), p(width(), 180.0), t#shade, { top = 0.85, bottom = 0.0 }, 0)
+                :: text(atlas, w#floorLabel, p(18.0, 14.0), 34.0, t#ink, 3) :: Nil)
+            :: expBar(atlas, t, w#exp) :: hpBar(atlas, t, w#hp) :: fullnessBar(t, w#time, w#fullness) :: gear :: Nil)
+
+    /// 経験値: 星の中にレベルの数、右に細い棒。
+    def expBar(atlas: FontAtlas, t: ThemeDoc.Rec, e: Exp): List[Render.PlacedItem] =
+        let at = p(122.0, 29.0);
+        let length = 150.0;
+        let ratio = Int32.toFloat64(Int32.max(0, e#now)) / Int32.toFloat64(Int32.max(1, e#need));
+        List.flatten(star(p(100.0, 34.0), 16.0, { face = t#expBottom, edge = t#hpEdge }, 2)
+            :: (centered(atlas, "${e#level}", p(100.0, 35.0), 15.0, t#labelBack, 4) :: Nil)
+            :: bar(at, p(length, 8.0), { edge = t#hpEdge, back = t#hpBack }, 1)
+            :: fill(at, length * Float64.min(1.0, ratio), 8.0, { top = t#expTop, bottom = t#expBottom }, 3) :: Nil)
+
+    /// HP: ハートと棒。減った分は赤く残してから縮み、増えた分は緑で伸びる。
+    def hpBar(atlas: FontAtlas, t: ThemeDoc.Rec, hp: Hp): List[Render.PlacedItem] =
+        let at = p(48.0, 66.0);
+        let length = 170.0;
+        let along = (v: Float64) -> length * Float64.max(0.0, Float64.min(1.0, v / Int32.toFloat64(Int32.max(1, hp#max))));
+        let extra = if (hp#healing) { top = Color.mix(t#hpGain, t#ink, 0.3), bottom = t#hpGain } else { top = Color.mix(t#hpLost, t#ink, 0.25), bottom = t#hpLost };
+        List.flatten(heart(t, p(29.0, 73.0), 10.0, 3)
+            :: bar(at, p(length, 12.0), { edge = t#hpEdge, back = t#hpBack }, 1)
+            :: fill(at, along(Float64.max(hp#front, hp#extra)), 12.0, extra, 3)
+            :: fill(at, along(Float64.min(hp#front, hp#extra)), 12.0, { top = t#hpTop, bottom = t#hpBottom }, 4)
+            :: (text(atlas, "${hp#now} / ${hp#max}", p(230.0, 60.0), 17.0, t#ink, 5) :: Nil) :: Nil)
+
+    /// 満腹度: パンの絵と棒。食べた時は光り、空腹で減った時と 0 の間は赤く点滅する。
+    def fullnessBar(t: ThemeDoc.Rec, time: Float64, f: Fullness): List[Render.PlacedItem] =
+        let at = p(48.0, 95.0);
+        let length = 170.0;
+        let ratio = Int32.toFloat64(Int32.max(0, f#now)) / Int32.toFloat64(Int32.max(1, f#max));
+        let blink = Float64.max(f#alarm, if (f#now <= 0) 0.5 + 0.5 * Num.sin(time * 9.0) else 0.0);
+        let edge = Color.mix(Color.mix(t#hpEdge, t#popFed, f#glow), t#popTaken, blink);
+        let halo = if (f#glow <= 0.0) Nil
+            else { at = Vec2.sub(at, p(5.0, 5.0)), item = RawDraw.box(p(length + 10.0, 18.0), t#popFed, 0) |> Render.rounded(9.0) |> Render.fade(0.45 * f#glow) } :: Nil;
+        List.flatten(halo
+            :: (icon(Art.icon(Art.Icon.Bread), p(29.0, 99.0), 26.0, 3) :: Nil)
+            :: bar(at, p(length, 10.0), { edge = edge, back = t#hpBack }, 1)
+            :: fill(at, length * Float64.min(1.0, ratio), 10.0, { top = Color.mix(t#fullTop, t#ink, 0.4 * f#glow), bottom = t#fullBottom }, 3) :: Nil)
 
     /// 剣か盾の四角い枠（左上 at）。持っていない時は色を抜いた薄い絵・ふちは段の無い色。
     def gearSlot(t: ThemeDoc.Rec, at: Vec2.Vec2, g: Gear): List[Render.PlacedItem] =
@@ -231,8 +121,8 @@ mod HudView {
 
     def bottom(atlas: FontAtlas, w: In): List[Render.PlacedItem] =
         let t = w#theme;
-        let fade = band(700.0, 260.0, t#shade, 0.0, 0.9, 0);
-        let slots = w#slots |> List.zipWithIndex |> List.flatMap(match (i, s) -> slot(atlas, w, p(24.0 + Int32.toFloat64(i) * 168.0, 818.0), s));
+        let fade = band(p(0.0, 700.0), p(width(), 260.0), t#shade, { top = 0.0, bottom = 0.9 }, 0);
+        let slots = w#slots |> List.zipWithIndex |> List.flatMap(match (i, s) -> slot(atlas, t, p(24.0 + Int32.toFloat64(i) * 168.0, 818.0), s));
         List.flatten((fade :: Nil) :: logLine(atlas, w) :: slots :: Nil)
 
     /// 記録の 1 行（無ければ板も出さない）。
@@ -243,21 +133,41 @@ mod HudView {
         else List.append(plate(at, p(width() - 32.0, 36.0), 10.0, RawDraw.box(p(width() - 32.0, 36.0), t#logBack, 2) |> Render.fade(0.85), t#logEdge, 1.0, 1),
                          text(atlas, w#log, p(at#x + 12.0, at#y + 8.0), 16.0, t#ink, 3) :: Nil)
 
-    def slot(atlas: FontAtlas, w: In, at: Vec2.Vec2, s: Slot): List[Render.PlacedItem] =
-        let t = w#theme;
-        let size = p(156.0, 116.0);
+    /// 持ち物の枠の大きさ。
+    def slotSize(): Vec2.Vec2 = p(156.0, 116.0)
+
+    /// 持ち物の枠 1 つ（空き枠は薄いふちだけ）。
+    def slot(atlas: FontAtlas, t: ThemeDoc.Rec, at: Vec2.Vec2, held: Option[Slot]): List[Render.PlacedItem] = match held {
+        case None    => Render.fadeAll(0.45, plate(at, slotSize(), 14.0, RawDraw.box(slotSize(), t#slotBottom, 2) |> Render.fade(0.35), t#tierNone, 1.0, 1))
+        case Some(s) => heldSlot(atlas, t, at, s)
+    }
+
+    def heldSlot(atlas: FontAtlas, t: ThemeDoc.Rec, at: Vec2.Vec2, s: Slot): List[Render.PlacedItem] =
+        let size = slotSize();
         let body = plate(at, size, 14.0, Render.vgrad(size, { top = t#slotTop, bottom = t#slotBottom }, 2), s#tier, 2.0, 1);
         let panelAt = p(at#x + 84.0, at#y + 10.0);
         let panel = plate(panelAt, p(62.0, 58.0), 8.0, RawDraw.box(p(62.0, 58.0), t#labelBack, 2) |> Render.fade(0.9), Color.mix(s#tier, t#shade, 0.3), 1.0, 2);
-        let alpha = if (s#held) 1.0 else 0.4;
         let inside = icon(Art.icon(s#icon), p(at#x + 46.0, at#y + 56.0), 72.0, 3)
             :: text(atlas, "×${s#count}", p(at#x + 92.0, at#y + 72.0), 28.0, t#ink, 3) :: Nil;
         let halo = if (s#glow <= 0.0) Nil
             else plate(Vec2.sub(at, p(4.0, 4.0)), Vec2.add(size, p(8.0, 8.0)), 18.0, RawDraw.box(Vec2.add(size, p(8.0, 8.0)), s#tier, 0) |> Render.fade(0.0), s#tier, 3.0 + 3.0 * s#glow, 0)
                 |> Render.fadeAll(s#glow);
-        List.flatten(halo :: body :: Render.fadeAll(if (s#held) 1.0 else 0.65, List.append(panel, cue(t, p(panelAt#x + 31.0, panelAt#y + 29.0), s#cue, 4))) :: Render.fadeAll(alpha, inside) :: Nil)
+        List.flatten(halo :: body :: panel :: cue(t, p(panelAt#x + 31.0, panelAt#y + 29.0), s#cue, 4) :: inside :: Nil)
 
     // ── 前に重ねる板 ──
+
+    /// 受けた時に画面の周りが一瞬赤く滲む（4 辺の内へ向けて薄れる帯）。
+    pub def edge(w: In): List[Render.PlacedItem] =
+        if (w#edge <= 0.0) Nil
+        else {
+            let c = w#theme#popTaken;
+            let a = 0.55 * w#edge;
+            let d = 90.0;
+            band(Vec2.zero(), p(width(), d), c, { top = a, bottom = 0.0 }, 0)
+                :: band(p(0.0, height() - d), p(width(), d), c, { top = 0.0, bottom = a }, 0)
+                :: sideBand(Vec2.zero(), p(d, height()), c, { left = a, right = 0.0 }, 0)
+                :: sideBand(p(width() - d, 0.0), p(d, height()), c, { left = 0.0, right = a }, 0) :: Nil
+        }
 
     /// 題名・倒れた・抜けた（場面を少し沈め、真ん中に板）。
     pub def card(atlas: FontAtlas, w: In): List[Render.PlacedItem] = match w#card {

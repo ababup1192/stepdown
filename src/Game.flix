@@ -17,8 +17,8 @@ mod Game {
             |> App.withDocTable(Controls.docTable())
             // 遊びの時計（Cards と終了の確認で止まる）。
             |> Resources.addClock({ clockOf = World.clockOf, withClock = World.withClock, paceOf = (_, w) -> World.paceOf(w) })
-            // 音: 一発の音は今見せている 1 手の時刻表の Cue から（区間は遊びの時計が持つ）。大きさはミキサーのバス（stepdown.mixer.json）。
-            |> App.withAudio(ws -> Resources.read(Controls.sounds, ws#after))
+            // 音: 一発の音は今見せている 1 手の時刻表の Cue（区間は遊びの時計が持つ）と、カードの前後の World から。大きさはミキサーのバス（stepdown.mixer.json）。
+            |> App.withAudio(ws -> Resources.read((r, after) -> Controls.sounds(r, { before = Resources.read((_, prev) -> prev, ws#before), after = after }), ws#after))
             |> App.withMixer(Resources.read((r, _) -> r#mixer))
             // 好きな場面から起動する・テストと flow が場面を名前で組む（START=play など）。
             |> App.withStarts(Starts.all() |> List.map(Resources.liftStart))

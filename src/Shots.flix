@@ -8,7 +8,8 @@ mod Shots {
     /// 描き出せる場面の名前。make render の使い方も SHOT の当たり判定も、この並びが source of truth。
     /// 場面の題と一言（Studio のギャラリーに出るラベル）は assets/stepdown.scenes.json 側で、name をここの名前とそろえる。
     /// 場面を足したら、ここと sceneOf と Makefile の SHOTS を一緒に足す。
-    pub def names(): List[String] = "title" :: "play" :: "dead" :: "clear" :: "quit" :: "arrow" :: "bomb" :: Nil
+    pub def names(): List[String] =
+        "title" :: "play" :: "dead" :: "clear" :: "quit" :: "arrow" :: "bomb" :: "dirs" :: "popups" :: "swap" :: "levelup_mid" :: "levelup" :: "chosen" :: Nil
 
     /// 名前 → 周回の種を固定した初めの World から組んだ場面の World（1 手を見せ終えた所。途中の場面はその秒の所）。
     pub def worldOf(name: String, res: Res.Res): Option[World.World] =
@@ -23,8 +24,45 @@ mod Shots {
             case "bomb"  => Some(midTurn(res, lk#arrowSeconds * 0.9,
                 staged(res, (7, 15), Run.Held.Held(Item.Kind.SmallBomb, 2) :: Nil,
                        (Enemy.Kind.Jelly, (6, 14)) :: (Enemy.Kind.Jelly, (8, 14)) :: Nil, World.begin(res, w0))))
+            // 部屋の中で右上の斜めに起きたゼリー。8 方向の予告（斜めは少し小さい）と、満腹度・経験値の棒が途中の所。
+            case "dirs"  => Some(World.snapCam(
+                withRec(res, r -> { fullness = 64, exp = 2 | r },
+                    staged(res, (7, 15), Run.Held.Held(Item.Kind.WoodArrow, 6) :: Run.Held.Held(Item.Kind.Pebble, 4) :: Nil,
+                           (Enemy.Kind.Jelly, (8, 14)) :: Nil, World.begin(res, w0)))))
+            // 右のゼリーを殴り、殴り返されて HP が薬の線を割り、薬草を飲んだ手の途中（白い数・赤い数・緑の +数が同時に出ている）。
+            case "popups" => Some(turnAt(res, Run.Input.Move(Board.Dir8.Right), 0.6,
+                withRec(res, r -> { hero = { hp = 6 | r#hero } | r },
+                    staged(res, (7, 15), Run.Held.Held(Item.Kind.Herb, 1) :: Nil, (Enemy.Kind.Jelly, (8, 15)) :: Nil, World.begin(res, w0)))))
+            // 枠が 3 つ埋まった所で、右のマスの煙玉の上に乗った（捨てるカード 4 枚）。
+            case "swap"  => Some(cardsAt(res, Run.Input.Move(Board.Dir8.Right), 0.6,
+                withRec(res, r -> { items = Map#{ (8, 15) => Item.Kind.Smoke } | r },
+                    staged(res, (7, 15), Run.Held.Held(Item.Kind.WoodArrow, 6) :: Run.Held.Held(Item.Kind.SmallBomb, 2) :: Run.Held.Held(Item.Kind.Pebble, 4) :: Nil,
+                           Nil, World.begin(res, w0)))))
+            // HP 1 のゼリーを倒してレベルが上がり、演出の途中（文字の絵が跳ね、光の柱と星・カードが滑り込み始めた所）。
+            case "levelup_mid" => Some(cardsAt(res, Run.Input.Move(Board.Dir8.Right), 0.22, levelReady(res, w0)))
+            // 演出を終えてカード 3 枚が並んだ所。
+            case "levelup" => Some(cardsAt(res, Run.Input.Move(Board.Dir8.Right), 0.8, levelReady(res, w0)))
+            // 左のカードを選び、光って主人公へ吸い込まれている途中（遊びへ戻った所）。
+            case "chosen" => Some(cardsAt(res, Run.Input.Move(Board.Dir8.Right), 0.8, levelReady(res, w0)) |> World.answerCard(res, 0) |> World.skipShow |> World.seekChosen(0.15))
             case _       => sceneOf(name, res, w0) |> Option.map(w -> World.snapCam(World.skipShow(w)))
         }
+
+    /// 決まりの状態を f で直す。
+    def withRec(res: Res.Res, f: Run.Rec -> Run.Rec, w: World.World): World.World =
+        World.withState(res, Run.of(f(Run.rec(w#runState))), w)
+
+    /// 右隣に HP 1 の起きたゼリー、経験値はあと 1 で上がる所。
+    def levelReady(res: Res.Res, w0: World.World): World.World =
+        withRec(res, r -> { enemies = r#enemies |> List.map(e -> { hp = 1 | e }) | r },
+            staged(res, (7, 15), Run.Held.Held(Item.Kind.WoodArrow, 6) :: Nil, (Enemy.Kind.Jelly, (8, 15)) :: Nil, World.begin(res, w0)))
+
+    /// input を当て、見せ始めてから seconds 秒の所にする。
+    def turnAt(res: Res.Res, input: Run.Input, seconds: Float64, w: World.World): World.World =
+        World.play(res, input, w) |> World.seekShow(seconds) |> World.snapCam
+
+    /// input を当てて見せ終え、選ぶ場面のカードを出してから seconds 秒の所にする。
+    def cardsAt(res: Res.Res, input: Run.Input, seconds: Float64, w: World.World): World.World =
+        World.play(res, input, w) |> World.skipShow |> World.advance(res) |> World.seekCards(seconds) |> World.snapCam
 
     /// 待った手を当て、見せ始めてから seconds 秒の所にする。
     def midTurn(res: Res.Res, seconds: Float64, w: World.World): World.World =
@@ -36,7 +74,7 @@ mod Shots {
         let enemies = foes |> List.zipWithIndex |> List.map(match (i, (kind, cell)) ->
             { id = i, kind = kind, at = cell, size = 1, hp = EnemiesDoc.statsOf(kind, res#enemies)#hp,
               rest = Enemy.Rest.Awake, turns = 0, burn = 0 });
-        { runState = Run.of({ hero = { at = hero | r#hero }, pack = pack, enemies = enemies, items = Map.empty(), nextId = List.length(enemies) | r }) | w }
+        World.withState(res, Run.of({ hero = { at = hero | r#hero }, pack = pack, enemies = enemies, items = Map.empty(), nextId = List.length(enemies) | r }), w)
 
     /// 名前 → その場面の World。names と対で保つ。
     def sceneOf(name: String, res: Res.Res, w0: World.World): Option[World.World] =

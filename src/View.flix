@@ -3,17 +3,21 @@
 // ── 画面の層（奥から手前へ）──
 // 場面（Layer.Scene）: 斜め上から見下ろす 3D のダンジョン（SceneView）。Pass の中で 3D の場面とブルームを組み、
 //   周辺を暗くしてトーンマップした面 1 枚を FXAA でならして画面へ置く（PostView）。
-// 印（Layer.Marks）: 方向の予告のアイコン・眠っている敵の z（3D の点を Camera3d.worldToScreen で画面へ写した所）。
-// HUD（Layer.Hud）: 上の帯（階・HP・剣と盾・小さい地図）・下の帯（記録・持ち物）・題名と終わりの板（HudView）。
+// 印（Layer.Marks）: 方向の予告・眠りの z・浮かぶ数・斬り跡・矢の軌跡・回復の輪（MarkView。3D の点を Camera3d.worldToScreen で画面へ写した所）。
+// HUD（Layer.Hud）: 画面の周りの赤・上の帯（階・経験値・HP・満腹度・剣と盾・小さい地図）・下の帯（記録・持ち物）・題名と終わりの板（HudView）。
+// カード（Layer.Cards）: 捨てるカード・レベルアップのカードと演出・選んだカードの動き（CardView）。
 // 終了の確認の窓（Layer.Prompt）: どれよりも手前。
 mod View {
 
-    use fge::{App, Camera3d, Clock, Color, Render, SortingLayer, Timeline, Vec2, Vec3, ZStack}
+    use fge::{App, Camera3d, Clock, Color, Num, Render, SortingLayer, Timeline, Vec2, Vec3, ZStack}
     use Board.{Cell, Dir8}
     use ZOrder.Layer
 
+    /// 2D に重ねる物の値（上と下の帯・場面の上の印・カード）。
+    pub type alias Overlay = { bars = HudView.In, marks = MarkView.In, cards = CardView.In }
+
     /// 描くのに要る値。部品は World でなくこれを読む（lint/rules.flix の view-no-world）。
-    pub type alias In = { scene = SceneView.In, hud = HudView.In, clear = Color }
+    pub type alias In = { scene = SceneView.In, hud = Overlay, clear = Color }
 
     def size(): Vec2.Vec2 = { x = World.width(), y = World.height() }
 
@@ -36,11 +40,12 @@ mod View {
 
     def clearColor(): Color = Color.rgb(0.0, 0.0, 0.0)
 
-    def layers(ctx: App.ViewCtx, w: HudView.In): List[(Layer, ZStack.Tree[Layer, Unit])] =
+    def layers(ctx: App.ViewCtx, w: Overlay): List[(Layer, ZStack.Tree[Layer, Unit])] =
         (Layer.Scene, ZStack.leaf(PostView.fxaaFill(size()) :: Nil))
-            :: (Layer.Marks, ZStack.leaf(HudView.marks(ctx#atlas, w)))
-            :: (Layer.Hud, ZStack.leaf(List.append(HudView.bars(ctx#atlas, w), HudView.card(ctx#atlas, w))))
-            :: (Layer.Prompt, ZStack.leaf(HudView.quit(ctx#atlas, w))) :: Nil
+            :: (Layer.Marks, ZStack.leaf(MarkView.marks(ctx#atlas, w#marks)))
+            :: (Layer.Hud, ZStack.of(ZStack.leaf(HudView.edge(w#bars)) :: ZStack.leaf(HudView.bars(ctx#atlas, w#bars)) :: ZStack.leaf(HudView.card(ctx#atlas, w#bars)) :: Nil))
+            :: (Layer.Cards, ZStack.leaf(CardView.cards(ctx#atlas, w#cards)))
+            :: (Layer.Prompt, ZStack.leaf(HudView.quit(ctx#atlas, w#bars))) :: Nil
 
     // ── World から描く値へ ──
 
@@ -67,8 +72,9 @@ mod View {
           marks = if (foresight) List.append(preview |> List.flatMap(markOf(theme)), dangerMarks(theme, r#hero#at, w#foresight#danger)) else Nil,
           lanes = if (foresight) w#foresight#lanes |> List.map(laneOf(theme)) else Nil }
 
-    /// 2D の印と HUD の値。
-    def hudOf(res: Res.Res, w: World.World): HudView.In =
+    /// 2D に重ねる物の値（上と下の帯・場面の上の印・カード）。
+    def hudOf(res: Res.Res, w: World.World): Overlay =
+        let lk = LookDoc.rec(res#look);
         let camera = World.cameraOf(res, w);
         let time = Clock.secondsOf(w#realNow);
         let r = Run.rec(w#runState);
@@ -77,18 +83,139 @@ mod View {
         let busy = World.isBusy(res, w);
         let foresight = w#screen == World.Screen.Play and not busy;
         let preview = if (foresight) w#foresight#moves |> List.filterMap(e -> shownOf(r#hero#at, e)) else Nil;
-        let glow = if (busy) Motion.poseOf(turnOf(World.timelineOf(res, w), w#clock, w#shown, w#runState), time, false, 1.0)#slotGlow else Map.empty();
-        { theme = theme, time = time,
+        let turn = turnOf(World.timelineOf(res, w), w#clock, w#shown, w#runState);
+        let glow = if (busy) Motion.poseOf(turn, time, false, 1.0)#slotGlow else Map.empty();
+        let aged = w#popups |> List.map(pop -> (pop, Clock.since(pop#startedAt, w#realNow))) |> List.filter(e -> snd(e) >= 0.0);
+        let hpBar = Popup.barOf(World.timingOf(res), w#realNow, w#trail);
+        let hero = screen(Vec3.add(FloorMesh.cellPoint(r#hero#at), Vec3.v3(0.0, 0.7, 0.0))) |> Option.getWithDefault({ x = World.width() / 2.0, y = World.height() / 2.0 });
+        let rules = RulesDoc.rec(res#rules);
+        let bars = { theme = theme, time = time,
           floorLabel = TextDoc.fill(("n", "${r#floor}") :: Nil, TextDoc.lineOf(TextDoc.Line.FloorLabel, res#text)),
-          hp = r#hero#hp, maxHp = r#hero#maxHp, gear = gearOf(theme, r#hero),
+          hp = { now = r#hero#hp, max = r#hero#maxHp, front = hpBar#front, extra = hpBar#extra, healing = hpBar#healing },
+          fullness = { now = r#fullness, max = rules#fullnessMax, glow = fade(lk#popupSeconds, Popup.Kind.Fed, aged), alarm = fade(lk#popupSeconds, Popup.Kind.Starved, aged) },
+          exp = { level = r#level, now = r#exp, need = RulesDoc.expToNext(r#level, res#rules) },
+          gear = gearOf(theme, r#hero),
           minimap = minimapOf(theme, World.ctx(res, w)#board, r),
-          log = logLine(res, w#shown, w#runState), slots = slotsOf(res, theme, r, glow),
-          badges = preview |> List.filterMap(badgeOf(theme, screen)),
-          sleepers = if (w#screen != World.Screen.Play) Nil else r#enemies |> List.filter(e -> not Enemy.isAwake(e))
-              |> List.filterMap(e -> screen(Vec3.add(FloorMesh.cellPoint(e#at), Vec3.v3(0.0, Motion.heightOf(e#kind) + Motion.liftOf(e#kind) + 0.1, 0.0)))),
+          log = logLine(res, w#shown, w#runState), slots = slotsOf(res, theme, r#pack, glow),
           card = if (busy) None else cardOf(res, w#screen),
           quitPrompt = if (World.isAskingQuit(w)) Some(TextDoc.lineOf(TextDoc.Line.QuitPrompt, res#text)) else None,
-          showBars = w#screen != World.Screen.Title }
+          showBars = w#screen != World.Screen.Title,
+          edge = fade(lk#edgeSeconds, Popup.Kind.Taken, aged) };
+        let marks = { theme = theme, time = time, timing = { life = lk#popupSeconds, rise = lk#popupRise, hurtScale = lk#hurtScale },
+          badges = preview |> List.filterMap(badgeOf(theme, lk#diagonalBadgeScale, screen)),
+          sleepers = if (w#screen != World.Screen.Play) Nil else r#enemies |> List.filter(e -> not Enemy.isAwake(e))
+              |> List.filterMap(e -> screen(Vec3.add(FloorMesh.cellPoint(e#at), Vec3.v3(0.0, Motion.heightOf(e#kind) + Motion.liftOf(e#kind) + 0.1, 0.0)))),
+          numbers = aged |> List.filterMap(numberOf(screen)),
+          overheads = aged |> List.filterMap(overheadOf(screen)),
+          rings = aged |> List.filterMap(ringOf(screen)),
+          slashes = slashesOf(theme, screen, turn),
+          trails = trailsOf(theme, screen, turn) };
+        let choosing = w#screen == World.Screen.Cards;
+        let pending = if (choosing) Run.pendingOf(w#runState) |> List.head else None;
+        let cards = { theme = theme, time = time,
+          timing = { levelUp = lk#levelUpSeconds, slide = lk#cardSlideSeconds, chosen = lk#chosenSeconds },
+          cards = pending |> Option.map(choice -> cardsOf(res, theme, r#pack, choice)) |> Option.getWithDefault(Nil),
+          since = Clock.since(w#cardsAt, w#realNow),
+          levelUp = pending |> Option.exists(isLevelUp),
+          hero = hero,
+          chosen = w#chosen |> Option.map(c -> { cards = cardsOf(res, theme, c#pack, c#choice), index = c#index,
+                                                  since = Clock.since(c#startedAt, w#realNow), absorb = isLevelUp(c#choice) }) };
+        { bars = bars, marks = marks, cards = cards }
+
+    // ── 浮かぶ数・斬り跡・軌跡 ──
+
+    /// 種類 kind の数のうち、出てから seconds 秒の間の強さ（出始め 1 → 0。無ければ 0）。
+    def fade(seconds: Float64, kind: Popup.Kind, aged: List[(Popup.Popup, Float64)]): Float64 =
+        aged |> List.filter(e -> fst(e)#kind == kind) |> List.map(e -> 1.0 - snd(e) / Float64.max(0.01, seconds))
+            |> List.foldLeft(Float64.max, 0.0)
+
+    /// マスの上の数の出始めの点（同じマスで先に出た数の分だけ上へずらし、左右へ交互に寄せる）。
+    def numberOf(screen: Vec3.Vec3 -> Option[Vec2.Vec2], e: (Popup.Popup, Float64)): Option[MarkView.Number] =
+        let (pop, age) = e;
+        let side = if (pop#lift == 0) 0.0 else if (Int32.modulo(pop#lift, 2) == 1) 34.0 else -34.0;
+        screen(Vec3.add(FloorMesh.cellPoint(pop#cell), Vec3.v3(0.0, 1.4, 0.0)))
+            |> Option.map(at -> { at = { x = at#x + side, y = at#y - 30.0 * Int32.toFloat64(pop#lift) }, kind = pop#kind, amount = pop#amount, age = age })
+
+    /// 頭の横に出す物: 薬・食べ物はその絵、盾の 0 は盾（数は頭の上へ昇るので、絵は左へ寄せる）。
+    def overheadOf(screen: Vec3.Vec3 -> Option[Vec2.Vec2], e: (Popup.Popup, Float64)): Option[MarkView.Overhead] =
+        let (pop, age) = e;
+        let pictured = if (pop#kind == Popup.Kind.Blocked) Some(Art.Icon.Shield) else pop#item |> Option.map(Art.iconOfKind);
+        pictured |> Option.flatMap(i -> screen(Vec3.add(FloorMesh.cellPoint(pop#cell), Vec3.v3(0.0, 1.3, 0.0)))
+            |> Option.map(at -> { at = { x = at#x - 40.0, y = at#y }, icon = i, age = age }))
+
+    /// 回復の輪（薬で HP が戻った時だけ）。
+    def ringOf(screen: Vec3.Vec3 -> Option[Vec2.Vec2], e: (Popup.Popup, Float64)): Option[MarkView.Ring] =
+        let (pop, age) = e;
+        if (pop#kind != Popup.Kind.Healed) None
+        else screen(FloorMesh.cellPoint(pop#cell)) |> Option.map(at -> { at = at, age = age })
+
+    /// 体の真ん中の高さの点。
+    def bodyOf(screen: Vec3.Vec3 -> Option[Vec2.Vec2], cell: Cell): Option[Vec2.Vec2] =
+        screen(Vec3.add(FloorMesh.cellPoint(cell), Vec3.v3(0.0, 0.55, 0.0)))
+
+    /// 斬り跡: 主人公が殴った敵の上に白い弧、殴られた主人公の上に赤い弧（向きは打った側から）。
+    def slashesOf(t: ThemeDoc.Rec, screen: Vec3.Vec3 -> Option[Vec2.Vec2], turn: Motion.Turn): List[MarkView.Slash] =
+        let foes = List.toMap(turn#before#enemies |> List.map(e -> (e#id, e#at)));
+        let hero = turn#after#hero#at;
+        let arc = (i: Int32, target: Cell, attacker: Cell, color: Color) -> {
+            let progress = turn#progress((i, TurnTimeline.Beat.Flash));
+            if (progress <= 0.0 or progress >= 1.0) None
+            else bodyOf(screen, target) |> Option.flatMap(at -> bodyOf(screen, attacker) |> Option.map(from1 ->
+                { at = at, toward = Num.atan2(from1#y - at#y, from1#x - at#x), color = color, progress = progress }))
+        };
+        turn#events |> List.filterMap(ie -> match ie {
+            case (i, Run.Event.HeroStruck(id, _)) => Map.get(id, foes) |> Option.flatMap(foe -> arc(i, foe, hero, t#popDealt))
+            case (i, Run.Event.HeroHurt(Run.Source.Melee(id), _, _)) => Map.get(id, foes) |> Option.flatMap(foe -> arc(i, hero, foe, t#popTaken))
+            case _ => None
+        })
+
+    /// 矢の軌跡: 主人公の矢・小石は白、弓兵の矢は赤。
+    def trailsOf(t: ThemeDoc.Rec, screen: Vec3.Vec3 -> Option[Vec2.Vec2], turn: Motion.Turn): List[MarkView.Trail] =
+        let hero = turn#after#hero#at;
+        let line = (progress: Float64, start: Cell, end: Cell, color: Color) ->
+            if (progress <= 0.0 or progress >= 1.0) None
+            else bodyOf(screen, start) |> Option.flatMap(a -> bodyOf(screen, end) |> Option.map(b -> {
+                let along = (k: Float64) -> { x = a#x + (b#x - a#x) * k, y = a#y + (b#y - a#y) * k };
+                { tail = along(Float64.max(0.0, progress - 0.45)), head = along(progress), color = color }
+            }));
+        turn#events |> List.filterMap(ie -> match ie {
+            case (i, Run.Event.ArrowShot(_, _, end)) => line(turn#progress((i, TurnTimeline.Beat.Arrow)), hero, end, t#popDealt)
+            case (i, Run.Event.EnemyShot(_, start, end)) => line(turn#progress((i, TurnTimeline.Beat.EnemyArrow)), start, end, t#popTaken)
+            case _ => None
+        })
+
+    // ── カード ──
+
+    def isLevelUp(choice: Run.Choice): Bool = match choice {
+        case Run.Choice.LevelUp(_) => true
+        case _                     => false
+    }
+
+    /// 選ぶ場面のカード: 捨てるカードは持っている枠（並び順）と足もとの物、レベルアップは候補。
+    def cardsOf(res: Res.Res, t: ThemeDoc.Rec, pack: Run.Pack, choice: Run.Choice): List[CardView.Card] = match choice {
+        case Run.Choice.Swap(kind) =>
+            let held = pack |> List.map(h -> { face = CardView.Face.Picture(Art.iconOfKind(Run.kindOfHeld(h))), label = "×${Run.countOf(Some(h))}",
+                                               cue = Some(cueOf(res, Run.familyOfHeld(h))), edge = tierColor(t, Some(Run.kindOfHeld(h))), fresh = false, drop = true });
+            let found = { face = CardView.Face.Picture(Art.iconOfKind(kind)), label = "+${ItemsDoc.statsOf(kind, res#items)#count}",
+                          cue = Some(cueOf(res, Item.familyOf(kind))), edge = t#cardNew, fresh = true, drop = true };
+            held ::: (found :: Nil)
+        case Run.Choice.LevelUp(perks) => perks |> List.map(perkCard(res, t))
+    }
+
+    /// レベルアップのカード 1 枚（絵と短い数・効きの絵）。
+    def perkCard(res: Res.Res, t: ThemeDoc.Rec, perk: Run.Perk): CardView.Card =
+        let amounts = CardsDoc.rec(res#cards);
+        let make = (face: CardView.Face, label: String, cue: Option[PartsView.Cue]) -> { face = face, label = label, cue = cue, edge = t#cardEdge, fresh = false, drop = false };
+        let pic = (i: Art.Icon) -> CardView.Face.Picture(i);
+        match perk {
+            case Run.Perk.MaxHp      => make(CardView.Face.Heart, "+${amounts#maxHp}", None)
+            case Run.Perk.Attack     => make(pic(Art.Icon.Sword), "+${amounts#attack}", None)
+            case Run.Perk.Reach      => make(pic(Art.Icon.Arrow), "+${amounts#reach}", Some(PartsView.Cue.Line(2)))
+            case Run.Perk.LoneBomb   => make(pic(Art.Icon.Bomb), "", Some(PartsView.Cue.Surround(1)))
+            case Run.Perk.Push       => make(pic(Art.Icon.Sword), "", Some(PartsView.Cue.Push))
+            case Run.Perk.SlowHunger => make(pic(Art.Icon.Bread), "", Some(PartsView.Cue.Slow))
+            case Run.Perk.Feast      => make(pic(Art.Icon.Meat), "+${amounts#feast}", None)
+        }
 
     // ── 予告 ──
 
@@ -98,7 +225,9 @@ mod View {
         case Wait
         case Strike
         case Arrow
+        case Pebble
         case Bomb
+        case Smoke
         case Potion
         case Descend
     }
@@ -115,8 +244,10 @@ mod View {
     def actOf(summary: Preview.Summary): Option[Act] =
         let has = mark -> List.memberOf(mark, summary);
         if (has(Preview.Mark.Blocked)) None
-        else if (has(Preview.Mark.Arrow) or has(Preview.Mark.Pebble)) Some(Act.Arrow)
-        else if (has(Preview.Mark.Bomb) or has(Preview.Mark.Smoke)) Some(Act.Bomb)
+        else if (has(Preview.Mark.Bomb)) Some(Act.Bomb)
+        else if (has(Preview.Mark.Arrow)) Some(Act.Arrow)
+        else if (has(Preview.Mark.Pebble)) Some(Act.Pebble)
+        else if (has(Preview.Mark.Smoke)) Some(Act.Smoke)
         else if (has(Preview.Mark.Descend)) Some(Act.Descend)
         else if (has(Preview.Mark.Strike)) Some(Act.Strike)
         else if (has(Preview.Mark.Potion)) Some(Act.Potion)
@@ -139,7 +270,9 @@ mod View {
         case Act.Wait    => t#markMove
         case Act.Strike  => t#markStrike
         case Act.Arrow   => t#markArrow
+        case Act.Pebble  => t#markArrow
         case Act.Bomb    => t#markBomb
+        case Act.Smoke   => t#markBomb
         case Act.Potion  => t#markDescend
         case Act.Descend => t#markDescend
     }
@@ -174,19 +307,31 @@ mod View {
         case _                              => { x = 0.0, y = -118.0 }
     }
 
-    def glyphOf(act: Act): HudView.Glyph = match act {
-        case Act.Move    => HudView.Glyph.Steps
-        case Act.Wait    => HudView.Glyph.Hourglass
-        case Act.Strike  => HudView.Glyph.Picture(Art.Icon.Sword)
-        case Act.Arrow   => HudView.Glyph.Picture(Art.Icon.Arrow)
-        case Act.Bomb    => HudView.Glyph.Picture(Art.Icon.Bomb)
-        case Act.Potion  => HudView.Glyph.Picture(Art.Icon.Herb)
-        case Act.Descend => HudView.Glyph.Stairs
+    def glyphOf(act: Act): MarkView.Glyph = match act {
+        case Act.Move    => MarkView.Glyph.Steps
+        case Act.Wait    => MarkView.Glyph.Hourglass
+        case Act.Strike  => MarkView.Glyph.Picture(Art.Icon.Sword)
+        case Act.Arrow   => MarkView.Glyph.Picture(Art.Icon.Arrow)
+        case Act.Pebble  => MarkView.Glyph.Picture(Art.Icon.Pebble)
+        case Act.Bomb    => MarkView.Glyph.Picture(Art.Icon.Bomb)
+        case Act.Smoke   => MarkView.Glyph.Picture(Art.Icon.Smoke)
+        case Act.Potion  => MarkView.Glyph.Picture(Art.Icon.Herb)
+        case Act.Descend => MarkView.Glyph.Stairs
     }
 
-    def badgeOf(t: ThemeDoc.Rec, screen: Vec3.Vec3 -> Option[Vec2.Vec2], s: Shown): Option[HudView.Badge] =
+    /// 斜めの向きか（予告のアイコンを小さくする）。
+    def isDiagonal(input: Run.Input): Bool = match input {
+        case Run.Input.Move(Dir8.UpRight)   => true
+        case Run.Input.Move(Dir8.DownRight) => true
+        case Run.Input.Move(Dir8.DownLeft)  => true
+        case Run.Input.Move(Dir8.UpLeft)    => true
+        case _                              => false
+    }
+
+    def badgeOf(t: ThemeDoc.Rec, diagonal: Float64, screen: Vec3.Vec3 -> Option[Vec2.Vec2], s: Shown): Option[MarkView.Badge] =
         screen(Vec3.add(FloorMesh.cellPoint(s#cell), Vec3.v3(0.0, 0.25, 0.0))) |> Option.map(at ->
-            { at = Vec2.add(at, offsetOf(s#input)), glyph = glyphOf(s#act), hurt = s#hurt, color = colorOf(t, s#act) })
+            { at = Vec2.add(at, offsetOf(s#input)), glyph = glyphOf(s#act), hurt = s#hurt, color = colorOf(t, s#act),
+              scale = if (isDiagonal(s#input)) diagonal else 1.0 })
 
     // ── HUD ──
 
@@ -212,24 +357,25 @@ mod View {
         case Some(_)                     => t#tierWood
     }
 
-    /// 持ち物の枠 3 つ: 持っている枠を拾った順に並べ、空いた所は持っていない系統を薄く出す。
-    def slotsOf(res: Res.Res, t: ThemeDoc.Rec, r: Run.Rec, glow: Map[Item.Family, Float64]): List[HudView.Slot] =
+    /// 持ち物の系統の発動の条件の絵。
+    def cueOf(res: Res.Res, family: Item.Family): PartsView.Cue =
         let rules = RulesDoc.rec(res#rules);
-        let cueOf = (family: Item.Family) -> match family {
-            case Item.Family.Bomb   => HudView.Cue.Surround(rules#bombNeeds)
-            case Item.Family.Potion => HudView.Cue.LowHp(rules#potionAt)
-            case _                  => HudView.Cue.Line
-        };
-        let slot = (family: Item.Family, held: Option[Run.Held]) -> {
-            let kind = Run.kindOf(held);
-            { icon = Art.iconOfFamily(family), count = Run.countOf(held), cue = cueOf(family), tier = tierColor(t, kind),
-              held = Option.nonEmpty(kind), glow = Map.getWithDefault(family, 0.0, glow) }
-        };
-        let filled = r#pack |> List.map(held -> slot(Run.familyOfHeld(held), Some(held)));
-        let empty = (Item.Family.Arrow :: Item.Family.Bomb :: Item.Family.Potion :: Nil)
-            |> List.filter(family -> Option.isEmpty(Run.heldOf(family, r#pack)))
-            |> List.map(family -> slot(family, None));
-        List.take(3, filled ::: empty)
+        match family {
+            case Item.Family.Bomb   => PartsView.Cue.Surround(rules#bombNeeds)
+            case Item.Family.Smoke  => PartsView.Cue.Surround(rules#bombNeeds)
+            case Item.Family.Potion => PartsView.Cue.LowHp(rules#potionAt)
+            case Item.Family.Pebble => PartsView.Cue.Line(1)
+            case _                  => PartsView.Cue.Line(2)
+        }
+
+    /// 持ち物の 3 枠: 枠の列を並び順に描き、足りない所は空き枠。
+    def slotsOf(res: Res.Res, t: ThemeDoc.Rec, pack: Run.Pack, glow: Map[Item.Family, Float64]): List[Option[HudView.Slot]] =
+        let filled = pack |> List.map(held -> {
+            let family = Run.familyOfHeld(held);
+            Some({ icon = Art.iconOfKind(Run.kindOfHeld(held)), count = Run.countOf(Some(held)), cue = cueOf(res, family),
+                   tier = tierColor(t, Some(Run.kindOfHeld(held))), glow = Map.getWithDefault(family, 0.0, glow) })
+        });
+        List.take(Run.slotCount(), filled ::: List.repeat(Run.slotCount(), None))
 
     /// 小さい地図のマスの色（壁は描かない）。
     def tileColor(t: ThemeDoc.Rec, tile: Board.Tile): Option[Color] = match tile {
@@ -270,7 +416,16 @@ mod View {
             case Run.Event.EnemyDied(id, _, _)  => say(TextDoc.Line.Defeated, enemy(id) :: Nil)
             case Run.Event.EnemyWoke(id)        => say(TextDoc.Line.Woke, enemy(id) :: Nil)
             case Run.Event.HeroHurt(_, _, true) => say(TextDoc.Line.Deflected, Nil)
+            case Run.Event.HeroHurt(Run.Source.Starve, n, _) => say(TextDoc.Line.Starved, ("n", "${n}") :: Nil)
+            case Run.Event.HeroHurt(_, 0, _)    => say(TextDoc.Line.Guarded, Nil)
             case Run.Event.HeroHurt(source, n, _) => Run.attackerOf(source) |> Option.flatMap(id -> say(TextDoc.Line.Hurt, enemy(id) :: ("n", "${n}") :: Nil))
+            case Run.Event.Ate(kind, n)         => say(TextDoc.Line.Ate, item(kind) :: ("n", "${n}") :: Nil)
+            case Run.Event.Swapped(old, kind)   => say(TextDoc.Line.Swapped, ("old", ItemsDoc.nameOf(old, res#items)) :: item(kind) :: Nil)
+            case Run.Event.LevelUp(level)       => say(TextDoc.Line.LevelUp, ("n", "${level}") :: Nil)
+            case Run.Event.ItemDropped(kind, _) => say(TextDoc.Line.Dropped, item(kind) :: Nil)
+            case Run.Event.Burned(id, _)        => say(TextDoc.Line.Burning, enemy(id) :: Nil)
+            case Run.Event.PushedIntoWall(id, _) => say(TextDoc.Line.Slammed, enemy(id) :: Nil)
+            case Run.Event.SmokeThrown(_)       => say(TextDoc.Line.Bombed, item(Item.Kind.Smoke) :: Nil)
             case Run.Event.PotionUsed(kind, n)  => say(TextDoc.Line.Drank, item(kind) :: ("n", "${n}") :: Nil)
             case Run.Event.Descended            => say(TextDoc.Line.Descended, Nil)
             case Run.Event.HeroBlocked(_)       => say(TextDoc.Line.Blocked, Nil)

@@ -262,12 +262,6 @@ mod Run {
         case None                  => 0
     }
 
-    /// 枠の段（無ければ None）。
-    pub def kindOf(held: Option[Held]): Option[Item.Kind] = match held {
-        case Some(Held.Held(kind, _)) => Some(kind)
-        case None                     => None
-    }
-
     /// 敵の占めるマス → 敵。
     pub def occupancy(enemies: List[Enemy.Enemy]): Map[Cell, Enemy.Enemy] =
         enemies |> List.foldLeft((acc, e) -> Set.foldLeft((m, c) -> Map.insert(c, e, m), acc, Enemy.cellsOf(e)), Map.empty())

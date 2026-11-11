@@ -57,6 +57,10 @@ mod World {
         lanes = List[(Cell, Cell)]
     }
 
+    /// 選んだカード（遊びへ戻った後も実時間で主人公へ吸い込まれる・捨てた物は落ちて消える）。
+    /// choice = 答えた選ぶ場面・pack = 答える前の枠の列・index = 何枚目か・startedAt = 選んだ実時間。
+    pub type alias Chosen = { choice = Run.Choice, pack = Run.Pack, index = Int32, startedAt = Clock.Time[Clock.Real] }
+
     /// カメラが追う盤の上の点（マス単位。マスの真ん中が整数）と、その今の動く速さ（マス/秒）。
     pub type alias Cam = { x = Float64, y = Float64, vx = Float64, vy = Float64 }
 
@@ -68,6 +72,10 @@ mod World {
     ///   press     … 押している途中のタップ
     ///   seed      … 周回の種
     ///   realNow   … このコマの実時間（App が配る frame#realNow の写し。松明の揺らぎと待機の揺れに使う）
+    ///   popups    … 浮かぶ数（実時間で動く。Cards の間も止まらない）
+    ///   trail     … HP の棒の減った分・増えた分
+    ///   cardsAt   … 今のカードを出し始めた実時間（レベルアップの演出もここから）
+    ///   chosen    … 最後に選んだカード
     pub type alias World = {
         runState = Run.State,
         screen = Screen,
@@ -79,7 +87,11 @@ mod World {
         foresight = Foresight,
         quit = Quit,
         seed = Int64,
-        realNow = Clock.Time[Clock.Real]
+        realNow = Clock.Time[Clock.Real],
+        popups = List[Popup.Popup],
+        trail = Popup.Trail,
+        cardsAt = Clock.Time[Clock.Real],
+        chosen = Option[Chosen]
     }
 
     pub def width(): Float64 = 540.0
@@ -93,7 +105,8 @@ mod World {
         let runState = Floor.create(Res.floorDocs(res), res#layouts, seed, 1);
         { runState = runState, screen = Screen.Title, shown = shownOf(runState), queued = None,
           cam = camOf(runState), clock = Clock.start(), press = None, foresight = foresightOf(res, runState),
-          quit = Quit.Playing, seed = seed, realNow = Clock.zero() }
+          quit = Quit.Playing, seed = seed, realNow = Clock.zero(),
+          popups = Nil, trail = Popup.still(Run.heroOf(runState)#hp), cardsAt = Clock.never(), chosen = None }
 
     /// 何も見せていない 1 手（見せ終えた過去に置く）。
     def shownOf(runState: Run.State): Shown =
@@ -106,6 +119,15 @@ mod World {
     def camOf(runState: Run.State): Cam =
         let (x, y) = Run.heroOf(runState)#at;
         { x = Int32.toFloat64(x), y = Int32.toFloat64(y), vx = 0.0, vy = 0.0 }
+
+    /// 浮かぶ数と HP の棒の長さ（look の Doc から）。
+    pub def timingOf(res: Res.Res): Popup.Timing =
+        let lk = LookDoc.rec(res#look);
+        { life = lk#popupSeconds, hold = lk#hpHoldSeconds, shrink = lk#hpShrinkSeconds }
+
+    /// 毎コマの始め: 実時間を写し、消える長さを過ぎた浮かぶ数を外す。
+    pub def tick(res: Res.Res, now: Clock.Time[Clock.Real], w: World): World =
+        { realNow = now, popups = Popup.prune(timingOf(res), now, w#popups) | w }
 
     /// 毎コマ: カメラの点を主人公へ遊びの時計の秒でなめらかに寄せ、実時間を写す。
     pub def follow(res: Res.Res, now: Clock.Time[Clock.Real], w: World): World =
@@ -125,11 +147,16 @@ mod World {
     /// 今の階の判定に使う束。
     pub def ctx(res: Res.Res, w: World): Run.Ctx = Res.ctxOf(res, w#runState)
 
+    /// 決まりの状態を差し替え、何も見せていない所から始める（予告と HP の棒も作り直す。描き出しの場面が並べ替えた後に使う）。
+    pub def withState(res: Res.Res, runState: Run.State, w: World): World =
+        { runState = runState, shown = shownOf(runState), queued = None, foresight = foresightOf(res, runState),
+          trail = Popup.still(Run.heroOf(runState)#hp) | w }
+
     /// 周回の種で 1F を作り直して遊び始める。
     pub def begin(res: Res.Res, w: World): World =
         let runState = Floor.create(Res.floorDocs(res), res#layouts, w#seed, 1);
         { runState = runState, screen = Screen.Play, shown = shownOf(runState), queued = None,
-          foresight = foresightOf(res, runState) | w }
+          foresight = foresightOf(res, runState), popups = Nil, trail = Popup.still(Run.heroOf(runState)#hp), chosen = None | w }
 
     // ── 1 手の時刻表 ──
 
@@ -144,11 +171,21 @@ mod World {
     pub def isBusy(res: Res.Res, w: World): Bool = isShowing(res, w) or not List.isEmpty(w#shown#rest)
 
     /// 今の 1 手を見せ終えたことにする（描き出しの場面は見せ終えた所を撮る）。
-    pub def skipShow(w: World): World = { shown = { startedAt = Clock.never() | w#shown } | w }
+    pub def skipShow(w: World): World = { shown = { startedAt = Clock.never() | w#shown }, popups = Popup.hurry(w#realNow, w#popups) | w }
 
     /// 今の 1 手を、見せ始めてから seconds 秒たった所にする（描き出しの途中の場面）。
     pub def seekShow(seconds: Float64, w: World): World =
-        { shown = { startedAt = Clock.after(0.0 - seconds, Clock.nowOf(w#clock)) | w#shown } | w }
+        { shown = { startedAt = Clock.after(0.0 - seconds, Clock.nowOf(w#clock)) | w#shown },
+          popups = Popup.shift(seconds, w#popups), trail = Popup.shiftTrail(seconds, w#trail) | w }
+
+    /// 今のカードを、出し始めてから seconds 秒たった所にする（描き出しのレベルアップの途中の場面）。
+    /// 浮かぶ数と HP の棒も同じだけ進める。
+    pub def seekCards(seconds: Float64, w: World): World =
+        { cardsAt = Clock.after(0.0 - seconds, w#realNow), popups = Popup.shift(seconds, w#popups), trail = Popup.shiftTrail(seconds, w#trail) | w }
+
+    /// 選んだカードを、選んでから seconds 秒たった所にする（描き出しの吸い込まれる途中の場面）。
+    pub def seekChosen(seconds: Float64, w: World): World =
+        { chosen = w#chosen |> Option.map(c -> { startedAt = Clock.after(0.0 - seconds, w#realNow) | c }) | w }
 
     // ── 手を当てる ──
 
@@ -170,7 +207,7 @@ mod World {
     /// 毎コマ: 見せ終えたら、選ぶ場面なら Cards へ、そうでなければダッシュの次の歩か溜めた手を始める。
     pub def advance(res: Res.Res, w: World): World =
         if (isShowing(res, w)) w
-        else if (w#screen == Screen.Play and isChoosing(w)) { screen = Screen.Cards | w }
+        else if (w#screen == Screen.Play and isChoosing(w)) { screen = Screen.Cards, cardsAt = w#realNow | w }
         else match (w#shown#rest, w#queued) {
             case ((next, events) :: tail, _) => settleScreen(withRun(res, next, events, { dash = true, rest = tail }, w))
             case (Nil, Some(act))            => apply(res, act, { queued = None | w })
@@ -178,10 +215,15 @@ mod World {
         }
 
     /// run を差し替え、その手を今から見せ始める（手が進まなかった時は予告を作り直さない）。
+    /// 浮かぶ数と HP の棒もこの手の出来事から足す（始まりは時刻表の秒を今の実時間に足した所）。
     def withRun(res: Res.Res, runState: Run.State, events: List[Run.Event], pace: { dash = Bool, rest = List[(Run.State, List[Run.Event])] }, w: World): World =
         let foresight = if (isBump(events)) w#foresight else foresightOf(res, runState);
-        { runState = runState, foresight = foresight,
-          shown = { before = w#runState, events = events, rest = pace#rest, startedAt = Clock.nowOf(w#clock), dash = pace#dash } | w }
+        let shown = { before = w#runState, events = events, rest = pace#rest, startedAt = Clock.nowOf(w#clock), dash = pace#dash };
+        let tl = TurnTimeline.build(TurnTimeline.paceOf(LookDoc.rec(res#look), pace#dash), events);
+        let turn = { before = Run.rec(w#runState), after = Run.rec(runState), events = events };
+        { runState = runState, foresight = foresight, shown = shown,
+          popups = w#popups ::: Popup.fromTurn(turn, tl, w#realNow, w#popups),
+          trail = Popup.trailOf(timingOf(res), turn, tl, w#realNow, w#trail) | w }
 
     def isBump(events: List[Run.Event]): Bool = match events {
         case Run.Event.HeroBlocked(_) :: Nil => true
@@ -218,8 +260,19 @@ mod World {
         else {
             let (next, events) = Step.step(ctx(res, w), w#runState, Input.Choose(index));
             let answered = withRun(res, next, events, { dash = false, rest = Nil }, w);
-            { screen = if (isChoosing(answered)) Screen.Cards else Screen.Play | answered }
+            let picked = Run.pendingOf(w#runState) |> List.head |> Option.filter(_ -> List.length(Run.pendingOf(next)) != List.length(Run.pendingOf(w#runState)))
+                |> Option.map(choice -> { choice = choice, pack = Run.packOf(w#runState), index = index, startedAt = w#realNow });
+            let chosen = if (Option.isEmpty(picked)) w#chosen else picked;
+            if (isChoosing(answered)) { screen = Screen.Cards, cardsAt = w#realNow, chosen = chosen | answered }
+            else { screen = Screen.Play, chosen = chosen | answered }
         }
+
+    /// 今の選ぶ場面のカードの枚数（捨てるカードは持っている枠＋足もとの物・レベルアップは候補の数）。
+    pub def cardCount(w: World): Int32 = match Run.pendingOf(w#runState) {
+        case Run.Choice.Swap(_) :: _        => List.length(Run.packOf(w#runState)) + 1
+        case Run.Choice.LevelUp(perks) :: _ => List.length(perks)
+        case Nil                            => 0
+    }
 
     /// 決定で答える時のカード: 捨てるカードは「拾わない」（足もとの物・最後の 1 枚）。
     pub def defaultChoice(w: World): Int32 = match Run.pendingOf(w#runState) {
@@ -246,6 +299,21 @@ mod World {
     /// このコマに鳴らす音（今見せている 1 手の時刻表の Cue）。
     pub def sounds(res: Res.Res, w: World): List[String] = Timeline.soundsOnClock(w#clock, w#shown#startedAt, timelineOf(res, w))
 
+    /// カードの音（遊びの時計が止まっている間に起きるので時刻表に乗せず、前後の World から導く）:
+    /// レベルアップのカードが出たらファンファーレ、選んだらカードを選ぶ音・捨てる音。
+    pub def cardSounds(before: World, after: World): List[String] =
+        let opened = if (after#cardsAt != before#cardsAt and after#screen == Screen.Cards) Run.pendingOf(after#runState) |> List.head else None;
+        let fanfare = opened |> Option.filter(isLevelUp) |> Option.map(_ -> "sd_fanfare") |> Option.toList;
+        let stamp = (w: World) -> w#chosen |> Option.map(c -> c#startedAt);
+        let picked = if (stamp(after) != stamp(before)) after#chosen else None;
+        let pick = picked |> Option.map(c -> if (isLevelUp(c#choice)) "sd_card" else "sd_discard") |> Option.toList;
+        pick ::: fanfare
+
+    def isLevelUp(choice: Run.Choice): Bool = match choice {
+        case Run.Choice.LevelUp(_) => true
+        case _                     => false
+    }
+
     // ── 終了の確認 ──
 
     /// Esc・閉じるボタン: 確認の窓を出す。
@@ -269,5 +337,5 @@ mod World {
         let floor = Run.rec(w#runState)#floor;
         let runState = Floor.create(Res.floorDocs(res), res#layouts, Run.rec(w#runState)#seed, floor);
         { runState = runState, shown = shownOf(runState), queued = None, cam = camOf(runState),
-          foresight = foresightOf(res, runState) | w }
+          foresight = foresightOf(res, runState), popups = Nil, trail = Popup.still(Run.heroOf(runState)#hp) | w }
 }

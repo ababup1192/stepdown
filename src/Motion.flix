@@ -76,12 +76,19 @@ mod Motion {
 
     // ── 主人公 ──
 
-    /// 出来事の列から、主人公への当たり（攻撃を受けた）の光。
-    def heroFlash(turn: Turn): Flash =
+    /// 出来事の列から、主人公への当たりの光（白 = 盾で 0・弾いた、赤 = HP が減った）。
+    def heroFlash(turn: Turn): { white = Flash, red = Flash } =
         turn#events |> List.foldLeft((acc, ie) -> match ie {
-            case (i, Event.HeroHurt(_, _, _)) => mixFlash(acc, flashOf(progressOf(turn, i, Beat.Flash)))
+            case (i, Event.HeroHurt(_, n, guarded)) if guarded or n <= 0 => { white = mixFlash(acc#white, flashOf(progressOf(turn, i, Beat.Flash))) | acc }
+            case (i, Event.HeroHurt(_, _, _)) => { red = mixFlash(acc#red, flashOf(progressOf(turn, i, Beat.Flash))) | acc }
             case _                            => acc
-        }, noFlash())
+        }, { white = noFlash(), red = noFlash() })
+
+    /// 色を赤へ寄せて明るくする（glow 1 で赤く光る）。
+    def redTint(base: Color, glow: Float64): Color =
+        let (r, g, b) = Color.channels(Color.mix(base, Color.rgb(1.0, 0.18, 0.12), 0.8 * glow));
+        let k = 1.0 + 0.9 * glow;
+        Color.rgb(r * k, g * k, b * k)
 
     /// 主人公の足もとの今の点（移動の弧・進めない向きへの寄り・殴る踏み込み）。
     def heroPoint(turn: Turn): Vec3.Vec3 =
@@ -112,7 +119,8 @@ mod Motion {
     def heroFigure(turn: Turn, t: Float64, fallen: Bool): List[SceneView.Figure] =
         let state = heroState(turn);
         let fall = if (fallen) Float64.max(state#fall, if (List.exists(ie -> snd(ie) == Event.HeroDied, turn#events)) 0.0 else 1.0) else state#fall;
-        let flash = heroFlash(turn);
+        let flashes = heroFlash(turn);
+        let flash = mixFlash(flashes#white, flashes#red);
         let breathe = 1.0 - fall;
         let bob = up(0.025 * breathe * (0.5 + 0.5 * Num.sin(t * 2.6)));
         let stretch = 1.0 + 0.025 * breathe * Num.sin(t * 2.6 + 1.3);
@@ -122,7 +130,7 @@ mod Motion {
         let at = Vec3.add(Vec3.add(heroPoint(turn), bob), Vec3.v3(flash#shake, 0.0 - 0.3 * state#descend, 0.0));
         if (height <= 0.01) Nil
         else { picture = Art.figure(Art.Figure.Hero), at = at, height = height,
-               tint = flashTint(healed, Float64.max(flash#glow, state#potion * 0.4)), lit = flash#glow <= 0.0, shadow = 0.34 * (1.0 - state#descend) } :: Nil
+               tint = redTint(flashTint(healed, Float64.max(flashes#white#glow, state#potion * 0.4)), flashes#red#glow), lit = flash#glow <= 0.0, shadow = 0.34 * (1.0 - state#descend) } :: Nil
 
     // ── 敵 ──
 
@@ -218,7 +226,7 @@ mod Motion {
     /// 床のアイテム 1 つ: 系統のアイコンの小さな板を少し浮かせる。
     def itemFigure(t: Float64, cell: Cell, kind: Item.Kind, at: Vec3.Vec3, scale: Float64): SceneView.Figure =
         let (x, _) = cell;
-        { picture = Item.familyOf(kind) |> Art.iconOfFamily |> Art.icon,
+        { picture = Art.icon(Art.iconOfKind(kind)),
           at = Vec3.add(at, up((0.16 + 0.04 * Num.sin(t * 2.0 + Int32.toFloat64(x))) * scale)),
           height = 0.46 * scale, tint = white(), lit = false, shadow = 0.18 * scale }
 

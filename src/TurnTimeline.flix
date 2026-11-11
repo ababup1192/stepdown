@@ -24,6 +24,7 @@ mod TurnTimeline {
         case EnemyStrike   // 敵が主人公へ踏み込んで戻る
         case EnemyArrow    // 弓兵の矢の板が飛ぶ
         case Potion        // 薬を飲む
+        case Eat           // 足もとの食べ物を食べる
         case Descend       // 階段を降りる
         case Fall          // 主人公が倒れる
     }
@@ -44,6 +45,7 @@ mod TurnTimeline {
         case Upgrade
         case Defeat
         case Potion
+        case Eat
         case Stairs
         case Fall
     }
@@ -61,6 +63,7 @@ mod TurnTimeline {
         case Sound.Upgrade => "sd_upgrade"
         case Sound.Defeat  => "sd_defeat"
         case Sound.Potion  => "sd_potion"
+        case Sound.Eat     => "sd_eat"
         case Sound.Stairs  => "sd_stairs"
         case Sound.Fall    => "sd_fall"
     }
@@ -125,6 +128,7 @@ mod TurnTimeline {
                 add(cue(Sound.Strike, after(Beat.EnemyStrike, pace#strike)) :: flashOn(pace, (i, Beat.EnemyStrike), pace#strike * 0.45, i, sound) :: Nil, d)
             case Event.HeroHurt(_, _, guarded) => add(cue(if (guarded) Sound.Guard else Sound.Hit, after(Beat.Flash, pace#strike)) :: Nil, d)
             case Event.PotionUsed(_, _)    => add(cue(Sound.Potion, after(Beat.Potion, pace#strike * 2.5)) :: Nil, d)
+            case Event.Ate(_, _)           => add(cue(Sound.Eat, after(Beat.Eat, pace#strike * 2.0)) :: Nil, d)
             case Event.HeroDied            => add(cue(Sound.Fall, after(Beat.Fall, pace#strike * 4.0)) :: Nil, d)
             case _                         => d
         }

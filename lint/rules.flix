@@ -52,6 +52,9 @@ mod GameLint {
                 |> allowIn(Fn.TestFloor_testEveryMapReachesTheStairs, "地図ごとに同じ問いを当てる（地図の数は Doc が決める）")
                 |> allowIn(Fn.TestPreview_testPreviewIsTheSummaryOfStep, "5 つの入力に本物の step を当てた要約と並べる（予告の作りそのものを確かめる）")
                 |> allowIn(Fn.TestPreview_testPropertyRunsOnBothMapsAndSeesDamage, "性質テストの空振りの見張り（種の列に攻撃を受けた拍があるか）")
+                |> allowIn(Fn.TestPopup_testExpSitsAboveTheDealtNumberOnTheEnemyCell, "浮かぶ数のレコードは実時間の始まりの欄を持つので、比べる欄（種類・マス・量・ずれ）だけを取り出して並べる")
+                |> allowIn(Fn.TestPopup_testGuardedAndDeflectedHitsShowZero, "浮かぶ数のレコードは実時間の始まりの欄を持つので、比べる欄（種類・マス・量・ずれ）だけを取り出して並べる")
+                |> allowIn(Fn.TestPopup_testStarveAndPotionShowOnTheHero, "浮かぶ数のレコードは実時間の始まりの欄を持つので、比べる欄（種類・マス・量・ずれ）だけを取り出して並べる")
                 ,
             customRule({ id = "test-branch", check = testBranch })
                 |> allowIn(Fn.Fixtures_board, "テストの地図の書き誤りは bug! で止める（値で分けない）")

@@ -10,7 +10,7 @@ mod Controls {
     /// 毎フレームのシステム: 入力を当て、見せ終えた手の続き（ダッシュの次の歩・溜めた手）を始め、カメラを寄せる。
     /// 終了の確認の窓が出ている間は Enter で終わる・Esc で戻る（OS の決まりに合わせた固定のキー。割り当ての Doc には載せない）。
     pub def step(frame: App.Frame, res: Res.Res, w: World.World): World.World =
-        World.follow(res, frame#realNow, World.advance(res, act(frame, res, w)))
+        World.follow(res, frame#realNow, World.advance(res, act(frame, res, World.tick(res, frame#realNow, w))))
 
     def act(frame: App.Frame, res: Res.Res, w: World.World): World.World =
         let pressed = key -> App.justPressed(key, frame);
@@ -27,7 +27,7 @@ mod Controls {
             let held = { press = press | w };
             match (command, tapped) {
                 case (Some(c), _)     => apply(res, c, held)
-                case (None, Some(at)) => apply(res, tapCommand(res, at, held), held)
+                case (None, Some(at)) => tapCommand(res, at, held) |> Option.map(c -> apply(res, c, held)) |> Option.getWithDefault(held)
                 case _                => held
             }
         }
@@ -45,13 +45,15 @@ mod Controls {
         case _               => false
     }
 
-    /// タップの操作: 遊びの画面では盤の上の点の向き（UI の帯の中は何もしない）、ほかの画面では決定。
-    def tapCommand(res: Res.Res, at: Vec2.Vec2, w: World.World): Command =
-        if (w#screen != World.Screen.Play) Command.Confirm
+    /// タップの操作: 遊びの画面では盤の上の点の向き（UI の帯の中は何もしない）、選ぶ場面では押したカード（カードの外は何もしない）、
+    /// ほかの画面では決定。
+    def tapCommand(res: Res.Res, at: Vec2.Vec2, w: World.World): Option[Command] =
+        if (w#screen == World.Screen.Cards) CardView.cardAt(World.cardCount(w), at) |> Option.map(Command.Choose)
+        else if (w#screen != World.Screen.Play) Some(Command.Confirm)
         else {
             let screen = { camera = World.cameraOf(res, w), size = { x = World.width(), y = World.height() }, bandTop = HudView.bandTop() };
             Tap.inputOf(screen, RulesDoc.rec(res#rules)#tapWaitRadius, Run.heroOf(w#runState)#at, at)
-                |> Option.map(Command.Go) |> Option.getWithDefault(Command.Confirm)
+                |> Option.map(Command.Go) |> Option.getWithDefault(Command.Confirm) |> Some
         }
 
     /// このフレームに押した操作（上の行ほど先に見る）。Shift を押しながらの矢印はダッシュ。
@@ -84,8 +86,9 @@ mod Controls {
             case _ => w
         }
 
-    /// 1 フレームの音: 今見せている 1 手の時刻表の Cue（App.withAudio に渡す形）。
-    pub def sounds(res: Res.Res, w: World.World): List[String] = World.sounds(res, w)
+    /// 1 フレームの音: 今見せている 1 手の時刻表の Cue と、カードを出した・選んだ音（App.withAudio に渡す形）。
+    pub def sounds(res: Res.Res, worlds: { before = World.World, after = World.World }): List[String] =
+        World.sounds(res, worlds#after) ::: World.cardSounds(worlds#before, worlds#after)
 
     def mixerPath(): String = "assets/stepdown.mixer.json"
 
