@@ -42,10 +42,11 @@ mod GameLint {
                 |> allowIn(Fn.SceneRender_one, "Makefile の口（make render）が名前で呼ぶ入口")
                 |> allowIn(Fn.SceneRender_jobs, "描き出しの常駐（HEADLESS_RESIDENT=1）が名前で呼ぶ入口の束")
                 |> allowIn(Fn.PerfBench_main, "bin/headless-run PerfBench.main が名前で呼ぶ、1 コマの重さを測る入口")
-                |> allowIn(Fn.BotRun_main, "Makefile の口（make bots）が名前で呼ぶ、自動で遊ぶ 3 人の数を出す入口")
+                |> allowIn(Fn.BotRun_main, "Makefile の口（make bots）が名前で呼ぶ、自動で遊ぶ 4 人の数を出す入口")
                 |> allowIn(Fn.VideoRender_frames, "Makefile の口（make video）が名前で呼ぶ入口")
                 |> allowIn(Fn.VideoRender_jobs, "描き出しの常駐（HEADLESS_RESIDENT=1）が名前で呼ぶ入口の束"),
             customRule({ id = "test-calc", check = testCalc })
+                |> allowIn(Fn.TestPopup_testPotionNumberWaitsAfterTheStarveNumber, "時刻は ToString と Eq を持たないので、秒へ写してから比べる")
                 |> allowIn(Fn.TestStarts_testEveryShotBuildsFromTheApp, "性質テストの決まり（どの場面も shot:<名前> の始まりで組める）。組めない場面の名前だけを集める")
                 |> allowIn(Fn.TestFloor_testNoEnemyNearTheStart, "性質テストの決まり（どの地図・どの種でも崩れない）。崩れた種だけを集める")
                 |> allowIn(Fn.TestFloor_testItemsLieOnTheFloor, "性質テストの決まり（どの地図・どの種でも崩れない）。崩れた種だけを集める")

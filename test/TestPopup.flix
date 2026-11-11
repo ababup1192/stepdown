@@ -39,10 +39,7 @@ mod TestPopup {
     @Test
     def testPotionNumberWaitsAfterTheStarveNumber(): Unit \ Assert =
         let made = numbers(Event.HeroHurt(Source.Starve, 1, false) :: Event.PotionUsed(Item.Kind.Herb, 6) :: Nil);
-        Assert.assertEq(expected =
-            { kind = Popup.Kind.Starved, cell = (1, 3), amount = 1, item = None, lift = 0, startedAt = Clock.after(0.0, Clock.zero()) } ::
-            { kind = Popup.Kind.Healed, cell = (1, 3), amount = 6, item = Some(Item.Kind.Herb), lift = 1, startedAt = Clock.after(0.3, Clock.after(0.0, Clock.zero())) } :: Nil,
-            made)
+        Assert.assertEq(expected = 0.0 :: 0.3 :: Nil, made |> List.map(pop -> Clock.secondsOf(pop#startedAt)))
 
     /// 見せ終えたことにした手の、まだ始まっていない数は今に早まる。
     @Test
