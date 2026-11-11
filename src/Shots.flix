@@ -29,8 +29,8 @@ mod Shots {
                 withRec(res, r -> { fullness = 64, exp = 2 | r },
                     staged(res, (7, 15), Run.Held.Held(Item.Kind.WoodArrow, 6) :: Run.Held.Held(Item.Kind.Pebble, 4) :: Nil,
                            (Enemy.Kind.Jelly, (8, 14)) :: Nil, World.begin(res, w0)))))
-            // 右のゼリーを殴り、殴り返されて HP が薬の線を割り、薬草を飲んだ手の途中（白い数・赤い数・緑の +数が同時に出ている）。
-            case "popups" => Some(turnAt(res, Run.Input.Move(Board.Dir8.Right), 0.6,
+            // 右のゼリーを殴り、殴り返されて HP が薬の線を割り、薬草を飲んだ手の途中（白い数が消えかけ、赤い数が昇り、その後に緑の +数が横に出始めた所）。
+            case "popups" => Some(turnAt(res, Run.Input.Move(Board.Dir8.Right), 0.68,
                 withRec(res, r -> { hero = { hp = 6 | r#hero } | r },
                     staged(res, (7, 15), Run.Held.Held(Item.Kind.Herb, 1) :: Nil, (Enemy.Kind.Jelly, (8, 15)) :: Nil, World.begin(res, w0)))))
             // 枠が 3 つ埋まった所で、右のマスの煙玉の上に乗った（捨てるカード 4 枚）。

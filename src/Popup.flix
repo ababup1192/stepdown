@@ -66,8 +66,14 @@ mod Popup {
     /// 並べている途中: 足した数（逆順）・前の数の時刻表の秒・最後に倒れた敵のマス。
     type alias Draft = { made = List[Popup], offset = Float64, lastDied = Option[Cell] }
 
+    /// 同じ手で同じマスに続けて出す数どうしの間（数が消えるまでの長さに対する割合）。
+    def sameCellGap(): Float64 = 0.5
+
     /// 1 手の出来事から浮かぶ数を作る。before・after = 手の前と後・tl = その手の時刻表・now = 手を当てた時の実時間・alive = まだ出ている数。
-    pub def fromTurn(turn: { before = Run.Rec, after = Run.Rec, events = List[Event] }, tl: Timeline.Timeline[TurnTimeline.Tag],
+    /// 同じ手で同じマスに出る数は、前の数から life の半分たつまで出さない。
+    /// WhyNot: 時刻表の始まりの秒だけに従う — 受けた数と薬の数は 0.1 秒しか離れず、昇る間に横へ並んで 1 つの数に読める。
+    /// WhyNot: 前の手の数とも間を空ける — 待ち続けて空腹で減る手が続くと、出る時刻が先へ先へ溜まっていく。
+    pub def fromTurn(timing: Timing, turn: { before = Run.Rec, after = Run.Rec, events = List[Event] }, tl: Timeline.Timeline[TurnTimeline.Tag],
                      now: Clock.Time[Clock.Real], alive: List[Popup]): List[Popup] =
         let foes = List.toMap((turn#after#enemies ::: turn#before#enemies) |> List.map(e -> (e#id, e#at)));
         let hero = turn#after#hero#at;
@@ -89,7 +95,10 @@ mod Popup {
             let made = numberOf(event) |> Option.map(match (kind, amount, item) -> {
                 let cell = cellOf(event, d);
                 let lift = List.count(p -> p#cell == cell, alive ::: d#made);
-                { kind = kind, cell = cell, amount = amount, item = item, lift = lift, startedAt = Clock.after(offset, now) } :: d#made
+                let planned = Clock.after(offset, now);
+                let startedAt = d#made |> List.filter(p -> p#cell == cell) |> List.map(p -> Clock.after(timing#life * sameCellGap(), p#startedAt))
+                    |> List.foldLeft((a, b) -> if (b > a) b else a, planned);
+                { kind = kind, cell = cell, amount = amount, item = item, lift = lift, startedAt = startedAt } :: d#made
             }) |> Option.getWithDefault(d#made);
             { made = made, offset = offset, lastDied = died }
         };

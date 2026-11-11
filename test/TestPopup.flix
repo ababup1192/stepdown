@@ -14,7 +14,7 @@ mod TestPopup {
         let c = Fixtures.ctx(hall());
         let r = Run.rec(start(c, (Enemy.Kind.Jelly, (2, 3)) :: Nil, Nil));
         let tl = TurnTimeline.build(TurnTimeline.paceOf(LookDoc.rec(LookDoc.defaults()), false), events);
-        Popup.fromTurn({ before = r, after = r, events = events }, tl, Clock.zero(), Nil)
+        Popup.fromTurn(timing(), { before = r, after = r, events = events }, tl, Clock.zero(), Nil)
 
     /// 殴って倒すと、与えた数と経験値の数がゼリーのマスに出て、経験値は 1 つ上へずれる。
     @Test
@@ -34,6 +34,15 @@ mod TestPopup {
     def testStarveAndPotionShowOnTheHero(): Unit \ Assert =
         let made = numbers(Event.HeroHurt(Source.Starve, 1, false) :: Event.PotionUsed(Item.Kind.Herb, 6) :: Nil);
         Assert.assertEq(expected = (Popup.Kind.Starved, (1, 3)) :: (Popup.Kind.Healed, (1, 3)) :: Nil, made |> List.map(pop -> (pop#kind, pop#cell)))
+
+    /// 同じ手で主人公のマスに空腹で減った数と薬の数が出る時、薬の数は減った数から数の長さの半分あとに出る。
+    @Test
+    def testPotionNumberWaitsAfterTheStarveNumber(): Unit \ Assert =
+        let made = numbers(Event.HeroHurt(Source.Starve, 1, false) :: Event.PotionUsed(Item.Kind.Herb, 6) :: Nil);
+        Assert.assertEq(expected =
+            { kind = Popup.Kind.Starved, cell = (1, 3), amount = 1, item = None, lift = 0, startedAt = Clock.after(0.0, Clock.zero()) } ::
+            { kind = Popup.Kind.Healed, cell = (1, 3), amount = 6, item = Some(Item.Kind.Herb), lift = 1, startedAt = Clock.after(0.3, Clock.after(0.0, Clock.zero())) } :: Nil,
+            made)
 
     /// 見せ終えたことにした手の、まだ始まっていない数は今に早まる。
     @Test

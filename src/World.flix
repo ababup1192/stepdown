@@ -222,7 +222,7 @@ mod World {
         let tl = TurnTimeline.build(TurnTimeline.paceOf(LookDoc.rec(res#look), pace#dash), events);
         let turn = { before = Run.rec(w#runState), after = Run.rec(runState), events = events };
         { runState = runState, foresight = foresight, shown = shown,
-          popups = w#popups ::: Popup.fromTurn(turn, tl, w#realNow, w#popups),
+          popups = w#popups ::: Popup.fromTurn(timingOf(res), turn, tl, w#realNow, w#popups),
           trail = Popup.trailOf(timingOf(res), turn, tl, w#realNow, w#trail) | w }
 
     def isBump(events: List[Run.Event]): Bool = match events {
