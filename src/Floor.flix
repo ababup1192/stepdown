@@ -9,7 +9,7 @@ mod Floor {
     pub type alias Layouts = Map[Int32, Vector[Board.Board]]
 
     /// 階を作るのに読む Doc。
-    pub type alias Docs = { rules = RulesDoc.Doc, items = ItemsDoc.Doc, enemies = EnemiesDoc.Doc, floors = FloorsDoc.Doc }
+    pub type alias Docs = { rules = RulesDoc.Doc, items = ItemsDoc.Doc, enemies = EnemiesDoc.Doc, cards = CardsDoc.Doc, floors = FloorsDoc.Doc }
 
     /// 階ごとの盤を組む。組めない地図・無い地図の名前は飛ばして理由を返し、盤が 1 枚も無い階は入れない。
     pub def layoutsOf(floors: FloorsDoc.Doc): { layouts = Layouts, problems = List[String] } =
@@ -43,7 +43,7 @@ mod Floor {
     /// Run の今の階の判定に使う束。
     pub def ctxOf(docs: Docs, layouts: Layouts, runState: Run.State): Run.Ctx =
         let r = Run.rec(runState);
-        { rules = docs#rules, items = docs#items, enemies = docs#enemies, board = boardOf(layouts, r#floor, r#layout) }
+        { rules = docs#rules, items = docs#items, enemies = docs#enemies, cards = docs#cards, board = boardOf(layouts, r#floor, r#layout) }
 
     /// 周回の種 seed で floor 階を作る（同じ種と Doc からは同じ階）。
     pub def create(docs: Docs, layouts: Layouts, seed: Int64, floor: Int32): Run.State =
@@ -54,7 +54,7 @@ mod Floor {
     pub def createOn(docs: Docs, layouts: Layouts, at: { seed = Int64, floor = Int32, layout = Int32 }, rng: Int64): Run.State =
         let (floor, layout, seed) = (at#floor, at#layout, at#seed);
         let board = boardOf(layouts, floor, layout);
-        let ctx = { rules = docs#rules, items = docs#items, enemies = docs#enemies, board = board };
+        let ctx = { rules = docs#rules, items = docs#items, enemies = docs#enemies, cards = docs#cards, board = board };
         let (placement, rest) = placementOf(docs, floor, board, rng);
         Run.start(ctx, { floor = floor, layout = layout, seed = seed, rng = rest }, placement)
 

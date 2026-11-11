@@ -102,19 +102,20 @@ mod Controls {
     /// Doc の束（部品の束は空。3D の形を描かない flow とテストが読む）。
     pub def loadDocs(): Res.Docs \ Fs.FileRead =
         { rules = RulesDoc.load(RulesDoc.path()), items = ItemsDoc.load(ItemsDoc.path()),
-          enemies = EnemiesDoc.load(EnemiesDoc.path()), floors = FloorsDoc.load(FloorsDoc.path()),
+          enemies = EnemiesDoc.load(EnemiesDoc.path()), cards = CardsDoc.load(CardsDoc.path()), floors = FloorsDoc.load(FloorsDoc.path()),
           look = LookDoc.load(LookDoc.path()), text = TextDoc.load(TextDoc.path()),
           keys = KeysDoc.load(KeysDoc.path()), theme = ThemeDoc.load(ThemeDoc.path()),
           mixer = AudioMixerDoc.load(AudioMixer.defaults(), mixerPath()), kit = Kit.empty() }
 
     /// Doc の一覧表(DocTable)。watchFile(保存即反映)・F1 の一括リロード・Studio へ名乗る「表示中」は、
     /// どれもこの 1 枚から導出する。docId は project.json の editor.resources[] の id と同じ物。
-    /// 決まり・アイテム・敵・階は今の階を同じ種で作り直す（World.settle）。ほかは World をそのまま。
+    /// 決まり・アイテム・敵・カード・階は今の階を同じ種で作り直す（World.settle）。ほかは World をそのまま。
     pub def docTable(): List[DocTable.Entry[Resources.With[Res.Res, World.World]]] =
         let unchanged = (_, w) -> w;
         Resources.reloadRow("rules", RulesDoc.path(), res -> Res.withRules(RulesDoc.load(RulesDoc.path()), res), World.settle)
             :: Resources.reloadRow("items", ItemsDoc.path(), res -> Res.withItems(ItemsDoc.load(ItemsDoc.path()), res), World.settle)
             :: Resources.reloadRow("enemies", EnemiesDoc.path(), res -> Res.withEnemies(EnemiesDoc.load(EnemiesDoc.path()), res), World.settle)
+            :: Resources.reloadRow("cards", CardsDoc.path(), res -> Res.withCards(CardsDoc.load(CardsDoc.path()), res), World.settle)
             :: Resources.reloadRow("floors", FloorsDoc.path(), res -> Res.withFloors(FloorsDoc.load(FloorsDoc.path()), res), World.settle)
             :: Resources.reloadRow("look", LookDoc.path(), res -> Res.withLook(LookDoc.load(LookDoc.path()), res), unchanged)
             :: Resources.reloadRow("text", TextDoc.path(), res -> Res.withText(TextDoc.load(TextDoc.path()), res), unchanged)

@@ -1,0 +1,69 @@
+{
+  "//": "stepdown.cards.json の形の宣言（Studio の sections 方言）。カードの種類と効き方はコード（Run.Perk・Step）、ここは量だけ。",
+  "version": 1,
+  "sections": {
+    "choices": {
+      "kind": "field",
+      "type": "int",
+      "label": "レベルアップで出る候補の枚数",
+      "order": 1,
+      "min": 1,
+      "max": 5,
+      "default": 3
+    },
+    "maxHp": {
+      "kind": "field",
+      "type": "int",
+      "label": "最大 HP に足す（今の HP も）",
+      "order": 2,
+      "min": 0,
+      "max": 50,
+      "default": 5
+    },
+    "attack": {
+      "kind": "field",
+      "type": "int",
+      "label": "攻撃に足す",
+      "order": 3,
+      "min": 0,
+      "max": 20,
+      "default": 1
+    },
+    "reach": {
+      "kind": "field",
+      "type": "int",
+      "label": "矢と小石の届く距離に足す",
+      "order": 4,
+      "min": 0,
+      "max": 5,
+      "default": 1
+    },
+    "hungerEvery": {
+      "kind": "field",
+      "type": "int",
+      "label": "空腹が遅いカードの、満腹度 -1 までの手の数",
+      "order": 5,
+      "min": 1,
+      "max": 100,
+      "default": 4
+    },
+    "feast": {
+      "kind": "field",
+      "type": "int",
+      "label": "食べ物で戻る満腹度に足す",
+      "order": 6,
+      "min": 0,
+      "max": 100,
+      "default": 10
+    },
+    "wallDamage": {
+      "kind": "field",
+      "type": "int",
+      "label": "押し出しの先が壁の時に足すダメージ",
+      "order": 7,
+      "min": 0,
+      "max": 20,
+      "default": 1
+    }
+  }
+}

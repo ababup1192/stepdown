@@ -19,6 +19,7 @@ mod RulesDoc {
     ///   fullnessMax    … 満腹度の最大（階の始め）
     ///   hungerEvery    … 手が進んだこの数ごとに満腹度 -1
     ///   starveDamage   … 満腹度 0 の間、1 手ごとに減る HP
+    ///   levelExp       … 次のレベルまでに要る経験値（Lv1→2, 2→3, …。表を超えたら最後の数で続ける）
     ///   tapWaitRadius  … 主人公のマスの中でタップしたら待つとみなす半径（マス）
     ///   tapSlop        … 押してから動いてもタップとみなす距離（px）
     pub type alias Rec = {
@@ -37,6 +38,7 @@ mod RulesDoc {
         fullnessMax = Int32,
         hungerEvery = Int32,
         starveDamage = Int32,
+        levelExp = List[Int32],
         tapWaitRadius = Float64,
         tapSlop = Float64
     }
@@ -53,7 +55,7 @@ mod RulesDoc {
         Doc.Doc({ version = 1, maxHp = 20, baseAttack = 2, arrowMin = 2, arrowMax = 4, bombNeeds = 2,
                   potionAt = 0.25, regenEvery = 12, wakeSteps = 5, enemyMinSteps = 5,
                   smokeAt = 0.5, burnDamage = 1,
-                  fullnessMax = 100, hungerEvery = 3, starveDamage = 1,
+                  fullnessMax = 100, hungerEvery = 3, starveDamage = 1, levelExp = 6 :: 7 :: 10 :: 14 :: Nil,
                   tapWaitRadius = 0.45, tapSlop = 12.0 })
 
     /// テキストから Doc へ（fail-open）。JSON でない・形が違うフィールドは既定へ落とす。
@@ -72,11 +74,18 @@ mod RulesDoc {
                   smokeAt = float("smokeAt", d#smokeAt), burnDamage = int("burnDamage", d#burnDamage),
                   fullnessMax = int("fullnessMax", d#fullnessMax), hungerEvery = int("hungerEvery", d#hungerEvery),
                   starveDamage = int("starveDamage", d#starveDamage),
+                  levelExp = Map.get("levelExp", root) |> Option.flatMap(JsonCodec.decodeList(JsonCodec.expectInt))
+                      |> Option.filter(xs -> not List.isEmpty(xs)) |> Option.getWithDefault(d#levelExp),
                   tapWaitRadius = float("tapWaitRadius", d#tapWaitRadius), tapSlop = float("tapSlop", d#tapSlop) })
 
     /// 薬を使う HP（最大 HP × potionAt を切り捨て）。
     pub def potionHp(maxHp: Int32, d: Doc): Int32 =
         Float64.floor(Int32.toFloat64(maxHp) * rec(d)#potionAt) |> Float64.tryToInt32 |> Option.getWithDefault(0)
+
+    /// level から次のレベルまでに要る経験値（表を超えたら最後の数・表が無ければ 1 未満にしない）。
+    pub def expToNext(level: Int32, d: Doc): Int32 =
+        let table = rec(d)#levelExp;
+        List.nth(level - 1, table) |> Option.withDefault(default = List.last(table)) |> Option.getWithDefault(1) |> Int32.max(1)
 
     /// 矢を撃つ距離（主人公も弓兵も同じ）。
     pub def reachOf(d: Doc): Board.Reach = { nearest = rec(d)#arrowMin, farthest = rec(d)#arrowMax }

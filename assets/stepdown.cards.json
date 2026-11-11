@@ -1,0 +1,12 @@
+{
+  "version": 1,
+  "title": "レベルアップのカード（量）",
+  "note": "カードの種類（最大 HP・攻撃・届く距離・爆弾が 1 体でも出る・押し出し・空腹が遅い・食べ物）と効き方はコード（Run.Perk・Step）、ここは量だけ。choices=レベルアップで出る候補の枚数 / maxHp=最大 HP に足す（今の HP も同じだけ）/ attack=攻撃に足す / reach=矢と小石の届く距離に足す / hungerEvery=空腹が遅いカードを持つ時の、満腹度 -1 までの手の数 / feast=食べ物で戻る満腹度に足す / wallDamage=押し出しの先が壁・柱・岩の時に足すダメージ。爆弾 1 体と押し出しは一度取ったら候補から外れる。",
+  "choices": 3,
+  "maxHp": 5,
+  "attack": 1,
+  "reach": 1,
+  "hungerEvery": 4,
+  "feast": 10,
+  "wallDamage": 1
+}

@@ -4,7 +4,7 @@ mod TestFloor {
 
     def docs(): Floor.Docs \ Fs.FileRead =
         let d = Controls.loadDocs();
-        { rules = d#rules, items = d#items, enemies = d#enemies, floors = d#floors }
+        { rules = d#rules, items = d#items, enemies = d#enemies, cards = d#cards, floors = d#floors }
 
     def layouts(): Floor.Layouts \ Fs.FileRead = Floor.layoutsOf(FloorsDoc.load(FloorsDoc.path()))#layouts
 

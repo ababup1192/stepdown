@@ -159,6 +159,13 @@
         "role": "tuning"
       },
       {
+        "id": "cards",
+        "pattern": "assets/stepdown.cards.json",
+        "title": "レベルアップのカード（量）",
+        "schema": "assets/cards.schema.json",
+        "role": "tuning"
+      },
+      {
         "id": "floors",
         "pattern": "assets/stepdown.floors.json",
         "title": "階（地図と敵・アイテムの数）",

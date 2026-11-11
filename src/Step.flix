@@ -8,6 +8,7 @@
 //   4. 移動した手だけ数え、regenEvery ごとに HP +1（満腹度 0 の手は飛ばす）。
 //   5. 手が進んだ数を数え、hungerEvery ごとに満腹度 -1。満腹度 0 なら HP が減る（薬 → 倒れるを見る）。
 //   食べ物は持たず、止まったマス（待つも含む）で食べる。満腹度が最大の時は食べずに床に残す。
+//   敵を倒すと（殴る・矢・爆弾・燃えるのどれでも）経験値が入り、たまに物を落とす。レベルが上がるとカードの pending を積む。
 mod Step {
 
     use fge::Sort
@@ -74,23 +75,29 @@ mod Step {
         let r = t#runState;
         t |> withRun({ hero = { at = target | r#hero }, walked = r#walked + 1 | r }) |> emit(Event.HeroMoved(r#hero#at, target))
 
-    /// 主人公の攻撃（剣があれば剣の攻撃、無ければ素の攻撃）に補正を足した物。
+    /// 主人公の攻撃（剣があれば剣の攻撃、無ければ素の攻撃）にカードの分を足した物。
     def attackOf(ctx: Ctx, r: Run.Rec): Int32 =
         let base = r#hero#sword |> Option.map(kind -> ItemsDoc.statsOf(kind, ctx#items)#attack)
             |> Option.getWithDefault(RulesDoc.rec(ctx#rules)#baseAttack);
-        base + r#perks#attack
+        base + Run.perkCount(Run.Perk.Attack, r) * CardsDoc.rec(ctx#cards)#attack
+
+    /// 殴ると押し出すか（銀の剣か押し出しのカード。両方あっても 1 マス）。
+    def pushes(r: Run.Rec): Bool =
+        Option.flatMap(Item.effectOf, r#hero#sword) == Some(Item.Effect.Push) or Run.perkCount(Run.Perk.Push, r) > 0
 
     def strike(ctx: Ctx, dir: Dir8, id: Int32, t: Turn): Turn =
         let r = t#runState;
         let damage = attackOf(ctx, r);
-        let struck = t |> emit(Event.HeroStruck(id, damage)) |> hurt(id, damage);
-        if (Option.flatMap(Item.effectOf, r#hero#sword) == Some(Item.Effect.Push)) push(ctx, dir, id, struck) else struck
+        let struck = t |> emit(Event.HeroStruck(id, damage)) |> hurt(ctx, id, damage);
+        if (pushes(r)) push(ctx, dir, id, struck) else struck
 
-    /// 殴った敵を dir へ 1 マス押す（押し先に入れなければ押さない）。
+    /// 殴った敵を dir へ 1 マス押す。押し先が壁・柱・岩なら動かさずに wallDamage を足す。水・ほかの敵・角では押さない。
     def push(ctx: Ctx, dir: Dir8, id: Int32, t: Turn): Turn =
         enemyOf(id, t) |> Option.map(e -> {
             let dest = Board.step8(dir, e#at);
+            let extra = CardsDoc.rec(ctx#cards)#wallDamage;
             if (canStand(ctx, e, dest, t#runState)) t |> setEnemy({ at = dest | e }) |> emit(Event.EnemyPushed(id, e#at, dest))
+            else if (Board.isSolid(dest, ctx#board) and extra > 0) t |> emit(Event.PushedIntoWall(id, extra)) |> hurt(ctx, id, extra)
             else t
         }) |> Option.getWithDefault(t)
 
@@ -123,7 +130,8 @@ mod Step {
     def eat(ctx: Ctx, kind: Item.Kind, t: Turn): Turn =
         let r = t#runState;
         let most = RulesDoc.rec(ctx#rules)#fullnessMax;
-        let full = Int32.min(most, r#fullness + ItemsDoc.statsOf(kind, ctx#items)#food);
+        let gain = ItemsDoc.statsOf(kind, ctx#items)#food + Run.perkCount(Run.Perk.Feast, r) * CardsDoc.rec(ctx#cards)#feast;
+        let full = Int32.min(most, r#fullness + gain);
         if (r#fullness >= most) t
         else t |> withRun({ items = Map.remove(r#hero#at, r#items), fullness = full | r }) |> emit(Event.Ate(kind, full - r#fullness))
 
@@ -156,10 +164,19 @@ mod Step {
     // ══════════════════════════════════════════════════════
 
     /// pending の先頭に i 枚目で答える（範囲外は何もしない）。
-    def answer(ctx: Ctx, i: Int32, r: Run.Rec): (Run.State, List[Event]) = match r#pending {
-        case Run.Choice.Swap(kind) :: rest => swap(ctx, kind, i, { pending = rest | r }) |> Option.getWithDefault((Run.of(r), Nil))
-        case Nil                           => (Run.of(r), Nil)
-    }
+    def answer(ctx: Ctx, i: Int32, r: Run.Rec): (Run.State, List[Event]) =
+        let answered = match r#pending {
+            case Run.Choice.Swap(kind) :: rest     => swap(ctx, kind, i, { pending = rest | r })
+            case Run.Choice.LevelUp(cards) :: rest => List.nth(i, cards) |> Option.map(perk -> takePerk(ctx, perk, { pending = rest | r }))
+            case Nil                               => None
+        };
+        answered |> Option.getWithDefault((Run.of(r), Nil))
+
+    /// カードを取る（最大 HP は今の HP も同じだけ増やす）。
+    def takePerk(ctx: Ctx, perk: Run.Perk, r: Run.Rec): (Run.State, List[Event]) =
+        let more = if (perk == Run.Perk.MaxHp) CardsDoc.rec(ctx#cards)#maxHp else 0;
+        (Run.of({ perks = r#perks ::: (perk :: Nil), hero = { maxHp = r#hero#maxHp + more, hp = r#hero#hp + more | r#hero } | r }),
+         Event.PerkTaken(perk) :: Nil)
 
     /// 捨てるカード: 0..枠の数-1 はその枠を捨てて足もとの kind をその位置へ拾う、枠の数番目は拾わずに床に残す（このマスでは聞き直さない）。
     def swap(ctx: Ctx, kind: Item.Kind, i: Int32, r: Run.Rec): Option[(Run.State, List[Event])] =
@@ -181,17 +198,19 @@ mod Step {
         let rules = RulesDoc.rec(ctx#rules);
         let around = r#enemies |> List.count(e -> Enemy.isAwake(e) and isBeside(ctx, e, r#hero#at));
         let usable = (family: Item.Family) -> Run.countOf(Run.heldOf(family, r#pack)) >= 1;
+        let needs = if (Run.perkCount(Run.Perk.LoneBomb, r) > 0) 1 else rules#bombNeeds;
         let smoky = around >= rules#bombNeeds or (around >= 1 and r#hero#hp <= RulesDoc.smokeHp(r#hero#maxHp, ctx#rules));
         let shots = (family: Item.Family) -> if (usable(family)) lineTarget(ctx, family, r) else None;
-        if (around >= rules#bombNeeds and usable(Item.Family.Bomb)) throwBomb(ctx, t)
+        if (around >= needs and usable(Item.Family.Bomb)) throwBomb(ctx, t)
         else shots(Item.Family.Arrow) |> Option.map(dir -> shoot(ctx, Item.Family.Arrow, dir, t))
             |> Option.withDefault(default = shots(Item.Family.Pebble) |> Option.map(dir -> shoot(ctx, Item.Family.Pebble, dir, t)))
             |> Option.getWithDefault(if (smoky and usable(Item.Family.Smoke)) throwSmoke(ctx, t) else t)
 
-    /// 矢・小石の届く最長の距離（矢は rules の arrowMax、小石は items の range）。
+    /// 矢・小石の届く最長の距離（矢は rules の arrowMax、小石は items の range。どちらも届く距離のカードの分だけ延びる）。
     def farthestOf(ctx: Ctx, family: Item.Family, r: Run.Rec): Int32 =
-        if (family == Item.Family.Pebble) Run.heldOf(family, r#pack) |> Option.map(h -> ItemsDoc.statsOf(Run.kindOfHeld(h), ctx#items)#range) |> Option.getWithDefault(0)
-        else RulesDoc.rec(ctx#rules)#arrowMax
+        let base = if (family == Item.Family.Pebble) Run.heldOf(family, r#pack) |> Option.map(h -> ItemsDoc.statsOf(Run.kindOfHeld(h), ctx#items)#range) |> Option.getWithDefault(0)
+            else RulesDoc.rec(ctx#rules)#arrowMax;
+        base + Run.perkCount(Run.Perk.Reach, r) * CardsDoc.rec(ctx#cards)#reach
 
     /// 矢・小石を撃つ向き: 直線の距離 arrowMin..届く距離 の最初の敵が起きていて、間に矢を止めるマスも敵も無い向きのうち、近い順 → 上・右・下・左。
     def lineTarget(ctx: Ctx, family: Item.Family, r: Run.Rec): Option[Dir] =
@@ -221,7 +240,7 @@ mod Step {
                 let shot = t |> withRun({ pack = Run.spend(family, r#pack) | r })
                     |> emit(Event.ArrowShot(dir, kind, end));
                 hits |> List.foldLeft((acc, id) ->
-                    acc |> emit(Event.ArrowHit(id, stats#damage)) |> hurt(id, stats#damage) |> setBurn(id, stats#burn), shot)
+                    acc |> emit(Event.ArrowHit(id, stats#damage)) |> hurt(ctx, id, stats#damage) |> setBurn(id, stats#burn), shot)
             case None => t
         }
 
@@ -244,11 +263,11 @@ mod Step {
                 |> List.map(e -> e#id);
             let thrown = t |> withRun({ pack = Run.spend(Item.Family.Bomb, r#pack) | r })
                 |> emit(Event.BombThrown(kind, r#hero#at));
-            targets |> List.foldLeft((acc, id) -> acc |> bombHit(id, stats#damage) |> setSleep(id, stats#sleep), thrown)
+            targets |> List.foldLeft((acc, id) -> acc |> bombHit(ctx, id, stats#damage) |> setSleep(id, stats#sleep), thrown)
         }) |> Option.getWithDefault(t)
 
-    def bombHit(id: Int32, damage: Int32, t: Turn): Turn =
-        if (damage <= 0) t else t |> emit(Event.BombHit(id, damage)) |> hurt(id, damage)
+    def bombHit(ctx: Ctx, id: Int32, damage: Int32, t: Turn): Turn =
+        if (damage <= 0) t else t |> emit(Event.BombHit(id, damage)) |> hurt(ctx, id, damage)
 
     /// 煙玉: 主人公を攻撃できる隣の起きた敵を、煙玉の sleep 手だけ眠らせる。
     def throwSmoke(ctx: Ctx, t: Turn): Turn =
@@ -269,10 +288,11 @@ mod Step {
 
     /// 敵にダメージ。HP が 0 以下なら倒れて消える。眠っている敵は Dozing(1) になり、その手の敵の番では動かず次の手から起きる。
     /// WhyNot: すぐ起こさない。その手で撃ち返す・殴り返すと、敵の予告（その手の前に起きている敵と、気付く位置だけを見る）から漏れる。
-    def hurt(id: Int32, damage: Int32, t: Turn): Turn =
+    def hurt(ctx: Ctx, id: Int32, damage: Int32, t: Turn): Turn =
         enemyOf(id, t) |> Option.map(e ->
             if (e#hp - damage <= 0)
                 t |> withRun({ enemies = List.filter(x -> x#id != id, t#runState#enemies) | t#runState }) |> emit(Event.EnemyDied(id, e#kind, e#at))
+                  |> dropLoot(ctx, e) |> gainExp(ctx, EnemiesDoc.statsOf(e#kind, ctx#enemies)#exp)
             else t |> setEnemy({ hp = e#hp - damage, rest = if (Enemy.isAwake(e)) e#rest else Enemy.Rest.Dozing(1) | e })
         ) |> Option.getWithDefault(t)
 
@@ -283,6 +303,51 @@ mod Step {
         if (turns <= 0) t
         else enemyOf(id, t) |> Option.map(e -> t |> setEnemy({ rest = Enemy.Rest.Dozing(turns) | e }) |> emit(Event.EnemySlept(id, turns)))
             |> Option.getWithDefault(t)
+
+    // ══════════════════════════════════════════════════════
+    // 倒した後（落とし物・経験値）
+    // ══════════════════════════════════════════════════════
+
+    /// 倒した e は dropChance で drops から 1 つ落とす（乱数はいつも 2 回引く）。
+    def dropLoot(ctx: Ctx, e: Enemy.Enemy, t: Turn): Turn =
+        let r = t#runState;
+        let stats = EnemiesDoc.statsOf(e#kind, ctx#enemies);
+        let (dropped, afterChance) = Rng.chance(stats#dropChance, r#rng);
+        let (pick, afterPick) = Rng.below(List.length(stats#drops), afterChance);
+        let rolled = { rng = afterPick | r };
+        List.nth(pick, stats#drops) |> Option.filter(_ -> dropped)
+            |> Option.flatMap(kind -> dropCell(ctx, e#at, rolled) |> Option.map(cell -> (kind, cell)))
+            |> Option.map(match (kind, cell) -> t |> withRun({ items = Map.insert(cell, kind, rolled#items) | rolled }) |> emit(Event.ItemDropped(kind, cell)))
+            |> Option.getWithDefault(withRun(rolled, t))
+
+    /// 落とし物の置き場: origin が空いた床ならそこ、違えば歩く距離の近い空いた床（同じ距離は読む順）。
+    /// 空いた床 = 床（階段・水でない）で、主人公のマスでも始まりでもなく、ほかの物が無い。無ければ None。
+    def dropCell(ctx: Ctx, origin: Cell, r: Run.Rec): Option[Cell] =
+        let b = ctx#board;
+        let free = (c: Cell) -> Board.tileAt(c, b) == Board.Tile.Floor and c != r#hero#at and c != b#start and not Map.memberOf(c, r#items);
+        if (free(origin)) Some(origin)
+        else Board.walkDistancesFrom(origin :: Nil, b) |> Map.toList |> List.filter(e -> free(fst(e)))
+            |> List.map(match (c, steps) -> (steps, (snd(c), fst(c)))) |> List.minimum |> Option.map(e -> { let (_, (y, x)) = e; (x, y) })
+
+    /// 経験値を足し、次のレベルまでに要る数に届いたら上げる（余りは持ち越す。1 度に 2 つ上がれば 2 つ積む）。
+    def gainExp(ctx: Ctx, amount: Int32, t: Turn): Turn =
+        if (amount <= 0) t
+        else t |> withRun({ exp = t#runState#exp + amount | t#runState }) |> emit(Event.ExpGained(amount)) |> levelUps(ctx)
+
+    def levelUps(ctx: Ctx, t: Turn): Turn =
+        let r = t#runState;
+        let need = RulesDoc.expToNext(r#level, ctx#rules);
+        if (r#exp < need) t
+        else {
+            let (cards, rng) = drawCards(ctx, r);
+            let raised = { level = r#level + 1, exp = r#exp - need, rng = rng, pending = r#pending ::: (Run.Choice.LevelUp(cards) :: Nil) | r };
+            t |> withRun(raised) |> emit(Event.LevelUp(r#level + 1)) |> levelUps(ctx)
+        }
+
+    /// レベルアップの候補: 一度だけのカードで取った物を除き、乱数で choices 枚。
+    def drawCards(ctx: Ctx, r: Run.Rec): (List[Run.Perk], Int64) =
+        let open = Run.perks() |> List.filter(p -> not (Run.isOnce(p) and Run.perkCount(p, r) > 0));
+        Rng.pick(CardsDoc.rec(ctx#cards)#choices, open, r#rng)
 
     /// e が隣の dest（左上）へ移れるか: 角を抜けず、全部のマスが入れる地形で、主人公とほかの敵がいない。
     def canStand(ctx: Ctx, e: Enemy.Enemy, dest: Cell, r: Run.Rec): Bool =
@@ -321,7 +386,7 @@ mod Step {
         if (e#burn <= 0) t
         else {
             let damage = RulesDoc.rec(ctx#rules)#burnDamage;
-            t |> setEnemy({ burn = e#burn - 1 | e }) |> emit(Event.EnemyBurned(e#id, damage)) |> hurt(e#id, damage)
+            t |> setEnemy({ burn = e#burn - 1 | e }) |> emit(Event.EnemyBurned(e#id, damage)) |> hurt(ctx, e#id, damage)
         }
 
     def restOrAct(ctx: Ctx, dist: Map[Cell, Int32], id: Int32, t: Turn): Turn =
@@ -404,7 +469,7 @@ mod Step {
     def attackHero(ctx: Ctx, e: Enemy.Enemy, shot: Bool, t: Turn): Turn =
         let r = t#runState;
         let guard = r#hero#shield |> Option.map(kind -> ItemsDoc.statsOf(kind, ctx#items)#guard) |> Option.getWithDefault(0);
-        let amount = Int32.max(0, EnemiesDoc.statsOf(e#kind, ctx#enemies)#attack - guard - r#perks#guard);
+        let amount = Int32.max(0, EnemiesDoc.statsOf(e#kind, ctx#enemies)#attack - guard);
         let chance = r#hero#shield |> Option.filter(kind -> Item.effectOf(kind) == Some(Item.Effect.Deflect))
             |> Option.map(kind -> ItemsDoc.statsOf(kind, ctx#items)#deflect) |> Option.getWithDefault(0.0);
         let (deflected, rng) = if (chance > 0.0) Rng.chance(chance, r#rng) else (false, r#rng);
@@ -438,12 +503,13 @@ mod Step {
         if (r#status != Status.Playing or r#fullness <= 0 or every <= 0 or Int32.modulo(r#walked, every) != 0 or r#hero#hp >= r#hero#maxHp) t
         else t |> withRun({ hero = { hp = r#hero#hp + 1 | r#hero } | r }) |> emit(Event.Regenerated(1))
 
-    /// 手が進んだ数を数え、hungerEvery の倍数で満腹度 -1。満腹度が 0 なら starveDamage を受ける（薬 → 倒れるを見る）。
+    /// 手が進んだ数を数え、hungerEvery（空腹が遅いカードなら cards の hungerEvery）の倍数で満腹度 -1。満腹度が 0 なら starveDamage を受ける（薬 → 倒れるを見る）。
     def hunger(ctx: Ctx, t: Turn): Turn =
         let r = t#runState;
         let rules = RulesDoc.rec(ctx#rules);
+        let every = if (Run.perkCount(Run.Perk.SlowHunger, r) > 0) CardsDoc.rec(ctx#cards)#hungerEvery else rules#hungerEvery;
         let turns = r#turns + 1;
-        let fullness = if (rules#hungerEvery > 0 and Int32.modulo(turns, rules#hungerEvery) == 0) Int32.max(0, r#fullness - 1) else r#fullness;
+        let fullness = if (every > 0 and Int32.modulo(turns, every) == 0) Int32.max(0, r#fullness - 1) else r#fullness;
         let fed = { turns = turns, fullness = fullness | r };
         if (r#status != Status.Playing) t
         else if (fullness > 0 or rules#starveDamage <= 0) withRun(fed, t)

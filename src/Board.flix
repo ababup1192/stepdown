@@ -140,6 +140,9 @@ mod Board {
 
     pub def stopsArrow(cell: Cell, b: Board): Bool = traitsAt(cell, b)#stopsArrow
 
+    /// 壁・柱・岩（角を作る固いマス）か。
+    pub def isSolid(cell: Cell, b: Board): Bool = traitsAt(cell, b)#cutsCorner
+
     /// from から隣の to へ角を抜けずに移れるか（上下左右の隣はいつも抜けられる）。
     /// 斜めなら、2 つの横のマス (to の列, from の行) と (from の列, to の行) のどちらも角を作らない時だけ。
     pub def isCornerOpen(origin: Cell, target: Cell, b: Board): Bool =

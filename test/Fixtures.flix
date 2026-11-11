@@ -13,7 +13,7 @@ mod Fixtures {
 
     /// 既定の Doc（rules だけ差し替え）で組んだ判定の束。
     pub def ctxWith(rules: RulesDoc.Doc, rows: List[String]): Run.Ctx =
-        { rules = rules, items = ItemsDoc.defaults(), enemies = EnemiesDoc.defaults(), board = board(rows) }
+        { rules = rules, items = ItemsDoc.defaults(), enemies = EnemiesDoc.defaults(), cards = CardsDoc.defaults(), board = board(rows) }
 
     /// 既定の Doc で組んだ判定の束。
     pub def ctx(rows: List[String]): Run.Ctx = ctxWith(RulesDoc.defaults(), rows)
@@ -60,6 +60,25 @@ mod Fixtures {
         "#......>#" ::
         "#########" :: Nil
 
+    /// 先頭の選ぶ場面のカード（レベルアップでなければ空）。
+    def levelCards(runState: Run.State): List[Run.Perk] = match Run.pendingOf(runState) {
+        case Run.Choice.LevelUp(cards) :: _ => cards
+        case _                              => Nil
+    }
+
+    /// 先頭のレベルアップのカードの枚数。
+    pub def cardCount(runState: Run.State): Int32 = List.length(levelCards(runState))
+
+    /// 先頭のレベルアップの候補に perk があるか。
+    pub def offers(perk: Run.Perk, runState: Run.State): Bool = List.memberOf(perk, levelCards(runState))
+
+    /// 先頭のレベルアップの候補から perk を選ぶ 1 手（候補に無ければテストの書き誤りなので止める）。
+    pub def chooseCard(ctx: Run.Ctx, perk: Run.Perk, runState: Run.State): (Run.State, List[Run.Event]) =
+        match List.indexOf(perk, levelCards(runState)) {
+            case Some(i) => Step.step(ctx, runState, Run.Input.Choose(i))
+            case None    => bug!("候補に ${perk} が無い")
+        }
+
     /// 敵の id → 位置。
     pub def enemyCells(runState: Run.State): List[(Int32, Cell)] = Run.enemiesOf(runState) |> List.map(e -> (e#id, e#at))
 
@@ -68,7 +87,7 @@ mod Fixtures {
 
     /// 既定の Doc で組んだ描く元（floors は既定の 1 枚）。
     pub def res(): Res.Res =
-        Res.build({ rules = RulesDoc.defaults(), items = ItemsDoc.defaults(), enemies = EnemiesDoc.defaults(),
+        Res.build({ rules = RulesDoc.defaults(), items = ItemsDoc.defaults(), enemies = EnemiesDoc.defaults(), cards = CardsDoc.defaults(),
                     floors = FloorsDoc.defaults(), look = LookDoc.defaults(), text = TextDoc.defaults(),
                     keys = KeysDoc.defaults(), theme = ThemeDoc.defaults(), mixer = AudioMixer.defaults(), kit = Kit.empty() })
 }

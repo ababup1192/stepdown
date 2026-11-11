@@ -10,6 +10,7 @@ mod Res {
         rules = RulesDoc.Doc,
         items = ItemsDoc.Doc,
         enemies = EnemiesDoc.Doc,
+        cards = CardsDoc.Doc,
         floors = FloorsDoc.Doc,
         look = LookDoc.Doc,
         text = TextDoc.Doc,
@@ -24,6 +25,7 @@ mod Res {
         rules = RulesDoc.Doc,
         items = ItemsDoc.Doc,
         enemies = EnemiesDoc.Doc,
+        cards = CardsDoc.Doc,
         floors = FloorsDoc.Doc,
         look = LookDoc.Doc,
         text = TextDoc.Doc,
@@ -38,7 +40,7 @@ mod Res {
     /// Doc の束から描く元を組む（盤もここで組む。組めない地図は 1 行ずつ言って飛ばす）。
     pub def build(docs: Docs): Res =
         let layouts = layoutsOf(docs#floors);
-        { rules = docs#rules, items = docs#items, enemies = docs#enemies, floors = docs#floors, look = docs#look,
+        { rules = docs#rules, items = docs#items, enemies = docs#enemies, cards = docs#cards, floors = docs#floors, look = docs#look,
           text = docs#text, keys = docs#keys, theme = docs#theme, mixer = docs#mixer, layouts = layouts,
           kit = docs#kit, meshes = meshesOf(docs#kit, layouts) }
 
@@ -59,7 +61,7 @@ mod Res {
 
     /// 階を作るのに読む Doc。
     pub def floorDocs(res: Res): Floor.Docs =
-        { rules = res#rules, items = res#items, enemies = res#enemies, floors = res#floors }
+        { rules = res#rules, items = res#items, enemies = res#enemies, cards = res#cards, floors = res#floors }
 
     /// run の今の階の判定に使う束。
     pub def ctxOf(res: Res, runState: Run.State): Run.Ctx = Floor.ctxOf(floorDocs(res), res#layouts, runState)
@@ -71,6 +73,8 @@ mod Res {
     pub def withItems(items: ItemsDoc.Doc, res: Res): Res = { items = items | res }
 
     pub def withEnemies(enemies: EnemiesDoc.Doc, res: Res): Res = { enemies = enemies | res }
+
+    pub def withCards(cards: CardsDoc.Doc, res: Res): Res = { cards = cards | res }
 
     pub def withFloors(floors: FloorsDoc.Doc, res: Res): Res =
         let layouts = layoutsOf(floors);

@@ -1,31 +1,57 @@
 {
   "version": 1,
-  "title": "敵（強さ）",
-  "note": "敵ごとの強さだけ。動き方はコード（Jelly・Swarm=歩いて寄る / Bat=2 手に 1 回でたらめに飛ぶ / Archer=列がそろえば撃つ）、階ごとの数は floors。firstFloor より前の階には出ない。",
+  "title": "敵（強さ・経験値・落とし物）",
+  "note": "敵ごとの強さだけ。動き方はコード（Jelly・Swarm=歩いて寄る / Bat=2 手に 1 回でたらめに飛ぶ / Archer=列がそろえば撃つ）、階ごとの数は floors。firstFloor より前の階には出ない。 exp=倒した時の経験値（燃えて・爆弾で倒しても入る）/ dropChance=物を落とす確率 / drops=落とす物の名前（同じ名前を並べるほど出やすい。食べ物・持ち物の種類から）。",
   "enemies": {
     "Jelly": {
       "name": "ゼリー",
       "hp": 5,
       "attack": 2,
-      "firstFloor": 1
+      "firstFloor": 1,
+      "exp": 3,
+      "dropChance": 0.25,
+      "drops": [
+        "Bread",
+        "Bread",
+        "Pebble",
+        "Herb"
+      ]
     },
     "Bat": {
       "name": "コウモリ",
       "hp": 3,
       "attack": 1,
-      "firstFloor": 1
+      "firstFloor": 1,
+      "exp": 2,
+      "dropChance": 0.2,
+      "drops": [
+        "Pebble",
+        "Bread"
+      ]
     },
     "Archer": {
       "name": "弓兵",
       "hp": 4,
       "attack": 2,
-      "firstFloor": 1
+      "firstFloor": 1,
+      "exp": 5,
+      "dropChance": 0.35,
+      "drops": [
+        "WoodArrow",
+        "WoodArrow",
+        "Smoke"
+      ]
     },
     "Swarm": {
       "name": "群れ",
       "hp": 3,
       "attack": 1,
-      "firstFloor": 2
+      "firstFloor": 2,
+      "exp": 1,
+      "dropChance": 0.1,
+      "drops": [
+        "Bread"
+      ]
     }
   }
 }

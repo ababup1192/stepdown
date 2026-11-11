@@ -13,10 +13,36 @@ mod Run {
     }
 
     /// 選ぶ場面。
-    ///   Swap(kind) … 枠が埋まっている時に 4 種類目の kind の上に立った。カードは持っている枠（並び順）と、足もとの kind（拾わない）
+    ///   Swap(kind)     … 枠が埋まっている時に 4 種類目の kind の上に立った。カードは持っている枠（並び順）と、足もとの kind（拾わない）
+    ///   LevelUp(cards) … レベルが上がった。カードは候補（積んだ時に乱数で引いた）
     pub enum Choice with Eq, ToString {
         case Swap(Item.Kind)
+        case LevelUp(List[Perk])
     }
+
+    /// レベルアップのカード（量は cards の Doc）。
+    ///   MaxHp      … 最大 HP と今の HP が増える
+    ///   Attack     … 攻撃が増える
+    ///   Reach      … 矢と小石の届く距離が延びる
+    ///   LoneBomb   … 隣の起きた敵が 1 体でも爆弾を投げる（一度だけ）
+    ///   Push       … 殴ると 1 マス押し出す（一度だけ。銀の剣とは重ならない）
+    ///   SlowHunger … 満腹度の減りが遅くなる
+    ///   Feast      … 食べ物で戻る満腹度が増える
+    pub enum Perk with Eq, Order, ToString {
+        case MaxHp
+        case Attack
+        case Reach
+        case LoneBomb
+        case Push
+        case SlowHunger
+        case Feast
+    }
+
+    /// 全部のカード（候補を引く並び）。
+    pub def perks(): List[Perk] = Perk.MaxHp :: Perk.Attack :: Perk.Reach :: Perk.LoneBomb :: Perk.Push :: Perk.SlowHunger :: Perk.Feast :: Nil
+
+    /// 一度取ったら候補から外れるカードか（重ねても効きが変わらない）。
+    pub def isOnce(perk: Perk): Bool = perk == Perk.LoneBomb or perk == Perk.Push or perk == Perk.SlowHunger
 
     /// 持ち物の枠の数。
     pub def slotCount(): Int32 = 3
@@ -48,9 +74,6 @@ mod Run {
     /// 持ち物の枠の列（拾った順・系統ごとに 1 枠・slotCount まで）。0 個になった枠は列から外す。
     pub type alias Pack = List[Held]
 
-    /// 補正（カードの効果）。攻撃と守りに足す。
-    pub type alias Perks = { attack = Int32, guard = Int32 }
-
     /// 決まりの状態。
     ///   floor   … 階（1 から）
     ///   layout  … その階の地図の番号（floors の Doc の maps の何番目か）
@@ -62,6 +85,8 @@ mod Run {
     ///   walked  … 移動した手の数（自然回復の数え）
     ///   turns   … 手が進んだ数（空腹の数え。つかえた手・降りる手は数えない）
     ///   fullness … 満腹度（0 の間は 1 手ごとに HP が減り、自然回復は止まる）
+    ///   level・exp … レベルと、今のレベルで貯めた経験値（次までは RulesDoc.expToNext）
+    ///   perks    … 取ったカード（取った順）
     ///   pending  … 選ぶ場面の列（先頭から 1 つずつ。ある間は Choose 以外の入力は何もしない）
     ///   declined … 捨てるカードで拾わなかった物のマス（そのマスを離れたら消す）
     pub type alias Rec = {
@@ -74,7 +99,9 @@ mod Run {
         seen = Set[Cell],
         rng = Int64,
         seed = Int64,
-        perks = Perks,
+        perks = List[Perk],
+        level = Int32,
+        exp = Int32,
         walked = Int32,
         turns = Int32,
         fullness = Int32,
@@ -92,7 +119,7 @@ mod Run {
     pub def of(r: Rec): State = State.State(r)
 
     /// 1 手の判定に使う物の束（今の階の盤と Doc）。
-    pub type alias Ctx = { rules = RulesDoc.Doc, items = ItemsDoc.Doc, enemies = EnemiesDoc.Doc, board = Board.Board }
+    pub type alias Ctx = { rules = RulesDoc.Doc, items = ItemsDoc.Doc, enemies = EnemiesDoc.Doc, cards = CardsDoc.Doc, board = Board.Board }
 
     /// 1 手で起きたこと（起きた順）。敵は id で指す。
     pub enum Event with Eq, ToString {
@@ -129,6 +156,16 @@ mod Run {
         case Ate(Item.Kind, Int32)
         /// 捨てるカードで持っていた物を捨て、足もとの物を拾った（捨てた物・拾った物）。
         case Swapped(Item.Kind, Item.Kind)
+        /// 倒した敵の経験値が入った（量）。
+        case ExpGained(Int32)
+        /// レベルが上がった（新しいレベル）。続けてカードの pending が積まれる。
+        case LevelUp(Int32)
+        /// 倒した敵が物を落とした（種類・マス）。
+        case ItemDropped(Item.Kind, Cell)
+        /// 押し出しの先が壁・柱・岩で、押せずにダメージが増えた（敵の id・足したダメージ）。続く出来事で HP が減る。
+        case PushedIntoWall(Int32, Int32)
+        /// カードを取った。
+        case PerkTaken(Perk)
         case Regenerated(Int32)
         case HeroDied
     }
@@ -171,7 +208,7 @@ mod Run {
                   pack = Nil,
                   enemies = enemies, items = List.toMap(placement#items |> List.map(match (kind, cell) -> (cell, kind))),
                   seen = Board.viewFrom(start, ctx#board), rng = at#rng, seed = at#seed,
-                  perks = { attack = 0, guard = 0 }, walked = 0, turns = 0, fullness = RulesDoc.rec(ctx#rules)#fullnessMax,
+                  perks = Nil, level = 1, exp = 0, walked = 0, turns = 0, fullness = RulesDoc.rec(ctx#rules)#fullnessMax,
                   pending = Nil, declined = None, nextId = List.length(enemies), status = Status.Playing })
 
     // ── 読む口 ──
@@ -183,6 +220,9 @@ mod Run {
     pub def enemiesOf(runState: State): List[Enemy.Enemy] = rec(runState)#enemies
 
     pub def statusOf(runState: State): Status = rec(runState)#status
+
+    /// 取ったカード perk の数。
+    pub def perkCount(perk: Perk, r: Rec): Int32 = r#perks |> List.count(p -> p == perk)
 
     /// 選ぶ場面の列。
     pub def pendingOf(runState: State): List[Choice] = rec(runState)#pending
@@ -251,5 +291,5 @@ mod Run {
     pub def fingerprint(runState: State): String =
         let r = rec(runState);
         let enemies = r#enemies |> List.map(e -> "${e#id}:${e#kind}@${e#at}/${e#hp}/${e#rest}") |> List.join(",");
-        "F${r#floor}.${r#layout}|${r#status}|hero=${r#hero#at}/${r#hero#hp}|sword=${r#hero#sword}|shield=${r#hero#shield}|pack=${r#pack}|enemies=${enemies}|items=${r#items}|walked=${r#walked}|turns=${r#turns}|fullness=${r#fullness}|pending=${r#pending}|declined=${r#declined}"
+        "F${r#floor}.${r#layout}|${r#status}|hero=${r#hero#at}/${r#hero#hp}|sword=${r#hero#sword}|shield=${r#hero#shield}|pack=${r#pack}|enemies=${enemies}|items=${r#items}|walked=${r#walked}|turns=${r#turns}|fullness=${r#fullness}|pending=${r#pending}|declined=${r#declined}|level=${r#level}/${r#exp}|perks=${r#perks}"
 }

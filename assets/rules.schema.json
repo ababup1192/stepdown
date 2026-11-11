@@ -112,11 +112,20 @@
       "default": 1,
       "order": 11
     },
+    "levelExp": {
+      "kind": "field",
+      "type": {
+        "list": "int"
+      },
+      "label": "次のレベルまでに要る経験値（Lv1→2, 2→3, …）",
+      "group": "経験値",
+      "order": 12
+    },
     "wakeSteps": {
       "kind": "field",
       "type": "int",
       "label": "見える距離（歩く距離。起きる・ダッシュが止まる）",
-      "order": 12,
+      "order": 13,
       "group": "敵",
       "min": 0,
       "max": 30,
@@ -126,7 +135,7 @@
       "kind": "field",
       "type": "int",
       "label": "階の始めに敵を置く、始まりからの最小の歩数",
-      "order": 13,
+      "order": 14,
       "group": "敵",
       "min": 0,
       "max": 30,
@@ -140,13 +149,13 @@
       "min": 0.0,
       "max": 1.0,
       "default": 0.5,
-      "order": 14
+      "order": 15
     },
     "tapWaitRadius": {
       "kind": "field",
       "type": "float",
       "label": "主人公のマスの中のタップを待つとみなす半径（マス）",
-      "order": 15,
+      "order": 16,
       "group": "タップ",
       "min": 0.0,
       "max": 1.0,
@@ -156,7 +165,7 @@
       "kind": "field",
       "type": "float",
       "label": "押してから動いてもタップとみなす距離（px）",
-      "order": 16,
+      "order": 17,
       "group": "タップ",
       "min": 0.0,
       "max": 80.0,

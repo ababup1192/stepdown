@@ -86,6 +86,24 @@ mod TestDocs {
             KeysDoc.fromJson("{\"left\": [\"Left\", \"Sinistra\"], \"dashUp\": [\"Hop\"]}")
                 |> Option.map(d -> (KeysDoc.rec(d)#left, KeysDoc.rec(d)#dashUp, KeysDoc.rec(d)#down)))
 
+    /// 敵の落とし物は名前の列の長さに追随し、知らない名前はその 1 つだけ飛ばす。
+    @Test
+    def testEnemyDropsFollowTheList(): Unit \ Assert =
+        Assert.assertEq(expected = Some(Item.Kind.Smoke :: Item.Kind.Bread :: Nil),
+            EnemiesDoc.fromJson("{\"enemies\": {\"Bat\": {\"drops\": [\"Smoke\", \"Nope\", \"Bread\"]}}}")
+                |> Option.map(doc -> EnemiesDoc.statsOf(Enemy.Kind.Bat, doc)#drops))
+
+    // ══════════════════════════════════════════════════════
+    // CardsDoc
+    // ══════════════════════════════════════════════════════
+
+    /// 読めないカードの Doc は None。1 欄だけ書けばそこだけ効き、残りは既定のまま。
+    @Test
+    def testCardsFallBackAndOverride(): Unit \ Assert =
+        Assert.assertEq(expected = (None, Some((9, CardsDoc.rec(CardsDoc.defaults())#choices))),
+            (CardsDoc.fromJson("{ broken") |> Option.map(doc -> CardsDoc.rec(doc)#maxHp),
+             CardsDoc.fromJson("{\"maxHp\": 9}") |> Option.map(doc -> (CardsDoc.rec(doc)#maxHp, CardsDoc.rec(doc)#choices))))
+
     // ══════════════════════════════════════════════════════
     // 保存即反映の一覧表（Controls.docTable）
     // ══════════════════════════════════════════════════════
