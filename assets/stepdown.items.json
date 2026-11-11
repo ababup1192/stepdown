@@ -1,7 +1,7 @@
 {
   "version": 1,
   "title": "アイテム（段ごとの数値）",
-  "note": "段の並び（木→鉄→銀…）と効果の種類（押し出し・弾く・貫通・燃える・眠り）はコード（Item）で、ここは段ごとの数値だけ。キーは段の名前で、ここで段は足せない。書かない欄は 0。attack=剣の攻撃（素の攻撃と置き換え）/ guard=盾が受ける攻撃から引く数 / deflect=銀の盾が弾く確率 / damage=矢・爆弾のダメージ / pierce=矢が貫いて当たる追加の敵の数 / burn=火の矢の燃える手の数 / radius=爆弾の範囲（主人公から縦横の差がこの数以内）/ sleep=眠り玉の眠る手の数 / heal=薬の回復量 / food=食べ物で戻る満腹度（パン・肉。持たずに止まったマスで食べる）/ count=床から拾った時に増える数（矢・爆弾・薬）。",
+  "note": "段の並び（木→鉄→銀…）と効果の種類（押し出し・弾く・貫通・燃える・眠り）はコード（Item）で、ここは段ごとの数値だけ。キーは段の名前で、ここで段は足せない。書かない欄は 0。attack=剣の攻撃（素の攻撃と置き換え）/ guard=盾が受ける攻撃から引く数 / deflect=銀の盾が弾く確率 / damage=矢・小石・爆弾のダメージ / range=小石が届く最長の距離（矢は rules の arrowMax） / pierce=矢が貫いて当たる追加の敵の数 / burn=火の矢の燃える手の数 / radius=爆弾の範囲（主人公から縦横の差がこの数以内）/ sleep=眠り玉・煙玉で眠る手の数 / heal=薬の回復量 / food=食べ物で戻る満腹度（パン・肉。持たずに止まったマスで食べる）/ count=床から拾った時に増える数（矢・小石・爆弾・煙玉・薬）/ cap=持てる上限（上の段を拾った時は上の段の上限）。",
   "items": {
     "WoodSword": {
       "name": "木の剣",
@@ -31,58 +31,68 @@
     "WoodArrow": {
       "name": "木の矢",
       "damage": 3,
-      "count": 5
+      "count": 5,
+      "cap": 15
     },
     "IronArrow": {
       "name": "鉄の矢",
       "damage": 4,
       "pierce": 1,
-      "count": 5
+      "count": 5,
+      "cap": 15
     },
     "SilverArrow": {
       "name": "銀の矢",
       "damage": 5,
       "pierce": 2,
-      "count": 5
+      "count": 5,
+      "cap": 15
     },
     "FireArrow": {
       "name": "火の矢",
       "damage": 5,
       "burn": 3,
-      "count": 3
+      "count": 3,
+      "cap": 15
     },
     "SmallBomb": {
       "name": "小爆弾",
       "damage": 6,
       "radius": 1,
-      "count": 2
+      "count": 2,
+      "cap": 5
     },
     "BigBomb": {
       "name": "大爆弾",
       "damage": 8,
       "radius": 2,
-      "count": 2
+      "count": 2,
+      "cap": 5
     },
     "SleepBomb": {
       "name": "眠り玉",
       "radius": 2,
       "sleep": 3,
-      "count": 2
+      "count": 2,
+      "cap": 5
     },
     "Herb": {
       "name": "薬草",
       "heal": 6,
-      "count": 1
+      "count": 1,
+      "cap": 3
     },
     "Tonic": {
       "name": "回復薬",
       "heal": 12,
-      "count": 1
+      "count": 1,
+      "cap": 3
     },
     "Elixir": {
       "name": "万能薬",
       "heal": 99,
-      "count": 1
+      "count": 1,
+      "cap": 3
     },
     "Bread": {
       "name": "パン",
@@ -91,6 +101,19 @@
     "Meat": {
       "name": "肉",
       "food": 60
+    },
+    "Pebble": {
+      "name": "小石",
+      "damage": 1,
+      "range": 3,
+      "count": 6,
+      "cap": 12
+    },
+    "Smoke": {
+      "name": "煙玉",
+      "sleep": 2,
+      "count": 2,
+      "cap": 3
     }
   }
 }

@@ -13,7 +13,9 @@ mod Preview {
         case Blocked
         case Descend
         case Arrow
+        case Pebble
         case Bomb
+        case Smoke
         case Potion
         case Damage(Int32)
         case Falls
@@ -22,12 +24,13 @@ mod Preview {
     /// 1 手の要約。
     pub type alias Summary = List[Mark]
 
-    /// 出来事の列を「手（移動・殴る・待つ・×・降りる）・矢・爆弾・薬・受けるダメージ・倒れる」に要約する。
+    /// 出来事の列を「手（移動・殴る・待つ・×・降りる）・矢・小石・爆弾・煙玉・薬・受けるダメージ・倒れる」に要約する。
     /// 弾いた攻撃も盾で減らした後のダメージとして数える。
     pub def summarize(events: List[Event]): Summary =
         let damage = events |> List.map(damageOf) |> List.sum;
         let used = (mark, f) -> if (List.exists(f, events)) mark :: Nil else Nil;
-        (actOf(events) :: Nil) ::: used(Mark.Arrow, isArrow) ::: used(Mark.Bomb, isBomb) ::: used(Mark.Potion, isPotion)
+        (actOf(events) :: Nil) ::: used(Mark.Arrow, isThrown(Item.Family.Arrow)) ::: used(Mark.Pebble, isThrown(Item.Family.Pebble))
+            ::: used(Mark.Bomb, isBomb) ::: used(Mark.Smoke, isSmoke) ::: used(Mark.Potion, isPotion)
             ::: (if (damage > 0) Mark.Damage(damage) :: Nil else Nil) ::: used(Mark.Falls, e -> e == Event.HeroDied)
 
     def actOf(events: List[Event]): Mark =
@@ -57,8 +60,13 @@ mod Preview {
         case _ => false
     }
 
-    def isArrow(e: Event): Bool = match e {
-        case Event.ArrowShot(_, _, _) => true
+    def isThrown(family: Item.Family, e: Event): Bool = match e {
+        case Event.ArrowShot(_, kind, _) => Item.familyOf(kind) == family
+        case _ => false
+    }
+
+    def isSmoke(e: Event): Bool = match e {
+        case Event.SmokeThrown(_) => true
         case _ => false
     }
 
@@ -72,16 +80,18 @@ mod Preview {
         case _ => false
     }
 
-    /// 9 つの入力（8 方向＋待つ）それぞれの要約（遊んでいない Run は空）。
+    /// 9 つの入力（8 方向＋待つ）それぞれの要約（遊んでいない・選ぶ場面がある Run は空）。
     pub def preview(ctx: Ctx, runState: Run.State): List[(Input, Summary)] =
-        if (Run.statusOf(runState) != Run.Status.Playing) Nil
+        if (Run.statusOf(runState) != Run.Status.Playing or not List.isEmpty(Run.pendingOf(runState))) Nil
         else Run.inputs() |> List.map(input -> (input, summarize(snd(Step.step(ctx, runState, input)))))
 
     /// 敵の予告: 主人公の手の後にそこへ立っていたら、この手で敵の攻撃が届きうるマス。
     /// 起きた敵は 8 近傍の隣（角で遮られるマスは除く）と、弓兵なら射線（距離 arrowMin..arrowMax・矢を止めるマスまで。敵では止めない）。
     /// 眠っている敵は、そのマスに立つと気付かれる（起きる）所だけ。Dozing の敵（眠り玉・当たって起きる途中）はこの手では動かないので入れない。
+    /// 選ぶ場面がある間は空（手が進まない）。
     pub def dangerCells(ctx: Ctx, runState: Run.State): Set[Cell] =
-        Run.enemiesOf(runState) |> List.foldLeft((acc, e) -> Set.union(acc, threatOf(ctx, e)), Set.empty())
+        if (not List.isEmpty(Run.pendingOf(runState))) Set.empty()
+        else Run.enemiesOf(runState) |> List.foldLeft((acc, e) -> Set.union(acc, threatOf(ctx, e)), Set.empty())
 
     def threatOf(ctx: Ctx, e: Enemy.Enemy): Set[Cell] = match e#rest {
         case Enemy.Rest.Awake     => reachOf(ctx, e)

@@ -26,6 +26,7 @@ mod E2e {
     def roles(): InputMap.Table[String] =
         (Key.Left, "left") :: (Key.Right, "right") :: (Key.Up, "up") :: (Key.Down, "down") :: (Key.Space, "wait") ::
         (Key.Q, "upLeft") :: (Key.E, "upRight") :: (Key.Z, "downLeft") :: (Key.C, "downRight") ::
+        (Key.Digit1, "card1") :: (Key.Digit2, "card2") :: (Key.Digit3, "card3") :: (Key.Digit4, "card4") ::
         (Key.W, "dashUp") :: (Key.S, "dashDown") :: (Key.A, "dashLeft") :: (Key.D, "dashRight") :: (Key.Enter, "confirm") :: Nil
 
     /// flow の表: 役と問い。

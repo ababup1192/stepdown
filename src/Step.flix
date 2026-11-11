@@ -1,7 +1,9 @@
 // Step — 1 手を Run に当てる（純粋）。
 //   1. 主人公の手（8 方向。角は抜けない）: 敵がいれば殴る（移動しない）・歩けないか角なら何も起きない（手は進まない）・それ以外は動いて拾う。
 //      待つは「その場に動いた」とみなし、階段の上なら降りる（その手はそこで終わる）。
-//   2. 動いたか待った後、その位置で 1 つだけ判定する: 爆弾（8 近傍の起きた敵が bombNeeds 以上）→ 矢（直線の射程に敵）。
+//   2. 動いたか待った後、その位置で 1 つだけ判定する: 爆弾（攻撃できる隣の起きた敵が bombNeeds 以上）→ 矢 → 小石（直線の射程の起きた敵）
+//      → 煙玉（隣の起きた敵が bombNeeds 以上か、1 体以上で HP が smokeAt 以下）。
+//   拾う: 枠は slotCount まで。埋まっていて 4 種類目なら床に残して捨てるカード（pending）を積む。手は最後まで進め、Choose で答える。
 //   3. 気付いた敵が起きる → 敵の手番（主人公への歩く距離の近い順 → 作った順）。受けるたびに薬・倒れるを見る。
 //   4. 移動した手だけ数え、regenEvery ごとに HP +1（満腹度 0 の手は飛ばす）。
 //   5. 手が進んだ数を数え、hungerEvery ごとに満腹度 -1。満腹度 0 なら HP が減る（薬 → 倒れるを見る）。
@@ -15,13 +17,17 @@ mod Step {
     /// 1 手の途中の状態。log は起きた順の逆（finish で反転する）。
     type alias Turn = { runState = Run.Rec, log = List[Event] }
 
-    /// 1 手。Playing でない Run には何もしない。
+    /// 1 手。Playing でない Run には何もしない。選ぶ場面がある間は Choose だけを受け、Choose は手を進めない。
     pub def step(ctx: Ctx, runState: Run.State, input: Input): (Run.State, List[Event]) =
         let r = Run.rec(runState);
-        if (r#status != Status.Playing) (runState, Nil)
-        else match input {
-            case Input.Wait      => waitHere(ctx, r)
-            case Input.Move(dir) => moveTo(ctx, dir, r)
+        let choosing = not List.isEmpty(r#pending);
+        match input {
+            case _ if r#status != Status.Playing => (runState, Nil)
+            case Input.Choose(i) if choosing     => answer(ctx, i, r)
+            case _ if choosing                   => (runState, Nil)
+            case Input.Choose(_)                 => (runState, Nil)
+            case Input.Wait                      => waitHere(ctx, r)
+            case Input.Move(dir)                 => moveTo(ctx, dir, r)
         }
 
     /// 入力の列を順に当てる（最後の Run と、出来事を全部つないだ列）。
@@ -39,10 +45,12 @@ mod Step {
 
     def withRun(r: Run.Rec, t: Turn): Turn = { runState = r | t }
 
-    /// 手の終わり: 今の位置から見えるマスを見たことにする。
+    /// 手の終わり: 今の位置から見えるマスを見たことにし、拾わなかった物のマスを離れていたら忘れる。倒れたら選ぶ場面は捨てる。
     def finish(ctx: Ctx, t: Turn): (Run.State, List[Event]) =
         let r = t#runState;
-        (Run.of({ seen = Set.union(r#seen, Board.viewFrom(r#hero#at, ctx#board)) | r }), List.reverse(t#log))
+        let declined = r#declined |> Option.filter(c -> c == r#hero#at);
+        let pending = if (r#status == Status.Dead) Nil else r#pending;
+        (Run.of({ seen = Set.union(r#seen, Board.viewFrom(r#hero#at, ctx#board)), declined = declined, pending = pending | r }), List.reverse(t#log))
 
     // ══════════════════════════════════════════════════════
     // 主人公の手
@@ -51,7 +59,7 @@ mod Step {
     def waitHere(ctx: Ctx, r: Run.Rec): (Run.State, List[Event]) =
         if (Board.tileAt(r#hero#at, ctx#board) == Board.Tile.Stairs)
             finish(ctx, begin({ status = Status.Descended | r }) |> emit(Event.Descended))
-        else begin(r) |> emit(Event.HeroWaited) |> pickUp(ctx) |> judge(ctx) |> enemyPhase(ctx) |> hunger(ctx) |> finish(ctx)
+        else begin({ declined = None | r }) |> emit(Event.HeroWaited) |> pickUp(ctx) |> judge(ctx) |> enemyPhase(ctx) |> hunger(ctx) |> finish(ctx)
 
     def moveTo(ctx: Ctx, dir: Dir8, r: Run.Rec): (Run.State, List[Event]) =
         let target = Board.step8(dir, r#hero#at);
@@ -87,18 +95,29 @@ mod Step {
         }) |> Option.getWithDefault(t)
 
     // ══════════════════════════════════════════════════════
-    // 拾う（上位互換）
+    // 拾う（上位互換・枠は slotCount まで）
     // ══════════════════════════════════════════════════════
 
+    /// 足もとの物を拾う・食べる。枠が埋まっていて 4 種類目なら床に残したまま捨てるカードを積む
+    /// （拾わなかった物のマスでは積まない。待つ手は declined を消してから来るので聞き直す）。
     def pickUp(ctx: Ctx, t: Turn): Turn =
         let r = t#runState;
-        Map.get(r#hero#at, r#items) |> Option.map(kind ->
-            if (Item.familyOf(kind) == Item.Family.Food) eat(ctx, kind, t)
-            else {
-                let (taken, how) = take(ctx, kind, r);
-                t |> withRun({ items = Map.remove(r#hero#at, r#items) | taken }) |> emit(Event.Picked(kind, how))
-            }
-        ) |> Option.getWithDefault(t)
+        Map.get(r#hero#at, r#items) |> Option.map(kind -> pickUpKind(ctx, kind, t)) |> Option.getWithDefault(t)
+
+    def pickUpKind(ctx: Ctx, kind: Item.Kind, t: Turn): Turn =
+        let r = t#runState;
+        let family = Item.familyOf(kind);
+        if (family == Item.Family.Food) eat(ctx, kind, t)
+        else if (not hasRoom(family, r#pack) and r#declined == Some(r#hero#at)) t
+        else if (not hasRoom(family, r#pack)) t |> withRun({ pending = r#pending ::: (Run.Choice.Swap(kind) :: Nil) | r })
+        else {
+            let (taken, how) = take(ctx, kind, r);
+            t |> withRun({ items = Map.remove(r#hero#at, r#items) | taken }) |> emit(Event.Picked(kind, how))
+        }
+
+    /// family の物を拾う余地があるか: 枠に入らない系統・同じ系統の枠がある・枠が空いている。
+    def hasRoom(family: Item.Family, pack: Run.Pack): Bool =
+        not Item.isPacked(family) or Option.nonEmpty(Run.heldOf(family, pack)) or List.length(pack) < Run.slotCount()
 
     /// 足もとの食べ物を食べる（満腹度が最大なら床に残す。あふれる分は捨てる）。
     def eat(ctx: Ctx, kind: Item.Kind, t: Turn): Turn =
@@ -124,86 +143,120 @@ mod Step {
         case _ => (Some(kind), Item.Pick.Upgraded)
     }
 
-    /// 数あり: 上の段なら手持ち全部がその段になって数を足す、同じか下の段なら今の段の数に足す（どちらも上限で切る）。
+    /// 数あり: 上の段なら手持ち全部がその段になって数を足す、同じか下の段なら今の段の数に足す（どちらも残る段の上限で切る）。
     def stack(ctx: Ctx, kind: Item.Kind, held: Option[Run.Held]): (Run.Held, Item.Pick) =
-        let cap = RulesDoc.capOf(Item.familyOf(kind), ctx#rules);
-        let total = Int32.min(cap, Run.countOf(held) + ItemsDoc.statsOf(kind, ctx#items)#count);
+        let total = (k: Item.Kind) -> Int32.min(ItemsDoc.statsOf(k, ctx#items)#cap, Run.countOf(held) + ItemsDoc.statsOf(kind, ctx#items)#count);
         match held {
-            case Some(Run.Held.Held(now, _)) if Item.tierOf(now) >= Item.tierOf(kind) => (Run.Held.Held(now, total), Item.Pick.Stacked)
-            case _ => (Run.Held.Held(kind, total), Item.Pick.Upgraded)
+            case Some(Run.Held.Held(now, _)) if Item.tierOf(now) >= Item.tierOf(kind) => (Run.Held.Held(now, total(now)), Item.Pick.Stacked)
+            case _ => (Run.Held.Held(kind, total(kind)), Item.Pick.Upgraded)
         }
 
     // ══════════════════════════════════════════════════════
-    // 立ち位置の判定（爆弾 → 矢）
+    // 選ぶ場面（手は進めない）
+    // ══════════════════════════════════════════════════════
+
+    /// pending の先頭に i 枚目で答える（範囲外は何もしない）。
+    def answer(ctx: Ctx, i: Int32, r: Run.Rec): (Run.State, List[Event]) = match r#pending {
+        case Run.Choice.Swap(kind) :: rest => swap(ctx, kind, i, { pending = rest | r }) |> Option.getWithDefault((Run.of(r), Nil))
+        case Nil                           => (Run.of(r), Nil)
+    }
+
+    /// 捨てるカード: 0..枠の数-1 はその枠を捨てて足もとの kind をその位置へ拾う、枠の数番目は拾わずに床に残す（このマスでは聞き直さない）。
+    def swap(ctx: Ctx, kind: Item.Kind, i: Int32, r: Run.Rec): Option[(Run.State, List[Event])] =
+        let leave = i == List.length(r#pack);
+        let dropped = List.nth(i, r#pack);
+        if (leave) Some((Run.of({ declined = Some(r#hero#at) | r }), Nil))
+        else dropped |> Option.map(old -> {
+            let (held, _) = stack(ctx, kind, None);
+            let pack = r#pack |> List.zipWithIndex |> List.map(match (j, h) -> if (j == i) held else h);
+            (Run.of({ pack = pack, items = Map.remove(r#hero#at, r#items) | r }), Event.Swapped(Run.kindOfHeld(old), kind) :: Nil)
+        })
+
+    // ══════════════════════════════════════════════════════
+    // 立ち位置の判定（1 手に 1 つ: 爆弾 → 矢 → 小石 → 煙玉）
     // ══════════════════════════════════════════════════════
 
     def judge(ctx: Ctx, t: Turn): Turn =
         let r = t#runState;
+        let rules = RulesDoc.rec(ctx#rules);
         let around = r#enemies |> List.count(e -> Enemy.isAwake(e) and isBeside(ctx, e, r#hero#at));
-        let bombs = if (around >= RulesDoc.rec(ctx#rules)#bombNeeds) Run.heldOf(Item.Family.Bomb, r#pack) else None;
-        match (bombs, arrowTarget(ctx, r)) {
-            case (Some(Run.Held.Held(kind, n)), _) if n >= 1 => throwBomb(ctx, kind, t)
-            case (_, Some(dir)) => shoot(ctx, dir, t)
-            case _ => t
-        }
+        let usable = (family: Item.Family) -> Run.countOf(Run.heldOf(family, r#pack)) >= 1;
+        let smoky = around >= rules#bombNeeds or (around >= 1 and r#hero#hp <= RulesDoc.smokeHp(r#hero#maxHp, ctx#rules));
+        let shots = (family: Item.Family) -> if (usable(family)) lineTarget(ctx, family, r) else None;
+        if (around >= rules#bombNeeds and usable(Item.Family.Bomb)) throwBomb(ctx, t)
+        else shots(Item.Family.Arrow) |> Option.map(dir -> shoot(ctx, Item.Family.Arrow, dir, t))
+            |> Option.withDefault(default = shots(Item.Family.Pebble) |> Option.map(dir -> shoot(ctx, Item.Family.Pebble, dir, t)))
+            |> Option.getWithDefault(if (smoky and usable(Item.Family.Smoke)) throwSmoke(ctx, t) else t)
 
-    /// 矢を撃つ向き: 直線の距離 arrowMin..arrowMax に敵がいて、間に矢を止めるマスも敵も無い向きのうち、近い順 → 上・右・下・左。
-    def arrowTarget(ctx: Ctx, r: Run.Rec): Option[Dir] =
-        if (Run.countOf(Run.heldOf(Item.Family.Arrow, r#pack)) < 1) None
-        else {
-            let occupied = Run.occupancy(r#enemies);
-            let nearest = RulesDoc.rec(ctx#rules)#arrowMin;
-            Board.dirs()
-                |> List.filterMap(dir -> firstEnemyAlong(ctx, occupied, dir, r#hero#at, 1)
-                    |> Option.filter(k -> k >= nearest) |> Option.map(k -> (k, dir)))
-                |> List.foldLeft((best, c) -> if (Option.exists(b -> fst(b) <= fst(c), best)) best else Some(c), None)
-                |> Option.map(snd)
-        }
+    /// 矢・小石の届く最長の距離（矢は rules の arrowMax、小石は items の range）。
+    def farthestOf(ctx: Ctx, family: Item.Family, r: Run.Rec): Int32 =
+        if (family == Item.Family.Pebble) Run.heldOf(family, r#pack) |> Option.map(h -> ItemsDoc.statsOf(Run.kindOfHeld(h), ctx#items)#range) |> Option.getWithDefault(0)
+        else RulesDoc.rec(ctx#rules)#arrowMax
 
-    /// from から dir へ k マス目から見て、最初に敵がいる距離（矢を止めるマスか射程の外で None）。
-    def firstEnemyAlong(ctx: Ctx, occupied: Map[Cell, Enemy.Enemy], dir: Dir, origin: Cell, k: Int32): Option[Int32] =
+    /// 矢・小石を撃つ向き: 直線の距離 arrowMin..届く距離 の最初の敵が起きていて、間に矢を止めるマスも敵も無い向きのうち、近い順 → 上・右・下・左。
+    def lineTarget(ctx: Ctx, family: Item.Family, r: Run.Rec): Option[Dir] =
+        let occupied = Run.occupancy(r#enemies);
+        let nearest = RulesDoc.rec(ctx#rules)#arrowMin;
+        let farthest = farthestOf(ctx, family, r);
+        Board.dirs()
+            |> List.filterMap(dir -> firstEnemyAlong(ctx, occupied, farthest, dir, r#hero#at, 1)
+                |> Option.filter(hit -> fst(hit) >= nearest and Enemy.isAwake(snd(hit))) |> Option.map(hit -> (fst(hit), dir)))
+            |> List.foldLeft((best, c) -> if (Option.exists(b -> fst(b) <= fst(c), best)) best else Some(c), None)
+            |> Option.map(snd)
+
+    /// from から dir へ k マス目から見て、最初にいる敵とその距離（矢を止めるマスか farthest の外で None）。
+    def firstEnemyAlong(ctx: Ctx, occupied: Map[Cell, Enemy.Enemy], farthest: Int32, dir: Dir, origin: Cell, k: Int32): Option[(Int32, Enemy.Enemy)] =
         let cell = Board.ahead(dir, k, origin);
-        if (k > RulesDoc.rec(ctx#rules)#arrowMax or Board.stopsArrow(cell, ctx#board)) None
-        else if (Map.memberOf(cell, occupied)) Some(k)
-        else firstEnemyAlong(ctx, occupied, dir, origin, k + 1)
+        if (k > farthest or Board.stopsArrow(cell, ctx#board)) None
+        else Map.get(cell, occupied) |> Option.map(e -> (k, e)) |> Option.withDefault(default = firstEnemyAlong(ctx, occupied, farthest, dir, origin, k + 1))
 
-    def shoot(ctx: Ctx, dir: Dir, t: Turn): Turn =
+    /// family（矢か小石）を dir へ 1 つ放つ。
+    def shoot(ctx: Ctx, family: Item.Family, dir: Dir, t: Turn): Turn =
         let r = t#runState;
-        match Run.heldOf(Item.Family.Arrow, r#pack) {
+        match Run.heldOf(family, r#pack) {
             case Some(Run.Held.Held(kind, _)) =>
                 let stats = ItemsDoc.statsOf(kind, ctx#items);
-                let (hits, end) = arrowPath(ctx, Run.occupancy(r#enemies), dir, r#hero#at, 1 + stats#pierce);
-                let shot = t |> withRun({ pack = Run.spend(Item.Family.Arrow, r#pack) | r })
+                let flying = { limit = 1 + stats#pierce, farthest = farthestOf(ctx, family, r) };
+                let (hits, end) = flight(ctx, Run.occupancy(r#enemies), flying, dir, r#hero#at, 1, Nil);
+                let shot = t |> withRun({ pack = Run.spend(family, r#pack) | r })
                     |> emit(Event.ArrowShot(dir, kind, end));
                 hits |> List.foldLeft((acc, id) ->
                     acc |> emit(Event.ArrowHit(id, stats#damage)) |> hurt(id, stats#damage) |> setBurn(id, stats#burn), shot)
             case None => t
         }
 
-    /// 矢の通り道: 当たった敵の id（当たった順・limit 体まで）と、矢が止まったマス。
-    def arrowPath(ctx: Ctx, occupied: Map[Cell, Enemy.Enemy], dir: Dir, origin: Cell, limit: Int32): (List[Int32], Cell) =
-        flight(ctx, occupied, dir, origin, limit, 1, Nil)
-
-    def flight(ctx: Ctx, occupied: Map[Cell, Enemy.Enemy], dir: Dir, origin: Cell, limit: Int32, k: Int32, hits: List[Int32]): (List[Int32], Cell) =
+    /// 放った物の通り道（当たった敵の id は当たった順・limit 体まで、と止まったマス）。
+    def flight(ctx: Ctx, occupied: Map[Cell, Enemy.Enemy], flying: { limit = Int32, farthest = Int32 }, dir: Dir, origin: Cell, k: Int32, hits: List[Int32]): (List[Int32], Cell) =
         let cell = Board.ahead(dir, k, origin);
         let found = Map.get(cell, occupied) |> Option.map(e -> e#id) |> Option.filter(id -> not List.memberOf(id, hits));
         let hitsNow = Option.toList(found) ::: hits;
         if (Board.stopsArrow(cell, ctx#board)) (List.reverse(hits), Board.ahead(dir, k - 1, origin))
-        else if (List.length(hitsNow) >= limit or k >= RulesDoc.rec(ctx#rules)#arrowMax) (List.reverse(hitsNow), cell)
-        else flight(ctx, occupied, dir, origin, limit, k + 1, hitsNow)
+        else if (List.length(hitsNow) >= flying#limit or k >= flying#farthest) (List.reverse(hitsNow), cell)
+        else flight(ctx, occupied, flying, dir, origin, k + 1, hitsNow)
 
-    def throwBomb(ctx: Ctx, kind: Item.Kind, t: Turn): Turn =
+    def throwBomb(ctx: Ctx, t: Turn): Turn =
         let r = t#runState;
-        let stats = ItemsDoc.statsOf(kind, ctx#items);
-        let targets = r#enemies
-            |> List.filter(e -> Set.exists(c -> Board.chebyshev(c, r#hero#at) <= stats#radius, Enemy.cellsOf(e)))
-            |> List.map(e -> e#id);
-        let thrown = t |> withRun({ pack = Run.spend(Item.Family.Bomb, r#pack) | r })
-            |> emit(Event.BombThrown(kind, r#hero#at));
-        targets |> List.foldLeft((acc, id) -> acc |> bombHit(id, stats#damage) |> setSleep(id, stats#sleep), thrown)
+        Run.heldOf(Item.Family.Bomb, r#pack) |> Option.map(held -> {
+            let kind = Run.kindOfHeld(held);
+            let stats = ItemsDoc.statsOf(kind, ctx#items);
+            let targets = r#enemies
+                |> List.filter(e -> Set.exists(c -> Board.chebyshev(c, r#hero#at) <= stats#radius, Enemy.cellsOf(e)))
+                |> List.map(e -> e#id);
+            let thrown = t |> withRun({ pack = Run.spend(Item.Family.Bomb, r#pack) | r })
+                |> emit(Event.BombThrown(kind, r#hero#at));
+            targets |> List.foldLeft((acc, id) -> acc |> bombHit(id, stats#damage) |> setSleep(id, stats#sleep), thrown)
+        }) |> Option.getWithDefault(t)
 
     def bombHit(id: Int32, damage: Int32, t: Turn): Turn =
         if (damage <= 0) t else t |> emit(Event.BombHit(id, damage)) |> hurt(id, damage)
+
+    /// 煙玉: 主人公を攻撃できる隣の起きた敵を、煙玉の sleep 手だけ眠らせる。
+    def throwSmoke(ctx: Ctx, t: Turn): Turn =
+        let r = t#runState;
+        let turns = Run.heldOf(Item.Family.Smoke, r#pack) |> Option.map(h -> ItemsDoc.statsOf(Run.kindOfHeld(h), ctx#items)#sleep) |> Option.getWithDefault(0);
+        let targets = r#enemies |> List.filter(e -> Enemy.isAwake(e) and isBeside(ctx, e, r#hero#at)) |> List.map(e -> e#id);
+        let thrown = t |> withRun({ pack = Run.spend(Item.Family.Smoke, r#pack) | r }) |> emit(Event.SmokeThrown(r#hero#at));
+        targets |> List.foldLeft((acc, id) -> setSleep(id, turns, acc), thrown)
 
     // ══════════════════════════════════════════════════════
     // 敵の値を替える

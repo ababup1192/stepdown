@@ -111,6 +111,7 @@ mod TurnTimeline {
                 let row = d#bomb |> Option.map(bomb -> flashOn(pace, bomb, pace#arrow * 0.5, i, Sound.Hit))
                     |> Option.getWithDefault(cue(Sound.Hit, after(Beat.Flash, pace#strike)));
                 add(row :: Nil, d)
+            case Event.SmokeThrown(_)      => add(cue(Sound.Bomb, after(Beat.Bomb, pace#arrow * 1.5)) :: Nil, d)
             case Event.EnemyBurned(_, _)   => add(cue(Sound.Hit, after(Beat.Flash, pace#strike)) :: Nil, d)
             case Event.EnemyPushed(_, _, _) => add(after(Beat.EnemyMove, pace#step) :: Nil, d)
             case Event.EnemyDied(_, _, _)  => add(cue(Sound.Defeat, after(Beat.Die, pace#strike * 1.6)) :: Nil, d)

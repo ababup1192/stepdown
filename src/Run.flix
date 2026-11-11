@@ -5,11 +5,21 @@ mod Run {
 
     use Board.{Cell, Dir, Dir8}
 
-    /// 1 手の入力。
+    /// 1 手の入力。Choose は選ぶ場面（pending の先頭）のカードの何枚目か（手は進めない）。
     pub enum Input with Eq, Order, ToString {
         case Move(Dir8)
         case Wait
+        case Choose(Int32)
     }
+
+    /// 選ぶ場面。
+    ///   Swap(kind) … 枠が埋まっている時に 4 種類目の kind の上に立った。カードは持っている枠（並び順）と、足もとの kind（拾わない）
+    pub enum Choice with Eq, ToString {
+        case Swap(Item.Kind)
+    }
+
+    /// 持ち物の枠の数。
+    pub def slotCount(): Int32 = 3
 
     /// 予告を作る 9 つの入力（8 方向＋待つ）。
     pub def inputs(): List[Input] = (Board.dirs8() |> List.map(Input.Move)) ::: (Input.Wait :: Nil)
@@ -35,7 +45,7 @@ mod Run {
         case Held(Item.Kind, Int32)
     }
 
-    /// 持ち物の枠の列（拾った順・系統ごとに 1 枠）。0 個になった枠は列から外す。
+    /// 持ち物の枠の列（拾った順・系統ごとに 1 枠・slotCount まで）。0 個になった枠は列から外す。
     pub type alias Pack = List[Held]
 
     /// 補正（カードの効果）。攻撃と守りに足す。
@@ -52,6 +62,8 @@ mod Run {
     ///   walked  … 移動した手の数（自然回復の数え）
     ///   turns   … 手が進んだ数（空腹の数え。つかえた手・降りる手は数えない）
     ///   fullness … 満腹度（0 の間は 1 手ごとに HP が減り、自然回復は止まる）
+    ///   pending  … 選ぶ場面の列（先頭から 1 つずつ。ある間は Choose 以外の入力は何もしない）
+    ///   declined … 捨てるカードで拾わなかった物のマス（そのマスを離れたら消す）
     pub type alias Rec = {
         floor = Int32,
         layout = Int32,
@@ -66,6 +78,8 @@ mod Run {
         walked = Int32,
         turns = Int32,
         fullness = Int32,
+        pending = List[Choice],
+        declined = Option[Cell],
         nextId = Int32,
         status = Status
     }
@@ -91,12 +105,14 @@ mod Run {
         case Picked(Item.Kind, Item.Pick)
         /// 主人公が敵を殴った（敵の id・ダメージ）。
         case HeroStruck(Int32, Int32)
-        /// 主人公が矢を放った（向き・段・矢が止まったマス）。
+        /// 主人公が矢か小石を放った（向き・種類・止まったマス）。
         case ArrowShot(Dir, Item.Kind, Cell)
         case ArrowHit(Int32, Int32)
         /// 主人公が爆弾を投げた（段・中心のマス）。
         case BombThrown(Item.Kind, Cell)
         case BombHit(Int32, Int32)
+        /// 主人公が煙玉を使った（主人公のマス）。続く EnemySlept が眠った隣の敵。
+        case SmokeThrown(Cell)
         case EnemyBurned(Int32, Int32)
         /// 敵が眠った（id・眠る手の数）。
         case EnemySlept(Int32, Int32)
@@ -111,6 +127,8 @@ mod Run {
         case PotionUsed(Item.Kind, Int32)
         /// 主人公が足もとの食べ物を食べた（種類・戻った満腹度）。
         case Ate(Item.Kind, Int32)
+        /// 捨てるカードで持っていた物を捨て、足もとの物を拾った（捨てた物・拾った物）。
+        case Swapped(Item.Kind, Item.Kind)
         case Regenerated(Int32)
         case HeroDied
     }
@@ -154,7 +172,7 @@ mod Run {
                   enemies = enemies, items = List.toMap(placement#items |> List.map(match (kind, cell) -> (cell, kind))),
                   seen = Board.viewFrom(start, ctx#board), rng = at#rng, seed = at#seed,
                   perks = { attack = 0, guard = 0 }, walked = 0, turns = 0, fullness = RulesDoc.rec(ctx#rules)#fullnessMax,
-                  nextId = List.length(enemies), status = Status.Playing })
+                  pending = Nil, declined = None, nextId = List.length(enemies), status = Status.Playing })
 
     // ── 読む口 ──
 
@@ -165,6 +183,9 @@ mod Run {
     pub def enemiesOf(runState: State): List[Enemy.Enemy] = rec(runState)#enemies
 
     pub def statusOf(runState: State): Status = rec(runState)#status
+
+    /// 選ぶ場面の列。
+    pub def pendingOf(runState: State): List[Choice] = rec(runState)#pending
 
     /// 枠の系統。
     pub def familyOfHeld(held: Held): Item.Family = match held {
@@ -185,6 +206,11 @@ mod Run {
     pub def spend(family: Item.Family, pack: Pack): Pack = match heldOf(family, pack) {
         case Some(Held.Held(kind, n)) => withHeld(Held.Held(kind, n - 1), pack)
         case None                     => pack
+    }
+
+    /// 枠の種類。
+    pub def kindOfHeld(held: Held): Item.Kind = match held {
+        case Held.Held(kind, _) => kind
     }
 
     /// 枠の数（無ければ 0）。
@@ -225,5 +251,5 @@ mod Run {
     pub def fingerprint(runState: State): String =
         let r = rec(runState);
         let enemies = r#enemies |> List.map(e -> "${e#id}:${e#kind}@${e#at}/${e#hp}/${e#rest}") |> List.join(",");
-        "F${r#floor}.${r#layout}|${r#status}|hero=${r#hero#at}/${r#hero#hp}|sword=${r#hero#sword}|shield=${r#hero#shield}|pack=${r#pack}|enemies=${enemies}|items=${r#items}|walked=${r#walked}|turns=${r#turns}|fullness=${r#fullness}"
+        "F${r#floor}.${r#layout}|${r#status}|hero=${r#hero#at}/${r#hero#hp}|sword=${r#hero#sword}|shield=${r#hero#shield}|pack=${r#pack}|enemies=${enemies}|items=${r#items}|walked=${r#walked}|turns=${r#turns}|fullness=${r#fullness}|pending=${r#pending}|declined=${r#declined}"
 }

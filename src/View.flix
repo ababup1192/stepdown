@@ -115,8 +115,8 @@ mod View {
     def actOf(summary: Preview.Summary): Option[Act] =
         let has = mark -> List.memberOf(mark, summary);
         if (has(Preview.Mark.Blocked)) None
-        else if (has(Preview.Mark.Arrow)) Some(Act.Arrow)
-        else if (has(Preview.Mark.Bomb)) Some(Act.Bomb)
+        else if (has(Preview.Mark.Arrow) or has(Preview.Mark.Pebble)) Some(Act.Arrow)
+        else if (has(Preview.Mark.Bomb) or has(Preview.Mark.Smoke)) Some(Act.Bomb)
         else if (has(Preview.Mark.Descend)) Some(Act.Descend)
         else if (has(Preview.Mark.Strike)) Some(Act.Strike)
         else if (has(Preview.Mark.Potion)) Some(Act.Potion)
@@ -129,7 +129,7 @@ mod View {
         let hurt = summary |> List.map(damageOf) |> List.sum;
         let cell = match input {
             case Run.Input.Move(dir) => Board.step8(dir, hero)
-            case Run.Input.Wait      => hero
+            case _                   => hero
         };
         let plainWait = input == Run.Input.Wait and actOf(summary) == Some(Act.Wait) and hurt == 0;
         if (plainWait) None else actOf(summary) |> Option.map(a -> { input = input, cell = cell, act = a, hurt = hurt })
@@ -171,7 +171,7 @@ mod View {
         case Run.Input.Move(Dir8.DownLeft)  => { x = -24.0, y = 0.0 }
         case Run.Input.Move(Dir8.Left)      => { x = -30.0, y = -10.0 }
         case Run.Input.Move(Dir8.UpLeft)    => { x = -24.0, y = -14.0 }
-        case Run.Input.Wait                 => { x = 0.0, y = -118.0 }
+        case _                              => { x = 0.0, y = -118.0 }
     }
 
     def glyphOf(act: Act): HudView.Glyph = match act {

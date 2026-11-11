@@ -29,43 +29,53 @@
         },
         "damage": {
           "type": "int",
-          "label": "ダメージ（矢・爆弾）",
+          "label": "ダメージ（矢・小石・爆弾）",
           "order": 5
+        },
+        "range": {
+          "type": "int",
+          "label": "届く最長の距離（小石）",
+          "order": 6
         },
         "pierce": {
           "type": "int",
           "label": "貫通する追加の敵の数（矢）",
-          "order": 6
+          "order": 7
         },
         "burn": {
           "type": "int",
           "label": "燃える手の数（火の矢）",
-          "order": 7
+          "order": 8
         },
         "radius": {
           "type": "int",
           "label": "範囲（爆弾）",
-          "order": 8
+          "order": 9
         },
         "sleep": {
           "type": "int",
-          "label": "眠る手の数（眠り玉）",
-          "order": 9
+          "label": "眠る手の数（眠り玉・煙玉）",
+          "order": 10
         },
         "heal": {
           "type": "int",
           "label": "回復量（薬）",
-          "order": 10
+          "order": 11
         },
         "food": {
           "type": "int",
           "label": "戻る満腹度（食べ物）",
-          "order": 11
+          "order": 12
         },
         "count": {
           "type": "int",
           "label": "拾った時に増える数",
-          "order": 12
+          "order": 13
+        },
+        "cap": {
+          "type": "int",
+          "label": "持てる上限",
+          "order": 14
         }
       }
     }

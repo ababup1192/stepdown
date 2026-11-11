@@ -1,4 +1,4 @@
-// ダッシュ: 敵が見えたら止まる・分かれ道で止まる・一本道の角は曲がる・敵が見えている時は 1 歩・矢を使ったら止まる。
+// ダッシュ: 敵が見えたら止まる・分かれ道で止まる・一本道の角は曲がる・敵が見えている時は 1 歩・捨てるカードが立ったら止まる。
 // どれも部屋から通路へ 1 歩出てから始める（部屋の番号が変わる歩では止まるため）。
 mod TestDash {
 
@@ -41,11 +41,13 @@ mod TestDash {
         let (woken, _) = Step.step(c, start(c, (Enemy.Kind.Jelly, (7, 1)) :: Nil, Nil), Input.Wait);
         Assert.assertEq(expected = 1, List.length(Dash.dash(c, woken, Dir.Up)))
 
-    /// 矢を使った歩で止まる（見える距離 0 で、敵に気付かれずに射程へ入る）。
+    /// 枠が埋まった後に 4 種類目へ乗った歩で止まる（3 歩で 3 つ拾い、通路の (7, 1) の小石で止まる）。
     @Test
-    def testStopsAfterShooting(): Unit \ Assert =
-        let c = Fixtures.ctxWith(Fixtures.rulesWith("{\"wakeSteps\": 0}"), "############" :: "#@,,,,,,,,>#" :: "############" :: Nil);
-        let steps = dashFromCorridor(c, start(c, (Enemy.Kind.Jelly, (8, 1)) :: Nil, (Item.Kind.WoodArrow, (2, 1)) :: Nil));
-        Assert.assertEq(expected = (Some((4, 1)), Some(Mark.Move :: Mark.Arrow :: Nil)),
-            (lastCell(steps), List.last(steps) |> Option.map(e -> Preview.summarize(snd(e)))))
+    def testStopsWhenACardIsPending(): Unit \ Assert =
+        let c = ctx("############" :: "#@,,,,,,,,>#" :: "############" :: Nil);
+        let placed = (Item.Kind.WoodArrow, (2, 1)) :: (Item.Kind.SmallBomb, (3, 1)) :: (Item.Kind.Herb, (4, 1)) :: (Item.Kind.Pebble, (7, 1)) :: Nil;
+        let (ready, _) = Step.steps(c, start(c, Nil, placed), Input.Move(Dir8.Right) :: Input.Move(Dir8.Right) :: Input.Move(Dir8.Right) :: Nil);
+        let steps = Dash.dash(c, ready, Dir.Right);
+        Assert.assertEq(expected = (Some((7, 1)), Some(Run.Choice.Swap(Item.Kind.Pebble) :: Nil)),
+            (lastCell(steps), List.last(steps) |> Option.map(e -> Run.pendingOf(fst(e)))))
 }

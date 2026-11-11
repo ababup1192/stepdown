@@ -1,6 +1,6 @@
 // Dash — ダッシュ: 始めた時に最後まで計算する（1 歩ずつ同じ Step.step を通す）。見せる側は列を 1 歩ずつ流す。
 // 止まる（その歩で止まる）: 敵が見えた・拾った・食べた・階段に乗った・次が歩けない・分かれ道・部屋の番号が変わった・HP が減った・
-// 殴った・矢か爆弾を使った・満腹度が 0 になった。
+// 殴った・矢か小石か爆弾か煙玉を使った・満腹度が 0 になった・選ぶ場面が立った。
 // 一本道の通路の角は自動で曲がる（斜めにも曲がる）。始めた時に敵が見えていれば 1 歩だけ。始める向きは上下左右。
 mod Dash {
 
@@ -25,6 +25,7 @@ mod Dash {
         let (was, now) = (Run.heroOf(before), Run.heroOf(after));
         Run.statusOf(after) != Run.Status.Playing
             or now#hp < was#hp
+            or not List.isEmpty(Run.pendingOf(after))
             or (Run.rec(after)#fullness <= 0 and Run.rec(before)#fullness > 0)
             or List.exists(isStop, events)
             or Board.tileAt(now#at, ctx#board) == Board.Tile.Stairs
@@ -36,6 +37,7 @@ mod Dash {
         case Event.Ate(_, _)          => true
         case Event.ArrowShot(_, _, _) => true
         case Event.BombThrown(_, _)   => true
+        case Event.SmokeThrown(_)     => true
         case Event.HeroBlocked(_)     => true
         case Event.HeroStruck(_, _)   => true
         case Event.HeroHurt(_, _, _)  => true

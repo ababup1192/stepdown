@@ -3,7 +3,8 @@
 //
 // ── 画面の移り変わり ──
 //   Title ──決定──▶ Play ──倒れた──▶ Dead ──決定──▶ Title
-//                   Play ──階段で待つ──▶ Clear ──決定──▶ Title   （試作は 1F だけ。Cards は階の間の 3 枚から選ぶ画面）
+//                   Play ──階段で待つ──▶ Clear ──決定──▶ Title   （試作は 1F だけ）
+//   Play ──選ぶ場面が立ち、その手を見せ終えた──▶ Cards ──選ぶ（pending が空になる）──▶ Play
 //
 // ── 1 手の見せ方 ──
 // 手を当てた時に Run を進め、その手の出来事を時刻表（TurnTimeline）で遊びの時計の上に流す。
@@ -151,9 +152,9 @@ mod World {
 
     // ── 手を当てる ──
 
-    /// 盤への手。見せている間は 1 つだけ溜めて今の時刻表を飛ばし、ダッシュ中は次の歩で止める（溜めない）。
+    /// 盤への手。見せている間は 1 つだけ溜めて今の時刻表を飛ばし、ダッシュ中は次の歩で止める（溜めない）。選ぶ場面がある間は受けない。
     pub def command(res: Res.Res, act: Act, w: World): World =
-        if (w#screen != Screen.Play) w
+        if (w#screen != Screen.Play or isChoosing(w)) w
         else if (not List.isEmpty(w#shown#rest)) { shown = { rest = Nil | w#shown } | w }
         else if (isShowing(res, w)) skipShow({ queued = Some(act) | w })
         else apply(res, act, w)
@@ -163,9 +164,13 @@ mod World {
         case Act.Dash(dir) => dash(res, dir, w)
     }
 
-    /// 毎コマ: 見せ終えたら、ダッシュの次の歩か溜めた手を始める。
+    /// 選ぶ場面が立っているか（Screen.Cards は見せ終えてからこれを写す）。
+    def isChoosing(w: World): Bool = not List.isEmpty(Run.pendingOf(w#runState))
+
+    /// 毎コマ: 見せ終えたら、選ぶ場面なら Cards へ、そうでなければダッシュの次の歩か溜めた手を始める。
     pub def advance(res: Res.Res, w: World): World =
         if (isShowing(res, w)) w
+        else if (w#screen == Screen.Play and isChoosing(w)) { screen = Screen.Cards | w }
         else match (w#shown#rest, w#queued) {
             case ((next, events) :: tail, _) => settleScreen(withRun(res, next, events, { dash = true, rest = tail }, w))
             case (Nil, Some(act))            => apply(res, act, { queued = None | w })
@@ -199,10 +204,27 @@ mod World {
             case Nil                     => w
         }
 
+    /// 倒れたら Dead・降りたら Clear。選ぶ場面が立ったら溜めた手とダッシュの残りを捨てる（Cards へは見せ終えてから advance が移す）。
     def settleScreen(w: World): World = match Run.statusOf(w#runState) {
         case Run.Status.Dead      => { screen = Screen.Dead, shown = { rest = Nil | w#shown } | w }
         case Run.Status.Descended => { screen = Screen.Clear, shown = { rest = Nil | w#shown } | w }
+        case Run.Status.Playing if isChoosing(w) => { queued = None, shown = { rest = Nil | w#shown } | w }
         case Run.Status.Playing   => w
+    }
+
+    /// 選ぶ場面の index 枚目で答え、答え終えたら遊びへ戻る（範囲外は何もしない）。
+    pub def answerCard(res: Res.Res, index: Int32, w: World): World =
+        if (w#screen != Screen.Cards) w
+        else {
+            let (next, events) = Step.step(ctx(res, w), w#runState, Input.Choose(index));
+            let answered = withRun(res, next, events, { dash = false, rest = Nil }, w);
+            { screen = if (isChoosing(answered)) Screen.Cards else Screen.Play | answered }
+        }
+
+    /// 決定で答える時のカード: 捨てるカードは「拾わない」（足もとの物・最後の 1 枚）。
+    pub def defaultChoice(w: World): Int32 = match Run.pendingOf(w#runState) {
+        case Run.Choice.Swap(_) :: _ => List.length(Run.packOf(w#runState))
+        case _                       => 0
     }
 
     /// 題名へ戻る（次の周回の種で、後ろの 1F を作り直す）。

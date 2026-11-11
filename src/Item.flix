@@ -22,14 +22,18 @@ mod Item {
         case Elixir
         case Bread
         case Meat
+        case Pebble
+        case Smoke
     }
 
-    /// 系統。剣と盾は数なし、矢・爆弾・薬は数あり。食べ物は持たずに止まったマスで食べる。
+    /// 系統。剣と盾は数なし（枠の外の装備）。矢・小石・爆弾・煙玉・薬は数ありで持ち物の枠に入る。食べ物は持たずに止まったマスで食べる。
     pub enum Family with Eq, Order, ToString {
         case Sword
         case Shield
         case Arrow
+        case Pebble
         case Bomb
+        case Smoke
         case Potion
         case Food
     }
@@ -62,7 +66,7 @@ mod Item {
     pub def all(): List[Kind] =
         Kind.WoodSword :: Kind.IronSword :: Kind.SilverSword :: Kind.WoodShield :: Kind.IronShield :: Kind.SilverShield ::
         Kind.WoodArrow :: Kind.IronArrow :: Kind.SilverArrow :: Kind.FireArrow ::
-        Kind.SmallBomb :: Kind.BigBomb :: Kind.SleepBomb :: Kind.Herb :: Kind.Tonic :: Kind.Elixir :: Kind.Bread :: Kind.Meat :: Nil
+        Kind.SmallBomb :: Kind.BigBomb :: Kind.SleepBomb :: Kind.Herb :: Kind.Tonic :: Kind.Elixir :: Kind.Bread :: Kind.Meat :: Kind.Pebble :: Kind.Smoke :: Nil
 
     /// Doc に書いた名前（enum の名前のまま）から種類へ。
     pub def fromName(name: String): Option[Kind] = all() |> List.find(kind -> "${kind}" == name)
@@ -86,6 +90,8 @@ mod Item {
         case Kind.Elixir       => Family.Potion
         case Kind.Bread        => Family.Food
         case Kind.Meat         => Family.Food
+        case Kind.Pebble       => Family.Pebble
+        case Kind.Smoke        => Family.Smoke
     }
 
     /// 系統の中の段（下から 0, 1, 2, …）。
@@ -108,6 +114,16 @@ mod Item {
         case Kind.Elixir       => 2
         case Kind.Bread        => 0
         case Kind.Meat         => 1
+        case Kind.Pebble       => 0
+        case Kind.Smoke        => 0
+    }
+
+    /// 持ち物の枠に入る系統か（剣・盾・食べ物は入らない）。
+    pub def isPacked(family: Family): Bool = match family {
+        case Family.Sword  => false
+        case Family.Shield => false
+        case Family.Food   => false
+        case _             => true
     }
 
     /// その段だけが持つ効果。

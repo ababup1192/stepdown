@@ -132,41 +132,21 @@
       "max": 30,
       "default": 5
     },
-    "arrowCap": {
+    "smokeAt": {
       "kind": "field",
-      "type": "int",
-      "label": "矢の上限",
-      "order": 14,
-      "group": "持ち物",
-      "min": 1,
-      "max": 99,
-      "default": 15
-    },
-    "bombCap": {
-      "kind": "field",
-      "type": "int",
-      "label": "爆弾の上限",
-      "order": 15,
-      "group": "持ち物",
-      "min": 1,
-      "max": 99,
-      "default": 5
-    },
-    "potionCap": {
-      "kind": "field",
-      "type": "int",
-      "label": "薬の上限",
-      "order": 16,
-      "group": "持ち物",
-      "min": 1,
-      "max": 99,
-      "default": 3
+      "type": "float",
+      "label": "煙玉を 1 体の隣でも使う HP（最大 HP × これ 以下）",
+      "group": "判定",
+      "min": 0.0,
+      "max": 1.0,
+      "default": 0.5,
+      "order": 14
     },
     "tapWaitRadius": {
       "kind": "field",
       "type": "float",
       "label": "主人公のマスの中のタップを待つとみなす半径（マス）",
-      "order": 17,
+      "order": 15,
       "group": "タップ",
       "min": 0.0,
       "max": 1.0,
@@ -176,7 +156,7 @@
       "kind": "field",
       "type": "float",
       "label": "押してから動いてもタップとみなす距離（px）",
-      "order": 18,
+      "order": 16,
       "group": "タップ",
       "min": 0.0,
       "max": 80.0,

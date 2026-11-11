@@ -50,15 +50,23 @@ mod TestStep {
         let (after, events) = Step.step(c, start(c, Nil, Nil), Input.Move(Dir8.Left));
         Assert.assertEq(expected = (Event.HeroBlocked(Dir8.Left) :: Nil, 0), (events, Run.rec(after)#walked))
 
-    /// 動いた先のアイテムを拾ってから判定する: 拾った矢で、距離 3 の敵を撃つ。
+    /// 動いた先のアイテムを拾ってから判定する: 拾った矢で、距離 2 の起きた敵を撃つ（1 手目の待つでゼリーは (5, 2) から (4, 3) へ寄る）。
     @Test
     def testPickUpComesBeforeTheArrow(): Unit \ Assert =
         let c = ctx(hall());
-        let (_, events) = Step.step(c, start(c, (Enemy.Kind.Jelly, (5, 3)) :: Nil, (Item.Kind.WoodArrow, (2, 3)) :: Nil), right());
+        let (woken, _) = Step.step(c, start(c, (Enemy.Kind.Jelly, (5, 2)) :: Nil, (Item.Kind.WoodArrow, (2, 3)) :: Nil), Input.Wait);
+        let (_, events) = Step.step(c, woken, right());
         Assert.assertEq(
             expected = Event.HeroMoved((1, 3), (2, 3)) :: Event.Picked(Item.Kind.WoodArrow, Item.Pick.Upgraded)
-                :: Event.ArrowShot(Dir.Right, Item.Kind.WoodArrow, (5, 3)) :: Event.ArrowHit(0, stats(Item.Kind.WoodArrow)#damage) :: Nil,
+                :: Event.ArrowShot(Dir.Right, Item.Kind.WoodArrow, (4, 3)) :: Event.ArrowHit(0, stats(Item.Kind.WoodArrow)#damage) :: Nil,
             List.take(4, events))
+
+    /// 矢は眠っている敵を狙わない（見える距離 0 の通路で、距離 3 の眠ったゼリーは眠ったまま）。
+    @Test
+    def testArrowSkipsSleepingEnemies(): Unit \ Assert =
+        let c = Fixtures.ctxWith(Fixtures.rulesWith("{\"wakeSteps\": 0}"), "#########" :: "#@,,,,,>#" :: "#########" :: Nil);
+        let (after, events) = Step.step(c, start(c, (Enemy.Kind.Jelly, (5, 1)) :: Nil, (Item.Kind.WoodArrow, (2, 1)) :: Nil), right());
+        Assert.assertEq(expected = (Mark.Move :: Nil, (0, Enemy.Rest.Dormant) :: Nil), (Preview.summarize(events), Fixtures.enemyRests(after)))
 
     /// 階段の上で待つと降りる（敵は動かない）。
     @Test
@@ -71,25 +79,28 @@ mod TestStep {
     // 立ち位置の判定
     // ══════════════════════════════════════════════════════
 
-    /// 隣（距離 1）の敵には矢を撃たない。
+    /// 隣（距離 1）の敵には矢を撃たない（1 手目の待つでゼリーは (4, 2) から (3, 3) へ寄る）。
     @Test
     def testNoArrowAtDistanceOne(): Unit \ Assert =
         let c = ctx(hall());
-        let (_, events) = Step.step(c, start(c, (Enemy.Kind.Jelly, (3, 3)) :: Nil, (Item.Kind.WoodArrow, (2, 3)) :: Nil), right());
+        let (woken, _) = Step.step(c, start(c, (Enemy.Kind.Jelly, (4, 2)) :: Nil, (Item.Kind.WoodArrow, (2, 3)) :: Nil), Input.Wait);
+        let (_, events) = Step.step(c, woken, right());
         Assert.assertEq(expected = Mark.Move :: Mark.Damage(jellyAttack()) :: Nil, Preview.summarize(events))
 
-    /// 矢は岩で止まる（岩の向こうの敵は撃たない）。
+    /// 矢は岩で止まる（岩の向こうの起きた敵は撃たない。ゼリーは岩で道が無く、待つ間に起きるだけ）。
     @Test
     def testRockStopsTheArrow(): Unit \ Assert =
         let c = ctx("#########" :: "#@..r..>#" :: "#########" :: Nil);
-        let (_, events) = Step.step(c, start(c, (Enemy.Kind.Jelly, (5, 1)) :: Nil, (Item.Kind.WoodArrow, (2, 1)) :: Nil), right());
+        let (woken, _) = Step.step(c, start(c, (Enemy.Kind.Jelly, (5, 1)) :: Nil, (Item.Kind.WoodArrow, (2, 1)) :: Nil), Input.Wait);
+        let (_, events) = Step.step(c, woken, right());
         Assert.assertEq(expected = Mark.Move :: Nil, Preview.summarize(events))
 
-    /// 鉄の矢は 1 体を貫いて後ろの敵にも当たる。
+    /// 鉄の矢は 1 体を貫いて後ろの敵にも当たる（1 手目の待つで 2 体は (5, 2)・(6, 2) から (4, 3)・(5, 3) へ寄る）。
     @Test
     def testIronArrowPiercesOneEnemy(): Unit \ Assert =
         let c = ctx(hall());
-        let (_, events) = Step.step(c, start(c, (Enemy.Kind.Jelly, (4, 3)) :: (Enemy.Kind.Jelly, (5, 3)) :: Nil, (Item.Kind.IronArrow, (2, 3)) :: Nil), right());
+        let (woken, _) = Step.step(c, start(c, (Enemy.Kind.Jelly, (5, 2)) :: (Enemy.Kind.Jelly, (6, 2)) :: Nil, (Item.Kind.IronArrow, (2, 3)) :: Nil), Input.Wait);
+        let (_, events) = Step.step(c, woken, right());
         let damage = stats(Item.Kind.IronArrow)#damage;
         Assert.assertEq(expected = Event.ArrowShot(Dir.Right, Item.Kind.IronArrow, (5, 3)) :: Event.ArrowHit(0, damage) :: Event.ArrowHit(1, damage) :: Nil,
             events |> List.drop(2) |> List.take(3))
@@ -103,6 +114,23 @@ mod TestStep {
         let (ready, _) = Step.step(c, first, right());
         let (after, events) = Step.step(c, ready, Input.Wait);
         Assert.assertEq(expected = (Mark.Wait :: Mark.Bomb :: Nil, Nil), (Preview.summarize(events), Fixtures.enemyCells(after)))
+
+    /// 爆弾が無く、攻撃できる隣の起きた敵が bombNeeds 体以上なら煙玉で眠らせる（爆弾の時と同じ並び。眠った手は殴られない）。
+    @Test
+    def testSmokeWhenSurroundedWithoutABomb(): Unit \ Assert =
+        let c = ctx(hall());
+        let first = start(c, (Enemy.Kind.Jelly, (4, 2)) :: (Enemy.Kind.Jelly, (4, 4)) :: Nil, (Item.Kind.Smoke, (2, 3)) :: Nil);
+        let (ready, _) = Step.step(c, first, right());
+        let (_, events) = Step.step(c, ready, Input.Wait);
+        Assert.assertEq(expected = Mark.Wait :: Mark.Smoke :: Nil, Preview.summarize(events))
+
+    /// 隣の起きた敵が 1 体でも、HP が 最大 × smokeAt 以下なら煙玉（最大 HP 4 で閾値 2。2 手目に殴られて 2 → 3 手目に使う）。
+    @Test
+    def testSmokeWithOneNeighbourWhenHpIsLow(): Unit \ Assert =
+        let c = Fixtures.ctxWith(Fixtures.rulesWith("{\"maxHp\": 4}"), hall());
+        let (hit, _) = Step.steps(c, start(c, (Enemy.Kind.Jelly, (4, 2)) :: Nil, (Item.Kind.Smoke, (2, 3)) :: Nil), right() :: Input.Wait :: Nil);
+        let (_, events) = Step.step(c, hit, Input.Wait);
+        Assert.assertEq(expected = (4 - jellyAttack(), Mark.Wait :: Mark.Smoke :: Nil), (Run.heroOf(hit)#hp, Preview.summarize(events)))
 
     // ══════════════════════════════════════════════════════
     // 敵が起きる・敵の手番

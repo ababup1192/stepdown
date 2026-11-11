@@ -32,11 +32,12 @@ mod Controls {
             }
         }
 
-    /// キーが表す操作。
+    /// キーが表す操作。Choose は選ぶ場面のカードの何枚目か（数字のキー 1〜4。並びの決まりなので割り当ての Doc には載せない）。
     pub enum Command with Eq, ToString {
         case Go(Run.Input)
         case Dash(Dir)
         case Confirm
+        case Choose(Int32)
     }
 
     def isDash(command: Command): Bool = match command {
@@ -65,7 +66,9 @@ mod Controls {
             :: (k#left, arrow(Dir.Left)) :: (k#right, arrow(Dir.Right))
             :: (k#upLeft, Command.Go(Run.Input.Move(Dir8.UpLeft))) :: (k#upRight, Command.Go(Run.Input.Move(Dir8.UpRight)))
             :: (k#downLeft, Command.Go(Run.Input.Move(Dir8.DownLeft))) :: (k#downRight, Command.Go(Run.Input.Move(Dir8.DownRight)))
-            :: (k#wait, Command.Go(Run.Input.Wait)) :: Nil)
+            :: (k#wait, Command.Go(Run.Input.Wait))
+            :: (Key.Digit1 :: Nil, Command.Choose(0)) :: (Key.Digit2 :: Nil, Command.Choose(1))
+            :: (Key.Digit3 :: Nil, Command.Choose(2)) :: (Key.Digit4 :: Nil, Command.Choose(3)) :: Nil)
             |> List.find(e -> tapped(fst(e))) |> Option.map(snd)
 
     /// 操作を画面ごとに当てる。題名はどの操作でも始め、遊びは 1 歩・待つ・ダッシュ、倒れた・抜けた後は見せ終えてから決定で題名へ。
@@ -74,6 +77,8 @@ mod Controls {
             case (World.Screen.Title, _)                => World.begin(res, w)
             case (World.Screen.Play, Command.Go(input)) => World.command(res, World.Act.Go(input), w)
             case (World.Screen.Play, Command.Dash(dir)) => World.command(res, World.Act.Dash(dir), w)
+            case (World.Screen.Cards, Command.Confirm)  => World.answerCard(res, World.defaultChoice(w), w)
+            case (World.Screen.Cards, Command.Choose(i)) => World.answerCard(res, i, w)
             case (World.Screen.Dead, Command.Confirm) if not World.isBusy(res, w)  => World.toTitle(res, w)
             case (World.Screen.Clear, Command.Confirm) if not World.isBusy(res, w) => World.toTitle(res, w)
             case _ => w
