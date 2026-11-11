@@ -2,7 +2,7 @@
   "verbs": ["start", "tap", "hold", "release", "wait", "until", "drive", "expect", "mark", "run", "reload", "request", "close", "rewind"],
   "settings": ["fps", "ready"],
   "options": {},
-  "roles": ["left", "right", "up", "down", "wait", "dashUp", "dashDown", "dashLeft", "dashRight", "confirm"],
+  "roles": ["left", "right", "up", "down", "wait", "upLeft", "upRight", "downLeft", "downRight", "card1", "card2", "card3", "card4", "dashUp", "dashDown", "dashLeft", "dashRight", "confirm"],
   "probes": [
     {"name": "screen", "kind": "text", "doc": "画面（Title・Play・Cards・Dead・Clear）"},
     {"name": "floor", "kind": "num", "doc": "階（1 から）"},
