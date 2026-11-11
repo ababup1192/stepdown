@@ -6,7 +6,7 @@
   "maxHp": 5,
   "attack": 1,
   "reach": 1,
-  "hungerEvery": 2,
+  "hungerEvery": 5,
   "feast": 10,
   "wallDamage": 1
 }

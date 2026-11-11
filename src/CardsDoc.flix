@@ -33,7 +33,7 @@ mod CardsDoc {
 
     /// コード側の既定値（assets/stepdown.cards.json と同じ値から出発する）。
     pub def defaults(): Doc =
-        Doc.Doc({ version = 1, choices = 3, maxHp = 5, attack = 1, reach = 1, hungerEvery = 2, feast = 10, wallDamage = 1 })
+        Doc.Doc({ version = 1, choices = 3, maxHp = 5, attack = 1, reach = 1, hungerEvery = 5, feast = 10, wallDamage = 1 })
 
     /// テキストから Doc へ（fail-open）。JSON でない・形が違うフィールドは既定へ落とす。
     pub def fromJson(text: String): Option[Doc] =
