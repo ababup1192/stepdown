@@ -79,7 +79,7 @@ mod Preview {
 
     /// 敵の予告: 主人公の手の後にそこへ立っていたら、この手で敵の攻撃が届きうるマス。
     /// 起きた敵は 8 近傍の隣（角で遮られるマスは除く）と、弓兵なら射線（距離 arrowMin..arrowMax・矢を止めるマスまで。敵では止めない）。
-    /// 眠っている敵は、そのマスに立つと気付かれる（起きる）所だけ。眠り玉で眠っている敵はこの手では動かないので入れない。
+    /// 眠っている敵は、そのマスに立つと気付かれる（起きる）所だけ。Dozing の敵（眠り玉・当たって起きる途中）はこの手では動かないので入れない。
     pub def dangerCells(ctx: Ctx, runState: Run.State): Set[Cell] =
         Run.enemiesOf(runState) |> List.foldLeft((acc, e) -> Set.union(acc, threatOf(ctx, e)), Set.empty())
 

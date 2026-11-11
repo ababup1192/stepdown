@@ -20,12 +20,12 @@ mod TestStep {
     // 主人公の手
     // ══════════════════════════════════════════════════════
 
-    /// 敵のいるマスへ動くと殴る（移動しない）。起きた敵はそのまま隣から殴り返す。
+    /// 敵のいるマスへ動くと殴る（移動しない）。眠っていた敵はその手の敵の番で起きるだけで、殴り返さない。
     @Test
     def testMovingIntoAnEnemyStrikesWithoutMoving(): Unit \ Assert =
         let c = ctx(hall());
         let (after, events) = Step.step(c, start(c, (Enemy.Kind.Jelly, (2, 3)) :: Nil, Nil), right());
-        Assert.assertEq(expected = ((1, 3), Event.HeroStruck(0, rules()#baseAttack) :: Event.EnemyWoke(0) :: Event.HeroHurt(Source.Melee(0), jellyAttack(), false) :: Nil),
+        Assert.assertEq(expected = ((1, 3), Event.HeroStruck(0, rules()#baseAttack) :: Event.EnemyWoke(0) :: Nil),
             (Run.heroOf(after)#at, events))
 
     /// 斜めの 2 つの横のマスのどちらかが壁なら、その斜めには動けない（水は角を作らないので抜けられる）。
@@ -134,6 +134,16 @@ mod TestStep {
         let (_, events) = Step.step(c, first, Input.Move(Dir8.Up));
         Assert.assertEq(expected = (false, false),
             (List.exists(Run.hurtsHero, events), Set.memberOf((1, 1), Preview.dangerCells(c, first))))
+
+    /// 眠っている敵は殴られても、その手の敵の番では動かずに起き（Dozing(1) → Awake）、次の手から殴り返す（見える距離 0 の通路）。
+    @Test
+    def testHitSleeperWakesNextTurn(): Unit \ Assert =
+        let c = { enemies = Fixtures.enemiesWith("{\"enemies\": {\"Jelly\": {\"hp\": 50}}}")
+                  | Fixtures.ctxWith(Fixtures.rulesWith("{\"wakeSteps\": 0}"), "#######" :: "#@,,,>#" :: "#######" :: Nil) };
+        let (struck, first) = Step.step(c, start(c, (Enemy.Kind.Jelly, (2, 1)) :: Nil, Nil), right());
+        let (_, second) = Step.step(c, struck, Input.Wait);
+        Assert.assertEq(expected = ((0, Enemy.Rest.Awake) :: Nil, false, true),
+            (Fixtures.enemyRests(struck), List.exists(Run.hurtsHero, first), List.exists(Run.hurtsHero, second)))
 
     /// 弓兵: 列がそろい距離 2〜4 で間が空いていれば撃つ。
     @Test

@@ -201,13 +201,13 @@ mod Step {
     def setEnemy(e: Enemy.Enemy, t: Turn): Turn =
         t |> withRun({ enemies = t#runState#enemies |> List.map(x -> if (x#id == e#id) e else x) | t#runState })
 
-    /// 敵にダメージ。HP が 0 以下なら倒れて消える。
-    /// WhyNot: 当たっても眠りから起こさない。起こすと、主人公の矢で起きた弓兵が撃ち返す形が敵の予告（気付く位置だけを見る）から漏れる。
+    /// 敵にダメージ。HP が 0 以下なら倒れて消える。眠っている敵は Dozing(1) になり、その手の敵の番では動かず次の手から起きる。
+    /// WhyNot: すぐ起こさない。その手で撃ち返す・殴り返すと、敵の予告（その手の前に起きている敵と、気付く位置だけを見る）から漏れる。
     def hurt(id: Int32, damage: Int32, t: Turn): Turn =
         enemyOf(id, t) |> Option.map(e ->
             if (e#hp - damage <= 0)
                 t |> withRun({ enemies = List.filter(x -> x#id != id, t#runState#enemies) | t#runState }) |> emit(Event.EnemyDied(id, e#kind, e#at))
-            else t |> setEnemy({ hp = e#hp - damage | e })
+            else t |> setEnemy({ hp = e#hp - damage, rest = if (Enemy.isAwake(e)) e#rest else Enemy.Rest.Dozing(1) | e })
         ) |> Option.getWithDefault(t)
 
     def setBurn(id: Int32, turns: Int32, t: Turn): Turn =
@@ -263,7 +263,8 @@ mod Step {
 
     def byRest(ctx: Ctx, dist: Map[Cell, Int32], e: Enemy.Enemy, t: Turn): Turn = match e#rest {
         case Enemy.Rest.Dormant   => t
-        case Enemy.Rest.Dozing(n) => setEnemy({ rest = if (n <= 1) Enemy.Rest.Awake else Enemy.Rest.Dozing(n - 1) | e }, t)
+        case Enemy.Rest.Dozing(n) if n <= 1 => t |> setEnemy({ rest = Enemy.Rest.Awake | e }) |> emit(Event.EnemyWoke(e#id))
+        case Enemy.Rest.Dozing(n) => setEnemy({ rest = Enemy.Rest.Dozing(n - 1) | e }, t)
         case Enemy.Rest.Awake     =>
             let counted = { turns = e#turns + 1 | e };
             act(ctx, dist, counted, setEnemy(counted, t))
