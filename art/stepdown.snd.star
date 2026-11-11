@@ -1,8 +1,9 @@
-# 石のダンジョンの効果音 13 個（1 手の時刻表の Cue で鳴らす。名前は TurnTimeline.Sound と同じ sd_*）。
+# 石のダンジョンの効果音 17 個（1 手の時刻表の Cue で鳴らす。名前は TurnTimeline.Sound と同じ sd_*）。
 # bin/fge snd build art/stepdown.snd.star で art/sfx/*.sndsrc.json を書き、検査を通った物を atelier/sfx/<名前>.wav へ書く
 # （採用した物を assets/sfx へ移し、project.json の sounds に載せる）。
 # 石の部屋なので短い響きを少し足す。1 手は 0.1〜0.2 秒で回るので、どれも 0.25 秒以内に収め、続けて鳴っても濁らない長さにする。
 # 立ち上がりは 2ms 以上（耳に刺さる「パチ」を出さない）。
+# ファンファーレとカードの 3 つは遊びの時計が止まった間に鳴る（World.cardSounds）。ファンファーレだけ 0.6 秒前後まで伸ばす。
 
 def tone(hz, ms, at = 0, amp = 0.35, decay = 60, to_hz = None, attack = 3, duty = 0.5, cut = 2.0):
     return {"at": at, "ops": [op.pulse(hz = hz, ms = ms, amp = amp, duty = duty, to_hz = to_hz, accumulate = to_hz != None),
@@ -61,4 +62,18 @@ def main():
                        [tone(98, 400, at = 300, amp = 0.2, decay = 200)], room = 0.6, wet = 0.25, lufs = -21)
     # 主人公が倒れる: 下がる重い音と、崩れる雑音。
     sound("sd_fall", [tone(220, 500, amp = 0.32, decay = 260, to_hz = 55), hiss(300, at = 120, amp = 0.3, hz = 900, decay = 120)], room = 0.5, wet = 0.2, lufs = -20)
+    # 食べる: 噛む短い 2 つの「モグ」と、小さく上がる音。
+    sound("sd_eat", [hiss(45, amp = 0.3, hz = 900, decay = 14, attack = 3), hiss(45, at = 110, amp = 0.28, hz = 800, decay = 14, attack = 3),
+                     tone(392, 60, at = 200, amp = 0.16, decay = 30, duty = 0.25), tone(523, 80, at = 250, amp = 0.16, decay = 40, duty = 0.25)], room = 0.2, wet = 0.08, lufs = -23)
+    # 捨てる: 物が離れる下がる風切りと、石に落ちる小さな「コト」。
+    sound("sd_discard", [sweep(140, amp = 0.25, hz = 2200, to_hz = 600, attack = 6, decay = 60), tone(240, 50, at = 150, amp = 0.28, decay = 14, to_hz = 180)], lufs = -23)
+    # カードを選ぶ: 明るい 2 音が上がり、光って吸い込まれる短いきらめき。
+    sound("sd_card", [tone(784, 60, amp = 0.2, decay = 30, duty = 0.25), tone(1175, 110, at = 50, amp = 0.2, decay = 60, duty = 0.25),
+                      sweep(180, at = 40, amp = 0.08, hz = 3000, to_hz = 7000, attack = 20, decay = 90)], room = 0.35, wet = 0.15, lufs = -22)
+    # レベルアップのファンファーレ: ド・ミ・ソと跳ねて、高いドを伸ばす（長 3 和音を重ねて締める）。
+    sound("sd_fanfare", [tone(523, 90, amp = 0.22, decay = 50, duty = 0.25), tone(659, 90, at = 100, amp = 0.22, decay = 50, duty = 0.25),
+                         tone(784, 90, at = 200, amp = 0.22, decay = 50, duty = 0.25),
+                         tone(1047, 330, at = 300, amp = 0.24, decay = 220, duty = 0.25), tone(659, 300, at = 300, amp = 0.12, decay = 200, duty = 0.5),
+                         tone(784, 300, at = 300, amp = 0.12, decay = 200, duty = 0.5), hiss(260, at = 300, amp = 0.05, hz = 7000, decay = 140)],
+          room = 0.45, wet = 0.2, lufs = -20)
 main()

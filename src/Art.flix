@@ -1,4 +1,4 @@
-// Art — キャラとアイコンの絵（assets/chars/・assets/icons/）の名前と寸法（純粋）。
+// Art — キャラとアイコンと演出の絵（assets/chars/・assets/icons/・assets/fx/）の名前と寸法（純粋）。
 // project.json の textures に同じ名前で登録してある（未登録の名前は起動で落ちる）。画面なしの描き出しも同じ表を読む。
 mod Art {
 
@@ -20,6 +20,15 @@ mod Art {
         case Arrow
         case Bomb
         case Herb
+        case Bread
+        case Meat
+        case Pebble
+        case Smoke
+    }
+
+    /// 画面に重ねる演出の絵（assets/fx/）。
+    pub enum Fx with Eq, ToString {
+        case LevelUp
     }
 
     pub def figure(f: Figure): Picture = match f {
@@ -37,22 +46,39 @@ mod Art {
             case Icon.Arrow => square("arrow")
             case Icon.Bomb  => square("bomb")
             case Icon.Herb  => square("herb")
+            case Icon.Bread  => square("bread")
+            case Icon.Meat   => square("meat")
+            case Icon.Pebble => square("pebble")
+            case Icon.Smoke  => square("smoke")
         }
+
+    pub def fx(f: Fx): Picture = match f {
+        case Fx.LevelUp => { name = "fx_levelup", path = "assets/fx/levelup.png", width = 512.0, height = 234.0 }
+    }
+
+    def icons(): List[Icon] =
+        Icon.Sword :: Icon.Shield :: Icon.Arrow :: Icon.Bomb :: Icon.Herb :: Icon.Bread :: Icon.Meat :: Icon.Pebble :: Icon.Smoke :: Nil
 
     /// 全部の絵（描き出しが読む）。
     pub def all(): List[Picture] =
         List.map(figure, Figure.Hero :: Figure.Jelly :: Figure.Bat :: Figure.Archer :: Nil)
-            ::: List.map(icon, Icon.Sword :: Icon.Shield :: Icon.Arrow :: Icon.Bomb :: Icon.Herb :: Nil)
+            ::: List.map(icon, icons()) ::: (fx(Fx.LevelUp) :: Nil)
 
-    /// アイテムの系統の絵。
-    pub def iconOfFamily(family: Item.Family): Icon = match family {
+    /// アイテムの系統の絵（食べ物はパン）。
+    def iconOfFamily(family: Item.Family): Icon = match family {
         case Item.Family.Sword  => Icon.Sword
         case Item.Family.Shield => Icon.Shield
         case Item.Family.Arrow  => Icon.Arrow
         case Item.Family.Bomb   => Icon.Bomb
         case Item.Family.Potion => Icon.Herb
-        case Item.Family.Food   => Icon.Herb
-        case Item.Family.Pebble => Icon.Arrow
-        case Item.Family.Smoke  => Icon.Bomb
+        case Item.Family.Food   => Icon.Bread
+        case Item.Family.Pebble => Icon.Pebble
+        case Item.Family.Smoke  => Icon.Smoke
+    }
+
+    /// アイテムの種類の絵（食べ物だけ種類で絵が分かれる）。
+    pub def iconOfKind(kind: Item.Kind): Icon = match kind {
+        case Item.Kind.Meat => Icon.Meat
+        case _              => iconOfFamily(Item.familyOf(kind))
     }
 }

@@ -57,6 +57,31 @@
       "name": "icon_herb",
       "path": "assets/icons/herb.png",
       "hasAlpha": true
+    },
+    {
+      "name": "icon_bread",
+      "path": "assets/icons/bread.png",
+      "hasAlpha": true
+    },
+    {
+      "name": "icon_meat",
+      "path": "assets/icons/meat.png",
+      "hasAlpha": true
+    },
+    {
+      "name": "icon_pebble",
+      "path": "assets/icons/pebble.png",
+      "hasAlpha": true
+    },
+    {
+      "name": "icon_smoke",
+      "path": "assets/icons/smoke.png",
+      "hasAlpha": true
+    },
+    {
+      "name": "fx_levelup",
+      "path": "assets/fx/levelup.png",
+      "hasAlpha": true
     }
   ],
   "// glyphs": "起動時に焼く字。auto=出た字から順に焼く / used=ソースとアセットにある字を先に焼く / all=フォントの全字",
@@ -132,6 +157,26 @@
     {
       "name": "sd_fall",
       "path": "assets/sfx/sd_fall.wav",
+      "looping": false
+    },
+    {
+      "name": "sd_eat",
+      "path": "assets/sfx/sd_eat.wav",
+      "looping": false
+    },
+    {
+      "name": "sd_discard",
+      "path": "assets/sfx/sd_discard.wav",
+      "looping": false
+    },
+    {
+      "name": "sd_card",
+      "path": "assets/sfx/sd_card.wav",
+      "looping": false
+    },
+    {
+      "name": "sd_fanfare",
+      "path": "assets/sfx/sd_fanfare.wav",
       "looping": false
     }
   ],
