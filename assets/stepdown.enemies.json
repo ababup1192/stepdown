@@ -5,7 +5,7 @@
   "enemies": {
     "Jelly": {
       "name": "ゼリー",
-      "hp": 5,
+      "hp": 4,
       "attack": 2,
       "firstFloor": 1,
       "exp": 3,
@@ -22,7 +22,7 @@
       "hp": 3,
       "attack": 1,
       "firstFloor": 1,
-      "exp": 2,
+      "exp": 3,
       "dropChance": 0.2,
       "drops": [
         "Pebble",

@@ -95,10 +95,10 @@ mod TestStep {
         let (_, events) = Step.step(c, woken, right());
         Assert.assertEq(expected = Mark.Move :: Nil, Preview.summarize(events))
 
-    /// 鉄の矢は 1 体を貫いて後ろの敵にも当たる（1 手目の待つで 2 体は (5, 2)・(6, 2) から (4, 3)・(5, 3) へ寄る）。
+    /// 鉄の矢は 1 体を貫いて後ろの敵にも当たる（1 手目の待つで 2 体は (5, 2)・(6, 2) から (4, 3)・(5, 3) へ寄る。ゼリーは 1 本で倒れない HP にする）。
     @Test
     def testIronArrowPiercesOneEnemy(): Unit \ Assert =
-        let c = ctx(hall());
+        let c = { enemies = Fixtures.enemiesWith("{\"enemies\": {\"Jelly\": {\"hp\": 9}}}") | ctx(hall()) };
         let (woken, _) = Step.step(c, start(c, (Enemy.Kind.Jelly, (5, 2)) :: (Enemy.Kind.Jelly, (6, 2)) :: Nil, (Item.Kind.IronArrow, (2, 3)) :: Nil), Input.Wait);
         let (_, events) = Step.step(c, woken, right());
         let damage = stats(Item.Kind.IronArrow)#damage;
@@ -232,10 +232,10 @@ mod TestStep {
         Assert.assertEq(expected = (Run.Status.Dead, Mark.Wait :: Mark.Damage(jellyAttack()) :: Mark.Falls :: Nil),
             (Run.statusOf(after), Preview.summarize(events)))
 
-    /// 移動した手の数が regenEvery の倍数で HP +1（待つ・殴るは数えない）。1 手目に殴られ、HP 1 のゼリーを殴って倒し、2 歩で 1 戻る。
+    /// 移動した手の数が regenEvery の倍数で HP +1（待つ・殴るは数えない）。1 手目に殴られ、HP 1 のゼリーを殴って倒し、2 歩で 1 戻る（レベルは上がらない経験値の表にする）。
     @Test
     def testRegenCountsOnlyMoves(): Unit \ Assert =
-        let c = { enemies = Fixtures.enemiesWith("{\"enemies\": {\"Jelly\": {\"hp\": 1}}}") | Fixtures.ctxWith(Fixtures.rulesWith("{\"regenEvery\": 2}"), hall()) };
+        let c = { enemies = Fixtures.enemiesWith("{\"enemies\": {\"Jelly\": {\"hp\": 1}}}") | Fixtures.ctxWith(Fixtures.rulesWith("{\"regenEvery\": 2, \"levelExp\": [99]}"), hall()) };
         let (after, _) = Step.steps(c, start(c, (Enemy.Kind.Jelly, (2, 3)) :: Nil, Nil), Input.Wait :: right() :: Input.Move(Dir8.Up) :: Input.Move(Dir8.Up) :: Nil);
         Assert.assertEq(expected = (rules()#maxHp - jellyAttack() + 1, 2), (Run.heroOf(after)#hp, Run.rec(after)#walked))
 

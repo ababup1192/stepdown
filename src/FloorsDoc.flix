@@ -34,7 +34,7 @@ mod FloorsDoc {
     pub def defaults(): Doc =
         Doc.Doc({ version = 1,
                   maps = Map#{ "1a" => { title = "1F 四つの部屋", rows = defaultRows() } },
-                  floors = { floor = 1, maps = "1a" :: Nil, jelly = 3, bat = 2, archer = 1, swarm = 0,
+                  floors = { floor = 1, maps = "1a" :: Nil, jelly = 4, bat = 2, archer = 1, swarm = 0,
                              items = Item.Kind.WoodArrow :: Item.Kind.SmallBomb :: Item.Kind.Herb :: Item.Kind.IronSword :: Nil,
                              breadOdds = defaultBreadOdds(), meatChance = 0.15 } :: Nil })
 

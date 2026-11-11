@@ -19,9 +19,9 @@ mod EnemiesDoc {
 
     /// コード側の既定（assets/stepdown.enemies.json と同じ値から出発する）。
     def defaultStats(kind: Enemy.Kind): Stats = match kind {
-        case Enemy.Kind.Jelly  => { name = "ゼリー", hp = 5, attack = 2, firstFloor = 1, exp = 3, dropChance = 0.25,
+        case Enemy.Kind.Jelly  => { name = "ゼリー", hp = 4, attack = 2, firstFloor = 1, exp = 3, dropChance = 0.25,
                                     drops = Item.Kind.Bread :: Item.Kind.Bread :: Item.Kind.Pebble :: Item.Kind.Herb :: Nil }
-        case Enemy.Kind.Bat    => { name = "コウモリ", hp = 3, attack = 1, firstFloor = 1, exp = 2, dropChance = 0.2,
+        case Enemy.Kind.Bat    => { name = "コウモリ", hp = 3, attack = 1, firstFloor = 1, exp = 3, dropChance = 0.2,
                                     drops = Item.Kind.Pebble :: Item.Kind.Bread :: Nil }
         case Enemy.Kind.Archer => { name = "弓兵", hp = 4, attack = 2, firstFloor = 1, exp = 5, dropChance = 0.35,
                                     drops = Item.Kind.WoodArrow :: Item.Kind.WoodArrow :: Item.Kind.Smoke :: Nil }

@@ -14,10 +14,10 @@
   "smokeAt": 0.5,
   "burnDamage": 1,
   "fullnessMax": 100,
-  "hungerEvery": 3,
+  "hungerEvery": 1,
   "starveDamage": 1,
   "levelExp": [
-    6,
+    3,
     7,
     10,
     14

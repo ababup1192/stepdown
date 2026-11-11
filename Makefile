@@ -51,3 +51,9 @@ video:
 	@if [ -f debug/video/$(VIDEO_OUT)/f0000.png ]; then \
 	  ffmpeg -y -loglevel error -framerate $(VIDEO_FPS) -i debug/video/$(VIDEO_OUT)/f%04d.png $(VIDEO_X264) -movflags +faststart debug/video/$(VIDEO_OUT).mp4; fi
 	@echo "[video] debug/video/$(VIDEO_OUT).mp4"
+
+# 自動で遊ぶ 3 人（でたらめ・避ける人・戦う人）の数: クリア率・死亡率・手数・満腹度・レベル・判断の割合・予告の時間。
+#   make bots   種の数は SEEDS=<数>（既定 200）・1 回の手の上限は LIMIT=<数>（既定 2000）・ONLY=Fighter などで 1 人に絞る
+.PHONY: bots
+bots:
+	SEEDS=$(SEEDS) LIMIT=$(LIMIT) ONLY=$(ONLY) $(HEADLESS_RUN) BotRun.main
