@@ -257,6 +257,142 @@
       "order": 32,
       "group": "予告",
       "required": true
+    },
+    "popDealt": {
+      "kind": "field",
+      "type": "color",
+      "label": "与えた数",
+      "order": 33,
+      "group": "浮かぶ数",
+      "required": true
+    },
+    "popTaken": {
+      "kind": "field",
+      "type": "color",
+      "label": "受けた数",
+      "order": 34,
+      "group": "浮かぶ数",
+      "required": true
+    },
+    "popHealed": {
+      "kind": "field",
+      "type": "color",
+      "label": "回復の数",
+      "order": 35,
+      "group": "浮かぶ数",
+      "required": true
+    },
+    "popFed": {
+      "kind": "field",
+      "type": "color",
+      "label": "満腹度の数",
+      "order": 36,
+      "group": "浮かぶ数",
+      "required": true
+    },
+    "popBlocked": {
+      "kind": "field",
+      "type": "color",
+      "label": "盾の 0",
+      "order": 37,
+      "group": "浮かぶ数",
+      "required": true
+    },
+    "popBurned": {
+      "kind": "field",
+      "type": "color",
+      "label": "燃えた数",
+      "order": 38,
+      "group": "浮かぶ数",
+      "required": true
+    },
+    "popExp": {
+      "kind": "field",
+      "type": "color",
+      "label": "経験値の数",
+      "order": 39,
+      "group": "浮かぶ数",
+      "required": true
+    },
+    "popRim": {
+      "kind": "field",
+      "type": "color",
+      "label": "数のふち",
+      "order": 40,
+      "group": "浮かぶ数",
+      "required": true
+    },
+    "hpLost": {
+      "kind": "field",
+      "type": "color",
+      "label": "HP の減った分",
+      "order": 41,
+      "group": "上の帯",
+      "required": true
+    },
+    "hpGain": {
+      "kind": "field",
+      "type": "color",
+      "label": "HP の増えた分",
+      "order": 42,
+      "group": "上の帯",
+      "required": true
+    },
+    "fullTop": {
+      "kind": "field",
+      "type": "color",
+      "label": "満腹度の上",
+      "order": 43,
+      "group": "上の帯",
+      "required": true
+    },
+    "fullBottom": {
+      "kind": "field",
+      "type": "color",
+      "label": "満腹度の下",
+      "order": 44,
+      "group": "上の帯",
+      "required": true
+    },
+    "expTop": {
+      "kind": "field",
+      "type": "color",
+      "label": "経験値の上",
+      "order": 45,
+      "group": "上の帯",
+      "required": true
+    },
+    "expBottom": {
+      "kind": "field",
+      "type": "color",
+      "label": "経験値の下",
+      "order": 46,
+      "group": "上の帯",
+      "required": true
+    },
+    "levelGlow": {
+      "kind": "field",
+      "type": "color",
+      "label": "レベルアップの光",
+      "order": 47,
+      "group": "カード",
+      "required": true
+    },
+    "cardEdge": {
+      "kind": "field",
+      "type": "color",
+      "label": "カードのふち",
+      "order": 48,
+      "group": "カード",
+      "required": true
+    },
+    "cardNew": {
+      "kind": "field",
+      "type": "color",
+      "label": "拾う物のふち",
+      "order": 49,
+      "group": "カード",
+      "required": true
     }
   }
 }

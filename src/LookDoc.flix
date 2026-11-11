@@ -50,6 +50,16 @@ mod LookDoc {
     ///   saturation … トーンマップの後に足す彩度
     ///   msaaSamples … 場面の縁のならしの標本の数（窓だけ）
     ///   figureLight … キャラの板の明るさ（板は光を受けない。絵の色にこれを掛ける）
+    ///   popupSeconds … 浮かぶ数が消えるまでの秒（実時間）
+    ///   popupRise … 浮かぶ数が昇る高さ（px）
+    ///   hurtScale … 受けた数の大きさ（与えた数に対する倍）
+    ///   hpHoldSeconds … HP の減った分を赤く残す秒
+    ///   hpShrinkSeconds … HP の棒が縮む・伸びる秒
+    ///   edgeSeconds … 受けた時に画面の周りが赤く滲む秒
+    ///   levelUpSeconds … レベルアップの演出（文字の絵・光の柱・星）の秒
+    ///   cardSlideSeconds … カードが下から滑り込む秒
+    ///   chosenSeconds … 選んだカードが主人公へ吸い込まれる秒
+    ///   diagonalBadgeScale … 斜めの予告のアイコンの大きさ（上下左右に対する倍）
     pub type alias Rec = {
         version = Int32,
         stepSeconds = Float64,
@@ -97,7 +107,17 @@ mod LookDoc {
         vignette = Float64,
         saturation = Float64,
         msaaSamples = Int32,
-        figureLight = Float64
+        figureLight = Float64,
+        popupSeconds = Float64,
+        popupRise = Float64,
+        hurtScale = Float64,
+        hpHoldSeconds = Float64,
+        hpShrinkSeconds = Float64,
+        edgeSeconds = Float64,
+        levelUpSeconds = Float64,
+        cardSlideSeconds = Float64,
+        chosenSeconds = Float64,
+        diagonalBadgeScale = Float64
     }
 
     pub enum Doc(Rec)
@@ -110,7 +130,7 @@ mod LookDoc {
     def hx(text: String): Color = Color.hex(text) |> Option.getWithDefault(Color.rgb(1.0, 0.0, 1.0))
 
     pub def defaults(): Doc =
-        Doc.Doc({ version = 1, stepSeconds = 0.14, dashStepSeconds = 0.07, strikeSeconds = 0.18, arrowSeconds = 0.22, cameraPitch = 62.0, cameraYaw = 0.0, cameraDistance = 17.5, cameraFov = 46.4, cameraLead = 0.9, cameraFollowSeconds = 0.18, ambient = hx("#2a3450"), moonColor = hx("#a6bfff"), moonIntensity = 0.4, moonElevation = 62.0, moonAzimuth = 200.0, wallTopTint = hx("#5a5560"), shadowStrength = 0.55, torchColor = hx("#ff4d14"), torchIntensity = 1.0, torchRange = 5.0, handColor = hx("#ffc27a"), handIntensity = 6.0, handRange = 7.0, handHeight = 2.0, waterLightColor = hx("#73ccff"), waterLightIntensity = 1.2, waterLightRange = 4.0, flameColor = hx("#ff1a03"), flameGlow = 1.0, flameFlicker = 0.18, waterDeep = hx("#0b3346"), waterLight = hx("#3d8fa8"), waterAlpha = 0.72, waterRoughness = 0.18, waterFlow = 0.02, exposure = 0.3, whitePoint = 4.0, bloomThreshold = 0.9, bloomKnee = 0.6, bloomStrength = 0.45, bloomRadius = 0.035, bloomTaps = 12, vignette = 0.45, saturation = 0.05, msaaSamples = 4, figureLight = 0.85 })
+        Doc.Doc({ version = 1, stepSeconds = 0.14, dashStepSeconds = 0.07, strikeSeconds = 0.18, arrowSeconds = 0.22, cameraPitch = 62.0, cameraYaw = 0.0, cameraDistance = 17.5, cameraFov = 46.4, cameraLead = 0.9, cameraFollowSeconds = 0.18, ambient = hx("#2a3450"), moonColor = hx("#a6bfff"), moonIntensity = 0.4, moonElevation = 62.0, moonAzimuth = 200.0, wallTopTint = hx("#5a5560"), shadowStrength = 0.55, torchColor = hx("#ff4d14"), torchIntensity = 1.0, torchRange = 5.0, handColor = hx("#ffc27a"), handIntensity = 6.0, handRange = 7.0, handHeight = 2.0, waterLightColor = hx("#73ccff"), waterLightIntensity = 1.2, waterLightRange = 4.0, flameColor = hx("#ff1a03"), flameGlow = 1.0, flameFlicker = 0.18, waterDeep = hx("#0b3346"), waterLight = hx("#3d8fa8"), waterAlpha = 0.72, waterRoughness = 0.18, waterFlow = 0.02, exposure = 0.3, whitePoint = 4.0, bloomThreshold = 0.9, bloomKnee = 0.6, bloomStrength = 0.45, bloomRadius = 0.035, bloomTaps = 12, vignette = 0.45, saturation = 0.05, msaaSamples = 4, figureLight = 0.85, popupSeconds = 0.6, popupRise = 46.0, hurtScale = 1.3, hpHoldSeconds = 0.35, hpShrinkSeconds = 0.3, edgeSeconds = 0.35, levelUpSeconds = 0.5, cardSlideSeconds = 0.3, chosenSeconds = 0.3, diagonalBadgeScale = 0.78 })
 
     pub def fromJson(text: String): Option[Doc] =
         DocJson.decodeObject(fromRoot, text)
@@ -166,7 +186,17 @@ mod LookDoc {
                   vignette = float("vignette", d#vignette),
                   saturation = float("saturation", d#saturation),
                   msaaSamples = int("msaaSamples", d#msaaSamples),
-                  figureLight = float("figureLight", d#figureLight) })
+                  figureLight = float("figureLight", d#figureLight),
+                  popupSeconds = float("popupSeconds", d#popupSeconds),
+                  popupRise = float("popupRise", d#popupRise),
+                  hurtScale = float("hurtScale", d#hurtScale),
+                  hpHoldSeconds = float("hpHoldSeconds", d#hpHoldSeconds),
+                  hpShrinkSeconds = float("hpShrinkSeconds", d#hpShrinkSeconds),
+                  edgeSeconds = float("edgeSeconds", d#edgeSeconds),
+                  levelUpSeconds = float("levelUpSeconds", d#levelUpSeconds),
+                  cardSlideSeconds = float("cardSlideSeconds", d#cardSlideSeconds),
+                  chosenSeconds = float("chosenSeconds", d#chosenSeconds),
+                  diagonalBadgeScale = float("diagonalBadgeScale", d#diagonalBadgeScale) })
 
     def colorOr(fallback: Color, key: String, obj: Map[String, Json]): Color =
         Map.get(key, obj)

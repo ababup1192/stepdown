@@ -162,11 +162,75 @@
       "group": "記録",
       "default": "そこへは 進めない"
     },
+    "ate": {
+      "kind": "field",
+      "type": "text",
+      "label": "食べた",
+      "order": 21,
+      "group": "記録",
+      "default": "{item}を たべた（+{n}）"
+    },
+    "starved": {
+      "kind": "field",
+      "type": "text",
+      "label": "空腹で減った",
+      "order": 22,
+      "group": "記録",
+      "default": "おなかが すいて {n} のダメージ"
+    },
+    "guarded": {
+      "kind": "field",
+      "type": "text",
+      "label": "盾で 0 にした",
+      "order": 23,
+      "group": "記録",
+      "default": "盾で ふせいだ"
+    },
+    "swapped": {
+      "kind": "field",
+      "type": "text",
+      "label": "捨てて拾った",
+      "order": 24,
+      "group": "記録",
+      "default": "{old}を すてて {item}を ひろった"
+    },
+    "levelUp": {
+      "kind": "field",
+      "type": "text",
+      "label": "レベルが上がった",
+      "order": 25,
+      "group": "記録",
+      "default": "レベル {n} に あがった！"
+    },
+    "dropped": {
+      "kind": "field",
+      "type": "text",
+      "label": "落とし物",
+      "order": 26,
+      "group": "記録",
+      "default": "{item}が おちた"
+    },
+    "burning": {
+      "kind": "field",
+      "type": "text",
+      "label": "燃え始めた",
+      "order": 27,
+      "group": "記録",
+      "default": "{enemy}が もえはじめた"
+    },
+    "slammed": {
+      "kind": "field",
+      "type": "text",
+      "label": "壁に押し付けた",
+      "order": 28,
+      "group": "記録",
+      "default": "{enemy}を 壁に たたきつけた"
+    },
     "floorLabel": {
       "kind": "field",
       "type": "text",
       "label": "階の表示",
-      "order": 21,
+      "order": 29,
       "group": "上の帯",
       "default": "{n}F"
     }

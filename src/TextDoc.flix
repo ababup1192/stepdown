@@ -26,6 +26,14 @@ mod TextDoc {
         case Drank
         case Descended
         case Blocked
+        case Ate
+        case Starved
+        case Guarded
+        case Swapped
+        case LevelUp
+        case Dropped
+        case Burning
+        case Slammed
         case FloorLabel
     }
 
@@ -42,6 +50,7 @@ mod TextDoc {
         Line.Upgraded :: Line.Stacked :: Line.Discarded :: Line.Struck :: Line.Shot :: Line.Bombed ::
         Line.Defeated :: Line.Woke :: Line.Approached :: Line.Hurt :: Line.Deflected :: Line.Drank ::
         Line.Descended :: Line.Blocked ::
+        Line.Ate :: Line.Starved :: Line.Guarded :: Line.Swapped :: Line.LevelUp :: Line.Dropped :: Line.Burning :: Line.Slammed ::
         Line.FloorLabel :: Nil
 
     /// Doc のキー。
@@ -66,6 +75,14 @@ mod TextDoc {
         case Line.Drank       => "drank"
         case Line.Descended   => "descended"
         case Line.Blocked     => "blocked"
+        case Line.Ate => "ate"
+        case Line.Starved => "starved"
+        case Line.Guarded => "guarded"
+        case Line.Swapped => "swapped"
+        case Line.LevelUp => "levelUp"
+        case Line.Dropped => "dropped"
+        case Line.Burning => "burning"
+        case Line.Slammed => "slammed"
         case Line.FloorLabel => "floorLabel"
     }
 
@@ -91,6 +108,14 @@ mod TextDoc {
         case Line.Drank       => "{item}を のんだ（+{n}）"
         case Line.Descended   => "階段を おりた"
         case Line.Blocked     => "そこへは 進めない"
+        case Line.Ate => "{item}を たべた（+{n}）"
+        case Line.Starved => "おなかが すいて {n} のダメージ"
+        case Line.Guarded => "盾で ふせいだ"
+        case Line.Swapped => "{old}を すてて {item}を ひろった"
+        case Line.LevelUp => "レベル {n} に あがった！"
+        case Line.Dropped => "{item}が おちた"
+        case Line.Burning => "{enemy}が もえはじめた"
+        case Line.Slammed => "{enemy}を 壁に たたきつけた"
         case Line.FloorLabel => "{n}F"
     }
 

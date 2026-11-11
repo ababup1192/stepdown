@@ -33,5 +33,22 @@
   "markBlocked": "#8a8478",
   "markDescend": "#c9f08a",
   "markDanger": "#ff5a4f",
-  "sleep": "#bcd0ff"
+  "sleep": "#bcd0ff",
+  "popDealt": "#ffffff",
+  "popTaken": "#ff4a3d",
+  "popHealed": "#7dff8a",
+  "popFed": "#f6c76b",
+  "popBlocked": "#b4aea2",
+  "popBurned": "#ff9a2e",
+  "popExp": "#ffe14a",
+  "popRim": "#1a0e08",
+  "hpLost": "#ff3b30",
+  "hpGain": "#7dff8a",
+  "fullTop": "#f8d890",
+  "fullBottom": "#c4843a",
+  "expTop": "#fff3a0",
+  "expBottom": "#e0a820",
+  "levelGlow": "#ffe39a",
+  "cardEdge": "#caa26a",
+  "cardNew": "#9fe6ff"
 }

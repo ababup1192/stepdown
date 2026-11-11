@@ -443,6 +443,106 @@
       "min": 0.2,
       "max": 2.0,
       "default": 0.85
+    },
+    "popupSeconds": {
+      "kind": "field",
+      "type": "float",
+      "label": "浮かぶ数の秒",
+      "order": 47,
+      "group": "UI の動き",
+      "min": 0.2,
+      "max": 2.0,
+      "default": 0.6
+    },
+    "popupRise": {
+      "kind": "field",
+      "type": "float",
+      "label": "浮かぶ数の昇る高さ（px）",
+      "order": 48,
+      "group": "UI の動き",
+      "min": 0.0,
+      "max": 160.0,
+      "default": 46.0
+    },
+    "hurtScale": {
+      "kind": "field",
+      "type": "float",
+      "label": "受けた数の大きさの倍",
+      "order": 49,
+      "group": "UI の動き",
+      "min": 1.0,
+      "max": 2.0,
+      "default": 1.3
+    },
+    "hpHoldSeconds": {
+      "kind": "field",
+      "type": "float",
+      "label": "HP の減った分を残す秒",
+      "order": 50,
+      "group": "UI の動き",
+      "min": 0.0,
+      "max": 2.0,
+      "default": 0.35
+    },
+    "hpShrinkSeconds": {
+      "kind": "field",
+      "type": "float",
+      "label": "HP の棒が縮む秒",
+      "order": 51,
+      "group": "UI の動き",
+      "min": 0.05,
+      "max": 2.0,
+      "default": 0.3
+    },
+    "edgeSeconds": {
+      "kind": "field",
+      "type": "float",
+      "label": "画面の周りの赤の秒",
+      "order": 52,
+      "group": "UI の動き",
+      "min": 0.05,
+      "max": 2.0,
+      "default": 0.35
+    },
+    "levelUpSeconds": {
+      "kind": "field",
+      "type": "float",
+      "label": "レベルアップの演出の秒",
+      "order": 53,
+      "group": "UI の動き",
+      "min": 0.2,
+      "max": 2.0,
+      "default": 0.5
+    },
+    "cardSlideSeconds": {
+      "kind": "field",
+      "type": "float",
+      "label": "カードが滑り込む秒",
+      "order": 54,
+      "group": "UI の動き",
+      "min": 0.05,
+      "max": 1.0,
+      "default": 0.3
+    },
+    "chosenSeconds": {
+      "kind": "field",
+      "type": "float",
+      "label": "選んだカードが消える秒",
+      "order": 55,
+      "group": "UI の動き",
+      "min": 0.05,
+      "max": 1.0,
+      "default": 0.3
+    },
+    "diagonalBadgeScale": {
+      "kind": "field",
+      "type": "float",
+      "label": "斜めの予告の大きさの倍",
+      "order": 56,
+      "group": "UI の動き",
+      "min": 0.4,
+      "max": 1.0,
+      "default": 0.78
     }
   }
 }
