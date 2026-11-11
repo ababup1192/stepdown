@@ -71,8 +71,8 @@ mod TurnTimeline {
     pub def paceOf(lk: LookDoc.Rec, dash: Bool): Pace =
         { step = if (dash) lk#dashStepSeconds else lk#stepSeconds, strike = lk#strikeSeconds, arrow = lk#arrowSeconds }
 
-    /// 並べている途中: 書いた行（逆順）・敵の移動をもう置いたか・直前の出来事・爆弾の行。
-    type alias Draft = { rows = List[Timeline.Step[Tag]], movesPlaced = Bool, previous = Option[Event], bomb = Option[Tag] }
+    /// 並べている途中: 書いた行（逆順）・敵の移動をもう置いたか・爆弾の行。
+    type alias Draft = { rows = List[Timeline.Step[Tag]], movesPlaced = Bool, bomb = Option[Tag] }
 
     def secs(s: Float64): Duration = Duration.Seconds(s)
 
@@ -82,8 +82,8 @@ mod TurnTimeline {
     pub def build(pace: Pace, events: List[Event]): Timeline.Timeline[Tag] =
         let indexed = List.zipWithIndex(events);
         let moves = indexed |> List.filter(ie -> isEnemyMove(snd(ie))) |> List.map(fst);
-        let start = { rows = Nil, movesPlaced = false, previous = None, bomb = None };
-        let draft = indexed |> List.foldLeft((d, ie) -> { previous = Some(snd(ie)) | rowsOf(pace, moves, d, ie) }, start);
+        let start = { rows = Nil, movesPlaced = false, bomb = None };
+        let draft = indexed |> List.foldLeft((d, ie) -> rowsOf(pace, moves, d, ie), start);
         Timeline.buildOrPanic("turn", Timeline.noTempo(), List.reverse(draft#rows))
 
     def add(rows: List[Timeline.Step[Tag]], d: Draft): Draft = { rows = List.reverse(rows) ::: d#rows | d }
@@ -119,10 +119,10 @@ mod TurnTimeline {
                     if (k == 0) Timeline.append((j, Beat.EnemyMove), secs(pace#step)) else Timeline.join((j, Beat.EnemyMove), secs(pace#step)));
                 { movesPlaced = true | add(together, d) }
             case Event.EnemyShot(_, _, _)  => add(cue(Sound.Arrow, after(Beat.EnemyArrow, pace#arrow)) :: Nil, d)
-            case Event.HeroHurt(_, _, guarded) =>
+            case Event.HeroHurt(Run.Source.Melee(_), _, guarded) =>
                 let sound = if (guarded) Sound.Guard else Sound.Hit;
-                if (isShot(d#previous)) add(cue(sound, after(Beat.Flash, pace#strike)) :: Nil, d)
-                else add(cue(Sound.Strike, after(Beat.EnemyStrike, pace#strike)) :: flashOn(pace, (i, Beat.EnemyStrike), pace#strike * 0.45, i, sound) :: Nil, d)
+                add(cue(Sound.Strike, after(Beat.EnemyStrike, pace#strike)) :: flashOn(pace, (i, Beat.EnemyStrike), pace#strike * 0.45, i, sound) :: Nil, d)
+            case Event.HeroHurt(_, _, guarded) => add(cue(if (guarded) Sound.Guard else Sound.Hit, after(Beat.Flash, pace#strike)) :: Nil, d)
             case Event.PotionUsed(_, _)    => add(cue(Sound.Potion, after(Beat.Potion, pace#strike * 2.5)) :: Nil, d)
             case Event.HeroDied            => add(cue(Sound.Fall, after(Beat.Fall, pace#strike * 4.0)) :: Nil, d)
             case _                         => d
@@ -131,11 +131,6 @@ mod TurnTimeline {
     def isEnemyMove(event: Event): Bool = match event {
         case Event.EnemyMoved(_, _, _) => true
         case _                         => false
-    }
-
-    def isShot(event: Option[Event]): Bool = match event {
-        case Some(Event.EnemyShot(_, _, _)) => true
-        case _                              => false
     }
 
     /// 起点 at から測って、表が終わっていないか。

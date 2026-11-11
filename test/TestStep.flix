@@ -2,7 +2,8 @@
 // 盤は Fixtures.hall（7×5 の 1 部屋。主人公は (1, 3)）か、文字で書いた小さな盤。敵は同じ部屋なら最初の手の後に起きる。
 mod TestStep {
 
-    use Board.Dir
+    use Board.{Dir, Dir8}
+    use Run.Source
     use Run.{Event, Input}
     use Preview.Mark
     use Fixtures.{ctx, hall, start}
@@ -13,7 +14,7 @@ mod TestStep {
 
     def stats(kind: Item.Kind): ItemsDoc.Stats = ItemsDoc.statsOf(kind, ItemsDoc.defaults())
 
-    def right(): Input = Input.Move(Dir.Right)
+    def right(): Input = Input.Move(Dir8.Right)
 
     // ══════════════════════════════════════════════════════
     // 主人公の手
@@ -24,15 +25,15 @@ mod TestStep {
     def testMovingIntoAnEnemyStrikesWithoutMoving(): Unit \ Assert =
         let c = ctx(hall());
         let (after, events) = Step.step(c, start(c, (Enemy.Kind.Jelly, (2, 3)) :: Nil, Nil), right());
-        Assert.assertEq(expected = ((1, 3), Event.HeroStruck(0, rules()#baseAttack) :: Event.EnemyWoke(0) :: Event.HeroHurt(0, jellyAttack(), false) :: Nil),
+        Assert.assertEq(expected = ((1, 3), Event.HeroStruck(0, rules()#baseAttack) :: Event.EnemyWoke(0) :: Event.HeroHurt(Source.Melee(0), jellyAttack(), false) :: Nil),
             (Run.heroOf(after)#at, events))
 
     /// 歩けないマスへの手は何も起きない（出来事は進めないだけ・移動の数も増えない）。
     @Test
     def testBlockedMoveDoesNotAdvance(): Unit \ Assert =
         let c = ctx(hall());
-        let (after, events) = Step.step(c, start(c, Nil, Nil), Input.Move(Dir.Left));
-        Assert.assertEq(expected = (Event.HeroBlocked(Dir.Left) :: Nil, 0), (events, Run.rec(after)#walked))
+        let (after, events) = Step.step(c, start(c, Nil, Nil), Input.Move(Dir8.Left));
+        Assert.assertEq(expected = (Event.HeroBlocked(Dir8.Left) :: Nil, 0), (events, Run.rec(after)#walked))
 
     /// 動いた先のアイテムを拾ってから判定する: 拾った矢で、距離 3 の敵を撃つ。
     @Test
@@ -115,7 +116,7 @@ mod TestStep {
         let c = ctx(hall());
         let (_, events) = Step.step(c, start(c, (Enemy.Kind.Archer, (4, 3)) :: Nil, Nil), Input.Wait);
         let attack = EnemiesDoc.statsOf(Enemy.Kind.Archer, EnemiesDoc.defaults())#attack;
-        Assert.assertEq(expected = Event.HeroWaited :: Event.EnemyWoke(0) :: Event.EnemyShot(0, (4, 3), (1, 3)) :: Event.HeroHurt(0, attack, false) :: Nil, events)
+        Assert.assertEq(expected = Event.HeroWaited :: Event.EnemyWoke(0) :: Event.EnemyShot(0, (4, 3), (1, 3)) :: Event.HeroHurt(Source.Arrow(0), attack, false) :: Nil, events)
 
     /// 弓兵: 列がそろっていなければ、縦横の差の小さい方をそろえる向きへ 1 マス。
     @Test
@@ -150,7 +151,7 @@ mod TestStep {
         let c = Fixtures.ctxWith(Fixtures.rulesWith("{\"maxHp\": 4}"), hall());
         let (after, _) = Step.steps(c, start(c, (Enemy.Kind.Jelly, (3, 3)) :: Nil, (Item.Kind.Herb, (2, 3)) :: Nil), right() :: Input.Wait :: Nil);
         Assert.assertEq(expected = (Run.Status.Playing, Int32.min(4, 4 - jellyAttack() * 2 + stats(Item.Kind.Herb)#heal), 0),
-            (Run.statusOf(after), Run.heroOf(after)#hp, Run.countOf(Run.packOf(after)#potions)))
+            (Run.statusOf(after), Run.heroOf(after)#hp, Run.countOf(Run.heldOf(Item.Family.Potion, Run.packOf(after)))))
 
     /// HP が 0 以下で倒れ、残りの敵は動かない（隣の 2 体のうち 2 体目は殴らない）。
     @Test
@@ -164,7 +165,7 @@ mod TestStep {
     @Test
     def testRegenCountsOnlyMoves(): Unit \ Assert =
         let c = Fixtures.ctxWith(Fixtures.rulesWith("{\"regenEvery\": 2}"), hall());
-        let (after, _) = Step.steps(c, start(c, (Enemy.Kind.Jelly, (2, 3)) :: Nil, Nil), Input.Wait :: Input.Move(Dir.Up) :: Input.Move(Dir.Up) :: Nil);
+        let (after, _) = Step.steps(c, start(c, (Enemy.Kind.Jelly, (2, 3)) :: Nil, Nil), Input.Wait :: Input.Move(Dir8.Up) :: Input.Move(Dir8.Up) :: Nil);
         Assert.assertEq(expected = (rules()#maxHp - jellyAttack() + 1, 2), (Run.heroOf(after)#hp, Run.rec(after)#walked))
 
     /// 銀の剣で殴ると、生き残った敵を 1 マス押し出す。

@@ -2,7 +2,7 @@
 mod TestTap {
 
     use fge::{App, Camera3d, Clock, Resources, Vec2}
-    use Board.Dir
+    use Board.{Dir, Dir8}
     use Run.Input
 
     // ══════════════════════════════════════════════════════
@@ -53,7 +53,7 @@ mod TestTap {
         let r = RulesDoc.rec(RulesDoc.defaults())#tapWaitRadius;
         let toward = Tap.inputToward(r, (5, 5));
         Assert.assertEq(
-            expected = (Input.Wait, Input.Move(Dir.Right), Input.Move(Dir.Up), Input.Move(Dir.Left), Input.Move(Dir.Down)),
+            expected = (Input.Wait, Input.Move(Dir8.Right), Input.Move(Dir8.Up), Input.Move(Dir8.Left), Input.Move(Dir8.Down)),
             (toward((5.0 + r / 2.0, 5.0)), toward((7.0, 5.5)), toward((5.5, 3.0)), toward((2.0, 4.5)), toward((5.0, 8.0))))
 
     /// 下の UI の帯の中は盤の入力にしない。
@@ -74,7 +74,7 @@ mod TestTap {
         let hero = Run.heroOf(w#runState)#at;
         let tap = (cell: Board.Cell) -> Camera3d.worldToScreen(camera, size(), FloorMesh.cellPoint(cell)) |> Option.flatMap(
             Tap.inputOf({ camera = camera, size = size(), bandTop = HudView.bandTop() }, RulesDoc.rec(res#rules)#tapWaitRadius, hero));
-        Assert.assertEq(expected = (Some(Input.Wait), Some(Input.Move(Dir.Up)), Some(Input.Move(Dir.Right))),
+        Assert.assertEq(expected = (Some(Input.Wait), Some(Input.Move(Dir8.Up)), Some(Input.Move(Dir8.Right))),
             (tap(hero), tap(Board.step(Dir.Up, hero)), tap(Board.step(Dir.Right, hero))))
 
     // ══════════════════════════════════════════════════════
@@ -91,8 +91,8 @@ mod TestTap {
     @Test
     def testInputWhileShowingIsQueuedThenApplied(): Unit \ Assert + Fs.FileRead =
         let (res, w) = started();
-        let walking = World.command(res, World.Act.Go(Input.Move(Dir.Right)), w);
-        let queued = World.command(res, World.Act.Go(Input.Move(Dir.Up)), walking);
+        let walking = World.command(res, World.Act.Go(Input.Move(Dir8.Right)), w);
+        let queued = World.command(res, World.Act.Go(Input.Move(Dir8.Up)), walking);
         Assert.assertEq(expected = ((4, 3), true, (4, 2)), (heroAt(queued), Option.nonEmpty(queued#queued), heroAt(World.advance(res, queued))))
 
     /// 部屋の中の右へのダッシュは壁まで 2 歩: 始めた時は 1 歩目の Run、見せ終えるごとに次の歩へ進む。
@@ -106,7 +106,7 @@ mod TestTap {
     @Test
     def testInputDuringDashStopsAtTheNextStep(): Unit \ Assert + Fs.FileRead =
         let (res, w) = started();
-        let stopped = World.command(res, World.Act.Go(Input.Move(Dir.Up)), World.command(res, World.Act.Dash(Dir.Right), w));
+        let stopped = World.command(res, World.Act.Go(Input.Move(Dir8.Up)), World.command(res, World.Act.Dash(Dir.Right), w));
         Assert.assertEq(expected = ((4, 3), false), (heroAt(World.advance(res, World.skipShow(stopped))), World.isBusy(res, World.skipShow(stopped))))
 
     // ══════════════════════════════════════════════════════
@@ -118,7 +118,7 @@ mod TestTap {
     def testStepSoundRingsOnceAtTheStartOfTheTurn(): Unit \ Assert + Fs.FileRead =
         let app = Game.app(Controls.loadDocs(), World.fixedSeed());
         let (res, w) = started();
-        let ticked = World.command(res, World.Act.Go(Input.Move(Dir.Right)), App.tickClocks(app, 1.0 / 60.0, Resources.of(res, w))#world);
+        let ticked = World.command(res, World.Act.Go(Input.Move(Dir8.Right)), App.tickClocks(app, 1.0 / 60.0, Resources.of(res, w))#world);
         let later = App.tickClocks(app, 1.0 / 60.0, Resources.of(res, ticked))#world;
         Assert.assertEq(expected = ("sd_step" :: Nil, Nil), (World.sounds(res, ticked), World.sounds(res, later)))
 }

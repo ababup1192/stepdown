@@ -56,6 +56,7 @@ mod GameLint {
                 |> allowIn(Fn.Fixtures_board, "テストの地図の書き誤りは bug! で止める（値で分けない）")
                 |> allowIn(Fn.Fixtures_rulesWith, "テストの rules の JSON の書き誤りは bug! で止める（値で分けない）")
                 |> allowIn(Fn.Fixtures_enemiesWith, "テストの enemies の JSON の書き誤りは bug! で止める（値で分けない）")
+                |> allowIn(Fn.Fixtures_itemsWith, "テストの items の JSON の書き誤りは bug! で止める（値で分けない）")
                 |> allowIn(Fn.TestPreview_safeOutsideDanger, "性質テストの決まり（遊んでいる画面の手ならどの拍でも崩れない式）。崩れた拍だけ説明を返す")
         })
     })

@@ -2,14 +2,14 @@
 // どれも部屋から通路へ 1 歩出てから始める（部屋の番号が変わる歩では止まるため）。
 mod TestDash {
 
-    use Board.Dir
+    use Board.{Dir, Dir8}
     use Run.Input
     use Preview.Mark
     use Fixtures.{ctx, start}
 
     /// 1 歩右へ出てから右へダッシュした列。
     def dashFromCorridor(c: Run.Ctx, first: Run.State): List[(Run.State, List[Run.Event])] =
-        Dash.dash(c, fst(Step.step(c, first, Input.Move(Dir.Right))), Dir.Right)
+        Dash.dash(c, fst(Step.step(c, first, Input.Move(Dir8.Right))), Dir.Right)
 
     def lastCell(steps: List[(Run.State, List[Run.Event])]): Option[Board.Cell] =
         List.last(steps) |> Option.map(e -> Run.heroOf(fst(e))#at)

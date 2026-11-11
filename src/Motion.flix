@@ -6,7 +6,7 @@
 //   矢は小さな板が飛び、爆弾は光と煙の円が広がる。拾ったアイテムは主人公へ吸い込まれ、上位を拾うと持ち物の枠が光る。
 mod Motion {
     use fge::{Color, Num, Vec3}
-    use Board.{Cell, Dir}
+    use Board.{Cell, Dir8}
     use Run.Event
     use TurnTimeline.Beat
 
@@ -18,8 +18,8 @@ mod Motion {
         progress = TurnTimeline.Tag -> Float64
     }
 
-    /// 今の形: 板（キャラ・アイテム・飛ぶ矢）・広がる円・持ち物の枠の光（矢・爆弾・薬の順）。
-    pub type alias Pose = { figures = List[SceneView.Figure], bursts = List[SceneView.Burst], slotGlow = List[Float64] }
+    /// 今の形: 板（キャラ・アイテム・飛ぶ矢）・広がる円・持ち物の枠の光（系統 → 光。光っていない系統は入れない）。
+    pub type alias Pose = { figures = List[SceneView.Figure], bursts = List[SceneView.Burst], slotGlow = Map[Item.Family, Float64] }
 
     /// 1 手の今の形。time = 実時間の秒・fallen = 倒れた画面か（時刻表が無くても倒れた姿にする）・light = 板の明るさ（look の figureLight）。
     /// WhyNot: 板に光を受けさせない — 手もとの灯りが板の正面へ当たり、トーンマップで絵の色が白へ褪せる。
@@ -29,7 +29,7 @@ mod Motion {
         { figures = List.flatten(heroFigure(turn, time, fallen) :: enemyFigures(turn, moves, time) :: itemFigures(turn, time) :: arrows(turn) :: Nil)
               |> List.map(shaded),
           bursts = bombBursts(turn),
-          slotGlow = (Item.Family.Arrow :: Item.Family.Bomb :: Item.Family.Potion :: Nil) |> List.map(glowOf(turn)) }
+          slotGlow = turn#after#pack |> List.map(held -> (Run.familyOfHeld(held), glowOf(turn, Run.familyOfHeld(held)))) |> List.toMap }
 
     // ── 進みの読み方 ──
 
@@ -52,7 +52,7 @@ mod Motion {
         let len = Vec3.length(d);
         if (len < 0.0001) Vec3.zero() else Vec3.mul(d, 1.0 / len)
 
-    def dirVector(dir: Dir): Vec3.Vec3 = Vec3.sub(point(Board.step(dir, (0, 0))), point((0, 0)))
+    def dirVector(dir: Dir8): Vec3.Vec3 = Vec3.sub(point(Board.step8(dir, (0, 0))), point((0, 0)))
 
     /// 当たった光の強さと震え（光の進み p から）。
     type alias Flash = { glow = Float64, shake = Float64 }
@@ -151,7 +151,7 @@ mod Motion {
             case (i, Event.EnemyDied(id, _, _)) =>
                 let h = Map.getWithDefault(id, none, acc);
                 Map.insert(id, { dying = Some(progressOf(turn, i, Beat.Die)) | h }, acc)
-            case (i, Event.HeroHurt(id, _, _)) =>
+            case (i, Event.HeroHurt(Run.Source.Melee(id), _, _)) =>
                 let h = Map.getWithDefault(id, none, acc);
                 Map.insert(id, { lunge = Float64.max(h#lunge, pulse(progressOf(turn, i, Beat.EnemyStrike))) | h }, acc)
             case _ => acc

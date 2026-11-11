@@ -8,11 +8,11 @@ mod Dash {
 
     /// 1 歩ずつの (その歩の後の Run, 出来事) の列。最初の歩が進めなければ、その 1 歩（HeroBlocked）だけ。
     pub def dash(ctx: Ctx, runState: Run.State, dir: Dir): List[(Run.State, List[Event])] =
-        if (Run.seesAwakeEnemy(ctx, runState)) Step.step(ctx, runState, Input.Move(dir)) :: Nil
+        if (Run.seesAwakeEnemy(ctx, runState)) Step.step(ctx, runState, Input.Move(Board.toDir8(dir))) :: Nil
         else stride(ctx, runState, dir, ctx#board#cols * ctx#board#rows)
 
     def stride(ctx: Ctx, runState: Run.State, dir: Dir, budget: Int32): List[(Run.State, List[Event])] =
-        let (next, events) = Step.step(ctx, runState, Input.Move(dir));
+        let (next, events) = Step.step(ctx, runState, Input.Move(Board.toDir8(dir)));
         let turn = if (budget <= 1 or stopsAfter(ctx, runState, next, events)) None else nextDir(ctx, next, dir);
         match turn {
             case Some(d) => (next, events) :: stride(ctx, next, d, budget - 1)

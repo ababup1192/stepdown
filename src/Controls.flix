@@ -57,7 +57,7 @@ mod Controls {
     def commandOf(frame: App.Frame, k: KeysDoc.Rec): Option[Command] =
         let tapped = (keys: List[Key]) -> List.exists(key -> App.justPressed(key, frame), keys);
         let shifted = App.isDown(Key.LeftShift, frame) or App.isDown(Key.RightShift, frame);
-        let arrow = dir -> if (shifted) Command.Dash(dir) else Command.Go(Run.Input.Move(dir));
+        let arrow = dir -> if (shifted) Command.Dash(dir) else Command.Go(Run.Input.Move(Board.toDir8(dir)));
         ((k#confirm, Command.Confirm)
             :: (k#dashUp, Command.Dash(Dir.Up)) :: (k#dashDown, Command.Dash(Dir.Down))
             :: (k#dashLeft, Command.Dash(Dir.Left)) :: (k#dashRight, Command.Dash(Dir.Right))

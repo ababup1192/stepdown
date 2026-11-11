@@ -39,8 +39,8 @@ mod E2e {
               { name = "row", doc = "主人公の行", read = Flow.Probe.Num(Resources.read((_, w) -> Int32.toFloat64(snd(hero(w)#at)))) } ::
               { name = "walked", doc = "移動した手の数", read = Flow.Probe.Num(Resources.read((_, w) -> Int32.toFloat64(Run.rec(w#runState)#walked))) } ::
               { name = "foes", doc = "生きている敵の数", read = Flow.Probe.Num(Resources.read((_, w) -> Int32.toFloat64(List.length(Run.enemiesOf(w#runState))))) } ::
-              { name = "arrows", doc = "持っている矢の数", read = Flow.Probe.Num(Resources.read((_, w) -> Int32.toFloat64(Run.countOf(Run.packOf(w#runState)#arrows)))) } ::
-              { name = "bombs", doc = "持っている爆弾の数", read = Flow.Probe.Num(Resources.read((_, w) -> Int32.toFloat64(Run.countOf(Run.packOf(w#runState)#bombs)))) } ::
+              { name = "arrows", doc = "持っている矢の数", read = Flow.Probe.Num(Resources.read((_, w) -> Int32.toFloat64(Run.countOf(Run.heldOf(Item.Family.Arrow, Run.packOf(w#runState)))))) } ::
+              { name = "bombs", doc = "持っている爆弾の数", read = Flow.Probe.Num(Resources.read((_, w) -> Int32.toFloat64(Run.countOf(Run.heldOf(Item.Family.Bomb, Run.packOf(w#runState)))))) } ::
               { name = "busy", doc = "1 手を見せている途中か（ダッシュの残りも含む）", read = Flow.Probe.Flag(Resources.read((res, w) -> World.isBusy(res, w))) } :: Nil,
           ready = Some(Resources.read((res, w) -> if (World.isBusy(res, w)) Flow.Ready.Busy("1 手を見せている") else Flow.Ready.Ready))
           | Flow.emptyTable() }

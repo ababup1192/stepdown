@@ -9,7 +9,7 @@
 mod View {
 
     use fge::{App, Camera3d, Clock, Color, Render, SortingLayer, Timeline, Vec2, Vec3, ZStack}
-    use Board.{Cell, Dir}
+    use Board.{Cell, Dir8}
     use ZOrder.Layer
 
     /// 描くのに要る値。部品は World でなくこれを読む（lint/rules.flix の view-no-world）。
@@ -77,7 +77,7 @@ mod View {
         let busy = World.isBusy(res, w);
         let foresight = w#screen == World.Screen.Play and not busy;
         let preview = if (foresight) w#foresight#moves |> List.filterMap(e -> shownOf(r#hero#at, e)) else Nil;
-        let glow = if (busy) Motion.poseOf(turnOf(World.timelineOf(res, w), w#clock, w#shown, w#runState), time, false, 1.0)#slotGlow else Nil;
+        let glow = if (busy) Motion.poseOf(turnOf(World.timelineOf(res, w), w#clock, w#shown, w#runState), time, false, 1.0)#slotGlow else Map.empty();
         { theme = theme, time = time,
           floorLabel = TextDoc.fill(("n", "${r#floor}") :: Nil, TextDoc.lineOf(TextDoc.Line.FloorLabel, res#text)),
           hp = r#hero#hp, maxHp = r#hero#maxHp, gear = gearOf(theme, r#hero),
@@ -128,7 +128,7 @@ mod View {
         let (input, summary) = e;
         let hurt = summary |> List.map(damageOf) |> List.sum;
         let cell = match input {
-            case Run.Input.Move(dir) => Board.step(dir, hero)
+            case Run.Input.Move(dir) => Board.step8(dir, hero)
             case Run.Input.Wait      => hero
         };
         let plainWait = input == Run.Input.Wait and actOf(summary) == Some(Act.Wait) and hurt == 0;
@@ -163,11 +163,15 @@ mod View {
 
     /// アイコンの置き場のずれ（左右は板と重ならないよう横へ・待つは頭の上）。
     def offsetOf(input: Run.Input): Vec2.Vec2 = match input {
-        case Run.Input.Move(Dir.Up)    => { x = 0.0, y = -16.0 }
-        case Run.Input.Move(Dir.Right) => { x = 30.0, y = -10.0 }
-        case Run.Input.Move(Dir.Down)  => { x = 0.0, y = 4.0 }
-        case Run.Input.Move(Dir.Left)  => { x = -30.0, y = -10.0 }
-        case Run.Input.Wait            => { x = 0.0, y = -118.0 }
+        case Run.Input.Move(Dir8.Up)        => { x = 0.0, y = -16.0 }
+        case Run.Input.Move(Dir8.UpRight)   => { x = 24.0, y = -14.0 }
+        case Run.Input.Move(Dir8.Right)     => { x = 30.0, y = -10.0 }
+        case Run.Input.Move(Dir8.DownRight) => { x = 24.0, y = 0.0 }
+        case Run.Input.Move(Dir8.Down)      => { x = 0.0, y = 4.0 }
+        case Run.Input.Move(Dir8.DownLeft)  => { x = -24.0, y = 0.0 }
+        case Run.Input.Move(Dir8.Left)      => { x = -30.0, y = -10.0 }
+        case Run.Input.Move(Dir8.UpLeft)    => { x = -24.0, y = -14.0 }
+        case Run.Input.Wait                 => { x = 0.0, y = -118.0 }
     }
 
     def glyphOf(act: Act): HudView.Glyph = match act {
@@ -208,16 +212,24 @@ mod View {
         case Some(_)                     => t#tierWood
     }
 
-    def slotsOf(res: Res.Res, t: ThemeDoc.Rec, r: Run.Rec, glow: List[Float64]): List[HudView.Slot] =
+    /// 持ち物の枠 3 つ: 持っている枠を拾った順に並べ、空いた所は持っていない系統を薄く出す。
+    def slotsOf(res: Res.Res, t: ThemeDoc.Rec, r: Run.Rec, glow: Map[Item.Family, Float64]): List[HudView.Slot] =
         let rules = RulesDoc.rec(res#rules);
-        let glowAt = (i: Int32) -> List.nth(i, glow) |> Option.getWithDefault(0.0);
-        let slot = (icon: Art.Icon, held: Option[Run.Held], cue: HudView.Cue, i: Int32) -> {
-            let kind = Run.kindOf(held);
-            { icon = icon, count = Run.countOf(held), cue = cue, tier = tierColor(t, kind), held = Option.nonEmpty(kind), glow = glowAt(i) }
+        let cueOf = (family: Item.Family) -> match family {
+            case Item.Family.Bomb   => HudView.Cue.Surround(rules#bombNeeds)
+            case Item.Family.Potion => HudView.Cue.LowHp(rules#potionAt)
+            case _                  => HudView.Cue.Line
         };
-        slot(Art.Icon.Arrow, r#pack#arrows, HudView.Cue.Line, 0)
-            :: slot(Art.Icon.Bomb, r#pack#bombs, HudView.Cue.Surround(rules#bombNeeds), 1)
-            :: slot(Art.Icon.Herb, r#pack#potions, HudView.Cue.LowHp(rules#potionAt), 2) :: Nil
+        let slot = (family: Item.Family, held: Option[Run.Held]) -> {
+            let kind = Run.kindOf(held);
+            { icon = Art.iconOfFamily(family), count = Run.countOf(held), cue = cueOf(family), tier = tierColor(t, kind),
+              held = Option.nonEmpty(kind), glow = Map.getWithDefault(family, 0.0, glow) }
+        };
+        let filled = r#pack |> List.map(held -> slot(Run.familyOfHeld(held), Some(held)));
+        let empty = (Item.Family.Arrow :: Item.Family.Bomb :: Item.Family.Potion :: Nil)
+            |> List.filter(family -> Option.isEmpty(Run.heldOf(family, r#pack)))
+            |> List.map(family -> slot(family, None));
+        List.take(3, filled ::: empty)
 
     /// 小さい地図のマスの色（壁は描かない）。
     def tileColor(t: ThemeDoc.Rec, tile: Board.Tile): Option[Color] = match tile {
@@ -258,7 +270,7 @@ mod View {
             case Run.Event.EnemyDied(id, _, _)  => say(TextDoc.Line.Defeated, enemy(id) :: Nil)
             case Run.Event.EnemyWoke(id)        => say(TextDoc.Line.Woke, enemy(id) :: Nil)
             case Run.Event.HeroHurt(_, _, true) => say(TextDoc.Line.Deflected, Nil)
-            case Run.Event.HeroHurt(id, n, _)   => say(TextDoc.Line.Hurt, enemy(id) :: ("n", "${n}") :: Nil)
+            case Run.Event.HeroHurt(source, n, _) => Run.attackerOf(source) |> Option.flatMap(id -> say(TextDoc.Line.Hurt, enemy(id) :: ("n", "${n}") :: Nil))
             case Run.Event.PotionUsed(kind, n)  => say(TextDoc.Line.Drank, item(kind) :: ("n", "${n}") :: Nil)
             case Run.Event.Descended            => say(TextDoc.Line.Descended, Nil)
             case Run.Event.HeroBlocked(_)       => say(TextDoc.Line.Blocked, Nil)

@@ -38,8 +38,8 @@ mod Tap {
         let (hx, hy) = hero;
         let (dx, dy) = (fst(spot) - Int32.toFloat64(hx), snd(spot) - Int32.toFloat64(hy));
         if (dx * dx + dy * dy <= waitRadius * waitRadius) Input.Wait
-        else if (Float64.abs(dx) > Float64.abs(dy)) Input.Move(if (dx > 0.0) Dir.Right else Dir.Left)
-        else Input.Move(if (dy > 0.0) Dir.Down else Dir.Up)
+        else if (Float64.abs(dx) > Float64.abs(dy)) Input.Move(Board.toDir8(if (dx > 0.0) Dir.Right else Dir.Left))
+        else Input.Move(Board.toDir8(if (dy > 0.0) Dir.Down else Dir.Up))
 
     /// 盤の上のタップの入力（UI の帯の中・床と交わらない点は None）。
     pub def inputOf(view: { camera = Camera3d.Camera3d, size = Vec2.Vec2, bandTop = Float64 }, waitRadius: Float64, hero: Cell, point: Vec2.Vec2): Option[Input] =

@@ -7,8 +7,8 @@
 mod Step {
 
     use fge::Sort
-    use Board.{Cell, Dir}
-    use Run.{Ctx, Event, Input, Status}
+    use Board.{Cell, Dir, Dir8}
+    use Run.{Ctx, Event, Input, Source, Status}
 
     /// 1 手の途中の状態。log は起きた順の逆（finish で反転する）。
     type alias Turn = { runState = Run.Rec, log = List[Event] }
@@ -51,8 +51,8 @@ mod Step {
             finish(ctx, begin({ status = Status.Descended | r }) |> emit(Event.Descended))
         else begin(r) |> emit(Event.HeroWaited) |> judge(ctx) |> enemyPhase(ctx) |> finish(ctx)
 
-    def moveTo(ctx: Ctx, dir: Dir, r: Run.Rec): (Run.State, List[Event]) =
-        let target = Board.step(dir, r#hero#at);
+    def moveTo(ctx: Ctx, dir: Dir8, r: Run.Rec): (Run.State, List[Event]) =
+        let target = Board.step8(dir, r#hero#at);
         match Map.get(target, Run.occupancy(r#enemies)) {
             case Some(e) => begin(r) |> strike(ctx, dir, e#id) |> enemyPhase(ctx) |> finish(ctx)
             case None if not Board.isWalkable(target, ctx#board) => (Run.of(r), Event.HeroBlocked(dir) :: Nil)
@@ -69,16 +69,16 @@ mod Step {
             |> Option.getWithDefault(RulesDoc.rec(ctx#rules)#baseAttack);
         base + r#perks#attack
 
-    def strike(ctx: Ctx, dir: Dir, id: Int32, t: Turn): Turn =
+    def strike(ctx: Ctx, dir: Dir8, id: Int32, t: Turn): Turn =
         let r = t#runState;
         let damage = attackOf(ctx, r);
         let struck = t |> emit(Event.HeroStruck(id, damage)) |> hurt(id, damage);
         if (Option.flatMap(Item.effectOf, r#hero#sword) == Some(Item.Effect.Push)) push(ctx, dir, id, struck) else struck
 
     /// 殴った敵を dir へ 1 マス押す（押し先に入れなければ押さない）。
-    def push(ctx: Ctx, dir: Dir, id: Int32, t: Turn): Turn =
+    def push(ctx: Ctx, dir: Dir8, id: Int32, t: Turn): Turn =
         enemyOf(id, t) |> Option.map(e -> {
-            let dest = Board.step(dir, e#at);
+            let dest = Board.step8(dir, e#at);
             if (canStand(ctx, e, dest, t#runState)) t |> setEnemy({ at = dest | e }) |> emit(Event.EnemyPushed(id, e#at, dest))
             else t
         }) |> Option.getWithDefault(t)
@@ -96,13 +96,12 @@ mod Step {
 
     /// 拾ったアイテムを手持ちへ。
     def take(ctx: Ctx, kind: Item.Kind, r: Run.Rec): (Run.Rec, Item.Pick) =
-        let pack = r#pack;
         match Item.familyOf(kind) {
             case Item.Family.Sword  => let (held, how) = equip(kind, r#hero#sword); ({ hero = { sword = held | r#hero } | r }, how)
             case Item.Family.Shield => let (held, how) = equip(kind, r#hero#shield); ({ hero = { shield = held | r#hero } | r }, how)
-            case Item.Family.Arrow  => let (held, how) = stack(ctx, kind, pack#arrows); ({ pack = { arrows = held | pack } | r }, how)
-            case Item.Family.Bomb   => let (held, how) = stack(ctx, kind, pack#bombs); ({ pack = { bombs = held | pack } | r }, how)
-            case Item.Family.Potion => let (held, how) = stack(ctx, kind, pack#potions); ({ pack = { potions = held | pack } | r }, how)
+            case family             =>
+                let (held, how) = stack(ctx, kind, Run.heldOf(family, r#pack));
+                ({ pack = Run.withHeld(held, r#pack) | r }, how)
         }
 
     /// 剣・盾: 上の段なら持ち替え、同じか下の段なら拾って消える。
@@ -112,12 +111,12 @@ mod Step {
     }
 
     /// 数あり: 上の段なら手持ち全部がその段になって数を足す、同じか下の段なら今の段の数に足す（どちらも上限で切る）。
-    def stack(ctx: Ctx, kind: Item.Kind, held: Option[Run.Held]): (Option[Run.Held], Item.Pick) =
+    def stack(ctx: Ctx, kind: Item.Kind, held: Option[Run.Held]): (Run.Held, Item.Pick) =
         let cap = RulesDoc.capOf(Item.familyOf(kind), ctx#rules);
         let total = Int32.min(cap, Run.countOf(held) + ItemsDoc.statsOf(kind, ctx#items)#count);
         match held {
-            case Some(Run.Held.Held(now, _)) if Item.tierOf(now) >= Item.tierOf(kind) => (Some(Run.Held.Held(now, total)), Item.Pick.Stacked)
-            case _ => (Some(Run.Held.Held(kind, total)), Item.Pick.Upgraded)
+            case Some(Run.Held.Held(now, _)) if Item.tierOf(now) >= Item.tierOf(kind) => (Run.Held.Held(now, total), Item.Pick.Stacked)
+            case _ => (Run.Held.Held(kind, total), Item.Pick.Upgraded)
         }
 
     // ══════════════════════════════════════════════════════
@@ -127,7 +126,7 @@ mod Step {
     def judge(ctx: Ctx, t: Turn): Turn =
         let r = t#runState;
         let around = r#enemies |> List.count(e -> Enemy.isAwake(e) and Set.exists(c -> Board.chebyshev(c, r#hero#at) <= 1, Enemy.cellsOf(e)));
-        let bombs = if (around >= RulesDoc.rec(ctx#rules)#bombNeeds) r#pack#bombs else None;
+        let bombs = if (around >= RulesDoc.rec(ctx#rules)#bombNeeds) Run.heldOf(Item.Family.Bomb, r#pack) else None;
         match (bombs, arrowTarget(ctx, r)) {
             case (Some(Run.Held.Held(kind, n)), _) if n >= 1 => throwBomb(ctx, kind, t)
             case (_, Some(dir)) => shoot(ctx, dir, t)
@@ -136,7 +135,7 @@ mod Step {
 
     /// 矢を撃つ向き: 直線の距離 arrowMin..arrowMax に敵がいて、間に矢を止めるマスも敵も無い向きのうち、近い順 → 上・右・下・左。
     def arrowTarget(ctx: Ctx, r: Run.Rec): Option[Dir] =
-        if (Run.countOf(r#pack#arrows) < 1) None
+        if (Run.countOf(Run.heldOf(Item.Family.Arrow, r#pack)) < 1) None
         else {
             let occupied = Run.occupancy(r#enemies);
             let nearest = RulesDoc.rec(ctx#rules)#arrowMin;
@@ -156,11 +155,11 @@ mod Step {
 
     def shoot(ctx: Ctx, dir: Dir, t: Turn): Turn =
         let r = t#runState;
-        match r#pack#arrows {
-            case Some(Run.Held.Held(kind, n)) =>
+        match Run.heldOf(Item.Family.Arrow, r#pack) {
+            case Some(Run.Held.Held(kind, _)) =>
                 let stats = ItemsDoc.statsOf(kind, ctx#items);
                 let (hits, end) = arrowPath(ctx, Run.occupancy(r#enemies), dir, r#hero#at, 1 + stats#pierce);
-                let shot = t |> withRun({ pack = { arrows = Some(Run.Held.Held(kind, n - 1)) | r#pack } | r })
+                let shot = t |> withRun({ pack = Run.spend(Item.Family.Arrow, r#pack) | r })
                     |> emit(Event.ArrowShot(dir, kind, end));
                 hits |> List.foldLeft((acc, id) ->
                     acc |> emit(Event.ArrowHit(id, stats#damage)) |> hurt(id, stats#damage) |> setBurn(id, stats#burn), shot)
@@ -185,7 +184,7 @@ mod Step {
         let targets = r#enemies
             |> List.filter(e -> Set.exists(c -> Board.chebyshev(c, r#hero#at) <= stats#radius, Enemy.cellsOf(e)))
             |> List.map(e -> e#id);
-        let thrown = t |> withRun({ pack = { bombs = Some(Run.Held.Held(kind, Run.countOf(r#pack#bombs) - 1)) | r#pack } | r })
+        let thrown = t |> withRun({ pack = Run.spend(Item.Family.Bomb, r#pack) | r })
             |> emit(Event.BombThrown(kind, r#hero#at));
         targets |> List.foldLeft((acc, id) -> acc |> bombHit(id, stats#damage) |> setSleep(id, stats#sleep), thrown)
 
@@ -270,7 +269,7 @@ mod Step {
     }
 
     def act(ctx: Ctx, dist: Map[Cell, Int32], e: Enemy.Enemy, t: Turn): Turn =
-        if (isBeside(e, t#runState#hero#at)) attackHero(ctx, e, None, t)
+        if (isBeside(e, t#runState#hero#at)) attackHero(ctx, e, false, t)
         else match Enemy.behaviourOf(e#kind) {
             case Enemy.Behaviour.Chase   => chase(ctx, dist, e, t)
             case Enemy.Behaviour.Flutter => flutter(ctx, e, t)
@@ -306,7 +305,7 @@ mod Step {
         let heroAt = t#runState#hero#at;
         match Board.lineTo(e#at, heroAt) {
             case Some((dir, k)) if k >= rules#arrowMin and k <= rules#arrowMax and isLineClear(ctx, t#runState, dir, e#at, k) =>
-                attackHero(ctx, e, Some(e#at), t)
+                attackHero(ctx, e, true, t)
             case Some(_) => chase(ctx, dist, e, t)
             case None    => align(ctx, dist, e, t)
         }
@@ -334,8 +333,8 @@ mod Step {
     // 主人公が受ける・薬・倒れる・自然回復
     // ══════════════════════════════════════════════════════
 
-    /// e の攻撃を受ける（shotFrom は弓兵の矢の撃ったマス）。盾の守りと補正を引き、銀の盾はたまに弾く。
-    def attackHero(ctx: Ctx, e: Enemy.Enemy, shotFrom: Option[Cell], t: Turn): Turn =
+    /// e の攻撃を受ける（shot は弓兵の矢）。盾の守りと補正を引き、銀の盾はたまに弾く。
+    def attackHero(ctx: Ctx, e: Enemy.Enemy, shot: Bool, t: Turn): Turn =
         let r = t#runState;
         let guard = r#hero#shield |> Option.map(kind -> ItemsDoc.statsOf(kind, ctx#items)#guard) |> Option.getWithDefault(0);
         let amount = Int32.max(0, EnemiesDoc.statsOf(e#kind, ctx#enemies)#attack - guard - r#perks#guard);
@@ -343,20 +342,21 @@ mod Step {
             |> Option.map(kind -> ItemsDoc.statsOf(kind, ctx#items)#deflect) |> Option.getWithDefault(0.0);
         let (deflected, rng) = if (chance > 0.0) Rng.chance(chance, r#rng) else (false, r#rng);
         let taken = if (deflected) 0 else amount;
-        let aimed = shotFrom |> Option.map(origin -> emit(Event.EnemyShot(e#id, origin, r#hero#at), t)) |> Option.getWithDefault(t);
+        let aimed = if (shot) emit(Event.EnemyShot(e#id, e#at, r#hero#at), t) else t;
+        let source = if (shot) Source.Arrow(e#id) else Source.Melee(e#id);
         aimed
             |> withRun({ hero = { hp = r#hero#hp - taken | r#hero }, rng = rng | r })
-            |> emit(Event.HeroHurt(e#id, amount, deflected))
+            |> emit(Event.HeroHurt(source, amount, deflected))
             |> drinkIfLow(ctx)
             |> fallIfDown
 
     /// HP が薬の閾値以下で薬があれば 1 つ使う（倒れる判定の前）。
     def drinkIfLow(ctx: Ctx, t: Turn): Turn =
         let r = t#runState;
-        match r#pack#potions {
+        match Run.heldOf(Item.Family.Potion, r#pack) {
             case Some(Run.Held.Held(kind, n)) if n >= 1 and r#hero#hp <= RulesDoc.potionHp(r#hero#maxHp, ctx#rules) =>
                 let hp = Int32.min(r#hero#maxHp, r#hero#hp + ItemsDoc.statsOf(kind, ctx#items)#heal);
-                t |> withRun({ hero = { hp = hp | r#hero }, pack = { potions = Some(Run.Held.Held(kind, n - 1)) | r#pack } | r })
+                t |> withRun({ hero = { hp = hp | r#hero }, pack = Run.spend(Item.Family.Potion, r#pack) | r })
                   |> emit(Event.PotionUsed(kind, hp - r#hero#hp))
             case _ => t
         }

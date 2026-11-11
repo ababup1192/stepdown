@@ -17,11 +17,11 @@ mod Shots {
         match name {
             // 主人公の上 3 マスの起きたゼリーへ、待った手で矢を放ち、矢が半ばまで飛んだ所。
             case "arrow" => Some(midTurn(res, lk#arrowSeconds * 0.5,
-                staged(res, (3, 13), { arrows = Some(Run.Held.Held(Item.Kind.WoodArrow, 6)), bombs = None, potions = None },
+                staged(res, (3, 13), Run.Held.Held(Item.Kind.WoodArrow, 6) :: Nil,
                        (Enemy.Kind.Jelly, (3, 10)) :: Nil, World.begin(res, w0))))
             // 起きたゼリー 2 体に左右の斜めから囲まれ、待った手で爆弾が破裂して光と煙が広がっている所。
             case "bomb"  => Some(midTurn(res, lk#arrowSeconds * 0.9,
-                staged(res, (7, 15), { arrows = None, bombs = Some(Run.Held.Held(Item.Kind.SmallBomb, 2)), potions = None },
+                staged(res, (7, 15), Run.Held.Held(Item.Kind.SmallBomb, 2) :: Nil,
                        (Enemy.Kind.Jelly, (6, 14)) :: (Enemy.Kind.Jelly, (8, 14)) :: Nil, World.begin(res, w0))))
             case _       => sceneOf(name, res, w0) |> Option.map(w -> World.snapCam(World.skipShow(w)))
         }
@@ -64,7 +64,7 @@ mod Shots {
         let at = Run.heroOf(w#runState)#at;
         let here = Map.getWithDefault(at, 0, dist);
         if (budget <= 0 or here == 0 or stop(w) or w#screen != World.Screen.Play) w
-        else nextDir(dist, here, w) |> Option.map(dir -> walkTo(res, target, stop, budget - 1, World.play(res, Run.Input.Move(dir), w)))
+        else nextDir(dist, here, w) |> Option.map(dir -> walkTo(res, target, stop, budget - 1, World.play(res, Run.Input.Move(Board.toDir8(dir)), w)))
             |> Option.getWithDefault(w)
 
     /// 隣の起きた敵への向き、いなければ歩数が 1 少ない隣への向き。

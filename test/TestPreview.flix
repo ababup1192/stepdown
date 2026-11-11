@@ -3,7 +3,7 @@ mod TestPreview {
 
     use fge::{App, Clock, PropertyTest, Resources}
     use fge::GameEngine.Key
-    use Board.Dir
+    use Board.{Dir, Dir8}
     use Run.Event
     use Preview.Mark
 
@@ -21,12 +21,12 @@ mod TestPreview {
                         Mark.Move :: Mark.Arrow :: Mark.Potion :: Mark.Damage(4) :: Nil,
                         Mark.Wait :: Mark.Bomb :: Mark.Damage(5) :: Mark.Falls :: Nil,
                         Mark.Descend :: Nil),
-            (Preview.summarize(Event.HeroBlocked(Dir.Up) :: Nil),
-             Preview.summarize(Event.HeroStruck(0, 2) :: Event.HeroHurt(0, 3, false) :: Nil),
-             Preview.summarize(Event.HeroWaited :: Event.HeroHurt(1, 2, true) :: Nil),
+            (Preview.summarize(Event.HeroBlocked(Dir8.Up) :: Nil),
+             Preview.summarize(Event.HeroStruck(0, 2) :: Event.HeroHurt(Run.Source.Melee(0), 3, false) :: Nil),
+             Preview.summarize(Event.HeroWaited :: Event.HeroHurt(Run.Source.Melee(1), 2, true) :: Nil),
              Preview.summarize(Event.HeroMoved((1, 1), (2, 1)) :: Event.ArrowShot(Dir.Right, Item.Kind.WoodArrow, (4, 1))
-                 :: Event.HeroHurt(0, 2, false) :: Event.PotionUsed(Item.Kind.Herb, 6) :: Event.HeroHurt(1, 2, false) :: Nil),
-             Preview.summarize(Event.HeroWaited :: Event.BombThrown(Item.Kind.SmallBomb, (1, 1)) :: Event.HeroHurt(0, 5, false) :: Event.HeroDied :: Nil),
+                 :: Event.HeroHurt(Run.Source.Melee(0), 2, false) :: Event.PotionUsed(Item.Kind.Herb, 6) :: Event.HeroHurt(Run.Source.Melee(1), 2, false) :: Nil),
+             Preview.summarize(Event.HeroWaited :: Event.BombThrown(Item.Kind.SmallBomb, (1, 1)) :: Event.HeroHurt(Run.Source.Melee(0), 5, false) :: Event.HeroDied :: Nil),
              Preview.summarize(Event.Descended :: Nil)))
 
     /// 方向の予告は本物の step の要約と同じ（5 つの入力）。

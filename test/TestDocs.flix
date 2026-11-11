@@ -93,7 +93,7 @@ mod TestDocs {
     /// 1 歩進めた 1F に、docId の行の読み直しを当てた後の移動の数（行が無ければ None）。
     def walkedAfterReload(docId: String): Option[Int32] \ IO =
         let res = Fixtures.res();
-        let played = World.begin(res, World.initial(res, World.fixedSeed())) |> World.play(res, Run.Input.Move(Board.Dir.Right));
+        let played = World.begin(res, World.initial(res, World.fixedSeed())) |> World.play(res, Run.Input.Move(Board.Dir8.Right));
         Controls.docTable() |> List.find(row -> row#docId == Some(docId))
             |> Option.map(row -> run { row#reload(Resources.of(res, played)) } with Fs.FileRead.runWithIO)
             |> Option.map(h -> Run.rec(h#world#runState)#walked)

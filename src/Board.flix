@@ -13,6 +13,18 @@ mod Board {
         case Left
     }
 
+    /// 8 方向。並びは同点の時に選ぶ順（上から時計回り）。
+    pub enum Dir8 with Eq, Order, ToString {
+        case Up
+        case UpRight
+        case Right
+        case DownRight
+        case Down
+        case DownLeft
+        case Left
+        case UpLeft
+    }
+
     /// マスの種類。判定はどれも traitsOf の表を引く。
     pub enum Tile with Eq, Order, ToString {
         case Floor
@@ -163,6 +175,30 @@ mod Board {
         case Dir.Down  => Dir.Up
         case Dir.Left  => Dir.Right
     }
+
+    /// 上下左右を 8 方向の同じ向きへ。
+    pub def toDir8(dir: Dir): Dir8 = match dir {
+        case Dir.Up    => Dir8.Up
+        case Dir.Right => Dir8.Right
+        case Dir.Down  => Dir8.Down
+        case Dir.Left  => Dir8.Left
+    }
+
+    def delta8(dir: Dir8): (Int32, Int32) = match dir {
+        case Dir8.Up        => (0, -1)
+        case Dir8.UpRight   => (1, -1)
+        case Dir8.Right     => (1, 0)
+        case Dir8.DownRight => (1, 1)
+        case Dir8.Down      => (0, 1)
+        case Dir8.DownLeft  => (-1, 1)
+        case Dir8.Left      => (-1, 0)
+        case Dir8.UpLeft    => (-1, -1)
+    }
+
+    /// cell から dir へ 1 マス先。
+    pub def step8(dir: Dir8, cell: Cell): Cell =
+        let ((dx, dy), (x, y)) = (delta8(dir), cell);
+        (x + dx, y + dy)
 
     /// 上下左右の隣（上・右・下・左の順）。
     pub def neighbors4(cell: Cell): List[Cell] = dirs() |> List.map(dir -> step(dir, cell))

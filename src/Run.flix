@@ -3,16 +3,16 @@
 // World は見せる状態で、Run だけが進行の正（fingerprint と flow の比べも Run だけを見る）。
 mod Run {
 
-    use Board.{Cell, Dir}
+    use Board.{Cell, Dir, Dir8}
 
     /// 1 手の入力。
     pub enum Input with Eq, Order, ToString {
-        case Move(Dir)
+        case Move(Dir8)
         case Wait
     }
 
     /// 予告を作る 5 つの入力（4 方向＋待つ）。
-    pub def inputs(): List[Input] = (Board.dirs() |> List.map(Input.Move)) ::: (Input.Wait :: Nil)
+    pub def inputs(): List[Input] = (Board.dirs() |> List.map(dir -> Input.Move(Board.toDir8(dir)))) ::: (Input.Wait :: Nil)
 
     /// 潜りの状態。Dead と Descended では手を受けない。
     pub enum Status with Eq, ToString {
@@ -35,8 +35,8 @@ mod Run {
         case Held(Item.Kind, Int32)
     }
 
-    /// 持ち物（矢・爆弾・薬）。拾っていない枠は None。
-    pub type alias Pack = { arrows = Option[Held], bombs = Option[Held], potions = Option[Held] }
+    /// 持ち物の枠の列（拾った順・系統ごとに 1 枠）。0 個になった枠は列から外す。
+    pub type alias Pack = List[Held]
 
     /// 補正（カードの効果）。攻撃と守りに足す。
     pub type alias Perks = { attack = Int32, guard = Int32 }
@@ -81,7 +81,7 @@ mod Run {
         /// 主人公が from から to へ動いた。
         case HeroMoved(Cell, Cell)
         /// 主人公がその向きへ進めなかった（手は進まない）。
-        case HeroBlocked(Dir)
+        case HeroBlocked(Dir8)
         case HeroWaited
         case Descended
         case Picked(Item.Kind, Item.Pick)
@@ -102,17 +102,34 @@ mod Run {
         case EnemyMoved(Int32, Cell, Cell)
         /// 弓兵が矢を撃った（id・撃ったマス・届いたマス）。続く HeroHurt がその当たり。
         case EnemyShot(Int32, Cell, Cell)
-        /// 主人公が攻撃を受けた（敵の id・盾で減らした後のダメージ・弾いたか）。弾いた時は HP は減らない。
-        case HeroHurt(Int32, Int32, Bool)
+        /// 主人公が攻撃を受けた（出所・盾で減らした後のダメージ・弾いたか）。弾いた時は HP は減らない。
+        case HeroHurt(Source, Int32, Bool)
         case PotionUsed(Item.Kind, Int32)
         case Regenerated(Int32)
         case HeroDied
     }
 
-    /// 主人公が攻撃を受けた出来事か（弾いた攻撃も含む）。
+    /// 主人公が受けたダメージの出所。
+    ///   Melee(id) … 隣の敵に殴られた
+    ///   Arrow(id) … 弓兵の矢が当たった
+    ///   Starve    … 満腹度が 0 で減った
+    pub enum Source with Eq, ToString {
+        case Melee(Int32)
+        case Arrow(Int32)
+        case Starve
+    }
+
+    /// 出所の敵の id（空腹は None）。
+    pub def attackerOf(source: Source): Option[Int32] = match source {
+        case Source.Melee(id) => Some(id)
+        case Source.Arrow(id) => Some(id)
+        case Source.Starve    => None
+    }
+
+    /// 主人公が敵の攻撃を受けた出来事か（弾いた攻撃も含む・空腹は入れない）。
     pub def hurtsHero(event: Event): Bool = match event {
-        case Event.HeroHurt(_, _, _) => true
-        case _                       => false
+        case Event.HeroHurt(source, _, _) => Option.nonEmpty(attackerOf(source))
+        case _                            => false
     }
 
     /// 階の始めの置き場。
@@ -127,7 +144,7 @@ mod Run {
         let start = ctx#board#start;
         of({ floor = at#floor, layout = at#layout,
                   hero = { at = start, hp = maxHp, maxHp = maxHp, sword = None, shield = None },
-                  pack = { arrows = None, bombs = None, potions = None },
+                  pack = Nil,
                   enemies = enemies, items = List.toMap(placement#items |> List.map(match (kind, cell) -> (cell, kind))),
                   seen = Board.viewFrom(start, ctx#board), rng = at#rng, seed = at#seed,
                   perks = { attack = 0, guard = 0 }, walked = 0, nextId = List.length(enemies), status = Status.Playing })
@@ -141,6 +158,27 @@ mod Run {
     pub def enemiesOf(runState: State): List[Enemy.Enemy] = rec(runState)#enemies
 
     pub def statusOf(runState: State): Status = rec(runState)#status
+
+    /// 枠の系統。
+    pub def familyOfHeld(held: Held): Item.Family = match held {
+        case Held.Held(kind, _) => Item.familyOf(kind)
+    }
+
+    /// 系統 family の枠（無ければ None）。
+    pub def heldOf(family: Item.Family, pack: Pack): Option[Held] = List.find(held -> familyOfHeld(held) == family, pack)
+
+    /// 枠を差し替える: 同じ系統の枠があればその位置へ、無ければ列の後ろへ。数が 0 以下の枠は外す。
+    pub def withHeld(held: Held, pack: Pack): Pack =
+        let family = familyOfHeld(held);
+        let kept = if (countOf(Some(held)) <= 0) Nil else held :: Nil;
+        if (Option.isEmpty(heldOf(family, pack))) pack ::: kept
+        else pack |> List.flatMap(h -> if (familyOfHeld(h) == family) kept else h :: Nil)
+
+    /// 系統 family の枠を 1 つ減らす（0 になったら外す）。
+    pub def spend(family: Item.Family, pack: Pack): Pack = match heldOf(family, pack) {
+        case Some(Held.Held(kind, n)) => withHeld(Held.Held(kind, n - 1), pack)
+        case None                     => pack
+    }
 
     /// 枠の数（無ければ 0）。
     pub def countOf(held: Option[Held]): Int32 = match held {
@@ -176,5 +214,5 @@ mod Run {
     pub def fingerprint(runState: State): String =
         let r = rec(runState);
         let enemies = r#enemies |> List.map(e -> "${e#id}:${e#kind}@${e#at}/${e#hp}/${e#rest}") |> List.join(",");
-        "F${r#floor}.${r#layout}|${r#status}|hero=${r#hero#at}/${r#hero#hp}|sword=${r#hero#sword}|shield=${r#hero#shield}|pack=${r#pack#arrows},${r#pack#bombs},${r#pack#potions}|enemies=${enemies}|items=${r#items}|walked=${r#walked}"
+        "F${r#floor}.${r#layout}|${r#status}|hero=${r#hero#at}/${r#hero#hp}|sword=${r#hero#sword}|shield=${r#hero#shield}|pack=${r#pack}|enemies=${enemies}|items=${r#items}|walked=${r#walked}"
 }
