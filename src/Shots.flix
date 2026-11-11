@@ -64,15 +64,16 @@ mod Shots {
         let at = Run.heroOf(w#runState)#at;
         let here = Map.getWithDefault(at, 0, dist);
         if (budget <= 0 or here == 0 or stop(w) or w#screen != World.Screen.Play) w
-        else nextDir(dist, here, w) |> Option.map(dir -> walkTo(res, target, stop, budget - 1, World.play(res, Run.Input.Move(Board.toDir8(dir)), w)))
+        else nextDir(b, dist, here, w) |> Option.map(dir -> walkTo(res, target, stop, budget - 1, World.play(res, Run.Input.Move(dir), w)))
             |> Option.getWithDefault(w)
 
-    /// 隣の起きた敵への向き、いなければ歩数が 1 少ない隣への向き。
-    def nextDir(dist: Map[Cell, Int32], here: Int32, w: World.World): Option[Board.Dir] =
+    /// 隣（角を抜けられる）の起きた敵への向き、いなければ歩数が 1 少ない隣への向き。
+    def nextDir(b: Board.Board, dist: Map[Cell, Int32], here: Int32, w: World.World): Option[Board.Dir8] =
         let at = Run.heroOf(w#runState)#at;
         let awake = Run.enemiesOf(w#runState) |> List.filter(Enemy.isAwake) |> List.map(e -> e#at) |> List.toSet;
-        let foe = Board.dirs() |> List.find(dir -> Set.memberOf(Board.step(dir, at), awake));
-        foe |> Option.withDefault(default = Board.dirs() |> List.find(dir -> Map.get(Board.step(dir, at), dist) == Some(here - 1)))
+        let reachable = Board.dirs8() |> List.filter(dir -> Board.isCornerOpen(at, Board.step8(dir, at), b));
+        let foe = reachable |> List.find(dir -> Set.memberOf(Board.step8(dir, at), awake));
+        foe |> Option.withDefault(default = reachable |> List.find(dir -> Map.get(Board.step8(dir, at), dist) == Some(here - 1)))
 
     /// 倒れるか count 手まで待つ。
     def waitOut(res: Res.Res, count: Int32, w: World.World): World.World =

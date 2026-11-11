@@ -16,6 +16,10 @@ mod KeysDoc {
         right = List[Key],     // 右へ 1 歩
         up = List[Key],        // 上へ 1 歩
         down = List[Key],      // 下へ 1 歩
+        upLeft = List[Key],    // 左上へ 1 歩
+        upRight = List[Key],   // 右上へ 1 歩
+        downLeft = List[Key],  // 左下へ 1 歩
+        downRight = List[Key], // 右下へ 1 歩
         wait = List[Key],      // その場で待つ（階段の上なら降りる）
         dashUp = List[Key],    // 上へダッシュ
         dashDown = List[Key],  // 下へダッシュ
@@ -35,6 +39,10 @@ mod KeysDoc {
                   right = Key.Right :: Nil,
                   up    = Key.Up :: Nil,
                   down  = Key.Down :: Nil,
+                  upLeft = Key.Q :: Nil,
+                  upRight = Key.E :: Nil,
+                  downLeft = Key.Z :: Nil,
+                  downRight = Key.C :: Nil,
                   wait  = Key.Space :: Key.Period :: Nil,
                   dashUp = Key.W :: Nil,
                   dashDown = Key.S :: Nil,
@@ -58,6 +66,10 @@ mod KeysDoc {
                   right = keys("right", d#right),
                   up    = keys("up",    d#up),
                   down  = keys("down",  d#down),
+                  upLeft = keys("upLeft", d#upLeft),
+                  upRight = keys("upRight", d#upRight),
+                  downLeft = keys("downLeft", d#downLeft),
+                  downRight = keys("downRight", d#downRight),
                   wait  = keys("wait",  d#wait),
                   dashUp = keys("dashUp", d#dashUp),
                   dashDown = keys("dashDown", d#dashDown),

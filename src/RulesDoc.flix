@@ -72,6 +72,9 @@ mod RulesDoc {
     pub def potionHp(maxHp: Int32, d: Doc): Int32 =
         Float64.floor(Int32.toFloat64(maxHp) * rec(d)#potionAt) |> Float64.tryToInt32 |> Option.getWithDefault(0)
 
+    /// 矢を撃つ距離（主人公も弓兵も同じ）。
+    pub def reachOf(d: Doc): Board.Reach = { nearest = rec(d)#arrowMin, farthest = rec(d)#arrowMax }
+
     /// 系統の持てる上限。
     pub def capOf(family: Item.Family, d: Doc): Int32 = match family {
         case Item.Family.Arrow  => rec(d)#arrowCap

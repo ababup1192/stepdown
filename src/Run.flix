@@ -11,8 +11,8 @@ mod Run {
         case Wait
     }
 
-    /// 予告を作る 5 つの入力（4 方向＋待つ）。
-    pub def inputs(): List[Input] = (Board.dirs() |> List.map(dir -> Input.Move(Board.toDir8(dir)))) ::: (Input.Wait :: Nil)
+    /// 予告を作る 9 つの入力（8 方向＋待つ）。
+    pub def inputs(): List[Input] = (Board.dirs8() |> List.map(Input.Move)) ::: (Input.Wait :: Nil)
 
     /// 潜りの状態。Dead と Descended では手を受けない。
     pub enum Status with Eq, ToString {
@@ -203,6 +203,10 @@ mod Run {
         Enemy.cellsOf(e) |> Set.exists(c ->
             (room != 0 and Board.roomAt(c, ctx#board) == room)
                 or Map.get(c, dist) |> Option.exists(steps -> steps <= near))
+
+    /// e が今の位置から cell を攻撃できるか: e のどれかのマスの 8 近傍の隣で、間の角が抜けている。
+    pub def canReach(ctx: Ctx, e: Enemy.Enemy, cell: Cell): Bool =
+        Enemy.cellsOf(e) |> Set.exists(c -> c != cell and Board.isStepOpen(c, cell, ctx#board))
 
     /// 起きていて主人公に気付ける敵がいるか（ダッシュが止まる・1 歩だけになる）。
     pub def seesAwakeEnemy(ctx: Ctx, runState: State): Bool =

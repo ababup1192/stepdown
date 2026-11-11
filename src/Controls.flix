@@ -5,7 +5,7 @@ mod Controls {
 
     use fge::{App, AudioMixer, AudioMixerDoc, DocTable, LoadProgress, Resources, Vec2}
     use fge::GameEngine.Key
-    use Board.Dir
+    use Board.{Dir, Dir8}
 
     /// 毎フレームのシステム: 入力を当て、見せ終えた手の続き（ダッシュの次の歩・溜めた手）を始め、カメラを寄せる。
     /// 終了の確認の窓が出ている間は Enter で終わる・Esc で戻る（OS の決まりに合わせた固定のキー。割り当ての Doc には載せない）。
@@ -63,6 +63,8 @@ mod Controls {
             :: (k#dashLeft, Command.Dash(Dir.Left)) :: (k#dashRight, Command.Dash(Dir.Right))
             :: (k#up, arrow(Dir.Up)) :: (k#down, arrow(Dir.Down))
             :: (k#left, arrow(Dir.Left)) :: (k#right, arrow(Dir.Right))
+            :: (k#upLeft, Command.Go(Run.Input.Move(Dir8.UpLeft))) :: (k#upRight, Command.Go(Run.Input.Move(Dir8.UpRight)))
+            :: (k#downLeft, Command.Go(Run.Input.Move(Dir8.DownLeft))) :: (k#downRight, Command.Go(Run.Input.Move(Dir8.DownRight)))
             :: (k#wait, Command.Go(Run.Input.Wait)) :: Nil)
             |> List.find(e -> tapped(fst(e))) |> Option.map(snd)
 

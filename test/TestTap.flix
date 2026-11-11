@@ -47,14 +47,16 @@ mod TestTap {
     // 点から入力へ
     // ══════════════════════════════════════════════════════
 
-    /// 主人公 (5, 5) と床の点: 半径の中は待つ、それ以外は差の大きい軸（北が上・行が増えると下）。
+    /// 主人公 (5, 5) と床の点: 半径の中は待つ、軸から 22.5° 以内は上下左右、それより斜めは斜め（北が上・行が増えると下）。
     @Test
-    def testInputTowardTakesTheLargerAxis(): Unit \ Assert =
+    def testInputTowardSplitsIntoEightDirections(): Unit \ Assert =
         let r = RulesDoc.rec(RulesDoc.defaults())#tapWaitRadius;
         let toward = Tap.inputToward(r, (5, 5));
         Assert.assertEq(
-            expected = (Input.Wait, Input.Move(Dir8.Right), Input.Move(Dir8.Up), Input.Move(Dir8.Left), Input.Move(Dir8.Down)),
-            (toward((5.0 + r / 2.0, 5.0)), toward((7.0, 5.5)), toward((5.5, 3.0)), toward((2.0, 4.5)), toward((5.0, 8.0))))
+            expected = (Input.Wait, Input.Move(Dir8.Right), Input.Move(Dir8.Up), Input.Move(Dir8.Left), Input.Move(Dir8.Down),
+                        Input.Move(Dir8.DownRight), Input.Move(Dir8.UpLeft), Input.Move(Dir8.UpRight), Input.Move(Dir8.DownLeft)),
+            (toward((5.0 + r / 2.0, 5.0)), toward((7.0, 5.5)), toward((5.5, 3.0)), toward((2.0, 4.5)), toward((5.0, 8.0)),
+             toward((7.0, 7.0)), toward((3.0, 3.0)), toward((7.0, 4.0)), toward((4.0, 6.5))))
 
     /// 下の UI の帯の中は盤の入力にしない。
     @Test

@@ -1,11 +1,11 @@
 // Tap — 画面のタップを盤の入力へ読む（純粋）。
 //   押し始め: mouseClicked のコマ。確定: mouseDown が切れた最初のコマ（同じコマでもよい）。
 //   捨てる: 押してから動いた距離が tapSlop を超えた・同じコマにダッシュの操作（スワイプ）が来た。
-//   方向: 押した点からのレイが床（y = 0）と交わる所を、主人公のマスとの差の大きい軸へ寄せる。主人公のマスの中（半径 tapWaitRadius）は待つ。
+//   方向: 押した点からのレイが床（y = 0）と交わる所の、主人公のマスから見た向きを 45° ずつの 8 つに分ける。主人公のマスの中（半径 tapWaitRadius）は待つ。
 //   下の UI の帯の中は盤の入力にしない。
 mod Tap {
     use fge::{Camera3d, Clock, Ray3d, Vec2}
-    use Board.{Cell, Dir}
+    use Board.{Cell, Dir8}
     use Run.Input
 
     /// 押し始めたタップ（押した所と時刻）。
@@ -33,13 +33,19 @@ mod Tap {
             Some((origin#x + toward#x * t, 0.0 - (origin#z + toward#z * t)))
         }
 
-    /// 床の点 (列, 行) と主人公のマスから入力: 半径 waitRadius の中は待つ、それ以外は差の大きい軸の向き。
+    /// 床の点 (列, 行) と主人公のマスから入力: 半径 waitRadius の中は待つ、それ以外は 45° ずつに分けた 8 つの向き
+    /// （軸から 22.5° 以内は上下左右、それより斜めは斜め）。
     pub def inputToward(waitRadius: Float64, hero: Cell, spot: (Float64, Float64)): Input =
         let (hx, hy) = hero;
         let (dx, dy) = (fst(spot) - Int32.toFloat64(hx), snd(spot) - Int32.toFloat64(hy));
+        let tan225 = 0.41421356;
+        let (ax, ay) = (Float64.abs(dx), Float64.abs(dy));
+        let (right, down) = (dx > 0.0, dy > 0.0);
         if (dx * dx + dy * dy <= waitRadius * waitRadius) Input.Wait
-        else if (Float64.abs(dx) > Float64.abs(dy)) Input.Move(Board.toDir8(if (dx > 0.0) Dir.Right else Dir.Left))
-        else Input.Move(Board.toDir8(if (dy > 0.0) Dir.Down else Dir.Up))
+        else if (ay <= ax * tan225) Input.Move(if (right) Dir8.Right else Dir8.Left)
+        else if (ax <= ay * tan225) Input.Move(if (down) Dir8.Down else Dir8.Up)
+        else if (down) Input.Move(if (right) Dir8.DownRight else Dir8.DownLeft)
+        else Input.Move(if (right) Dir8.UpRight else Dir8.UpLeft)
 
     /// 盤の上のタップの入力（UI の帯の中・床と交わらない点は None）。
     pub def inputOf(view: { camera = Camera3d.Camera3d, size = Vec2.Vec2, bandTop = Float64 }, waitRadius: Float64, hero: Cell, point: Vec2.Vec2): Option[Input] =

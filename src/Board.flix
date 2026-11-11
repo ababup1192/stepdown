@@ -40,15 +40,16 @@ mod Board {
     ///   flyable     … 飛ぶ敵（コウモリ）が入れる
     ///   stopsArrow  … 矢がここで止まる（このマスには届かない）
     ///   blocksSight … 見通しを止める
-    pub type alias Traits = { walkable = Bool, flyable = Bool, stopsArrow = Bool, blocksSight = Bool }
+    ///   cutsCorner  … 斜めの 2 つの横のマスのどちらかがこれなら、その斜めには動けないし殴れない
+    pub type alias Traits = { walkable = Bool, flyable = Bool, stopsArrow = Bool, blocksSight = Bool, cutsCorner = Bool }
 
     pub def traitsOf(tile: Tile): Traits = match tile {
-        case Tile.Floor  => { walkable = true,  flyable = true,  stopsArrow = false, blocksSight = false }
-        case Tile.Wall   => { walkable = false, flyable = false, stopsArrow = true,  blocksSight = true }
-        case Tile.Pillar => { walkable = false, flyable = false, stopsArrow = true,  blocksSight = true }
-        case Tile.Rock   => { walkable = false, flyable = false, stopsArrow = true,  blocksSight = false }
-        case Tile.Water  => { walkable = false, flyable = true,  stopsArrow = false, blocksSight = false }
-        case Tile.Stairs => { walkable = true,  flyable = true,  stopsArrow = false, blocksSight = false }
+        case Tile.Floor  => { walkable = true,  flyable = true,  stopsArrow = false, blocksSight = false, cutsCorner = false }
+        case Tile.Wall   => { walkable = false, flyable = false, stopsArrow = true,  blocksSight = true,  cutsCorner = true }
+        case Tile.Pillar => { walkable = false, flyable = false, stopsArrow = true,  blocksSight = true,  cutsCorner = true }
+        case Tile.Rock   => { walkable = false, flyable = false, stopsArrow = true,  blocksSight = false, cutsCorner = true }
+        case Tile.Water  => { walkable = false, flyable = true,  stopsArrow = false, blocksSight = false, cutsCorner = false }
+        case Tile.Stairs => { walkable = true,  flyable = true,  stopsArrow = false, blocksSight = false, cutsCorner = false }
     }
 
     /// 1 階の盤。
@@ -139,6 +140,16 @@ mod Board {
 
     pub def stopsArrow(cell: Cell, b: Board): Bool = traitsAt(cell, b)#stopsArrow
 
+    /// from から隣の to へ角を抜けずに移れるか（上下左右の隣はいつも抜けられる）。
+    /// 斜めなら、2 つの横のマス (to の列, from の行) と (from の列, to の行) のどちらも角を作らない時だけ。
+    pub def isCornerOpen(origin: Cell, target: Cell, b: Board): Bool =
+        let ((fx, fy), (tx, ty)) = (origin, target);
+        fx == tx or fy == ty or (not traitsAt((tx, fy), b)#cutsCorner and not traitsAt((fx, ty), b)#cutsCorner)
+
+    /// 隣のマスどうしで、角を抜けずに移れるか（隣でなければ false）。
+    pub def isStepOpen(origin: Cell, target: Cell, b: Board): Bool =
+        chebyshev(origin, target) == 1 and isCornerOpen(origin, target, b)
+
     /// 部屋の番号（通路と壁は 0）。
     pub def roomAt(cell: Cell, b: Board): Int32 = Map.getWithDefault(cell, 0, b#rooms)
 
@@ -169,12 +180,9 @@ mod Board {
 
     pub def step(dir: Dir, cell: Cell): Cell = ahead(dir, 1, cell)
 
-    pub def opposite(dir: Dir): Dir = match dir {
-        case Dir.Up    => Dir.Down
-        case Dir.Right => Dir.Left
-        case Dir.Down  => Dir.Up
-        case Dir.Left  => Dir.Right
-    }
+    /// 8 方向（同点の時に選ぶ順）。
+    pub def dirs8(): List[Dir8] =
+        Dir8.Up :: Dir8.UpRight :: Dir8.Right :: Dir8.DownRight :: Dir8.Down :: Dir8.DownLeft :: Dir8.Left :: Dir8.UpLeft :: Nil
 
     /// 上下左右を 8 方向の同じ向きへ。
     pub def toDir8(dir: Dir): Dir8 = match dir {
@@ -200,6 +208,14 @@ mod Board {
         let ((dx, dy), (x, y)) = (delta8(dir), cell);
         (x + dx, y + dy)
 
+    /// dir へ進んだ時に後ろ側になる隣か（dir の向きと逆の成分を持つ: 来たマスとその横の 2 つ）。
+    pub def isBehind(dir: Dir8, at: Cell, c: Cell): Bool =
+        let ((dx, dy), (ax, ay), (cx, cy)) = (delta8(dir), at, c);
+        (cx - ax) * dx + (cy - ay) * dy < 0
+
+    /// at から隣の c への向き（隣でなければ None）。
+    pub def dirTo(at: Cell, c: Cell): Option[Dir8] = dirs8() |> List.find(dir -> step8(dir, at) == c)
+
     /// 上下左右の隣（上・右・下・左の順）。
     pub def neighbors4(cell: Cell): List[Cell] = dirs() |> List.map(dir -> step(dir, cell))
 
@@ -224,20 +240,36 @@ mod Board {
 
     // ── 歩く距離（幅優先） ──
 
-    /// from から passable なマスだけを上下左右に通って着ける各マスまでの歩数（from は 0）。
+    /// from から passable なマスだけを上下左右に通って着ける各マスまでの歩数（from は 0）。部屋分けに使う。
     def distancesWithin(passable: Cell -> Bool, origin: Cell): Map[Cell, Int32] =
-        spread(passable, origin :: Nil, 0, Map#{origin => 0})
+        spread(cell -> neighbors4(cell) |> List.filter(passable), origin :: Nil, 0, Map#{origin => 0})
 
-    def spread(passable: Cell -> Bool, frontier: List[Cell], depth: Int32, seen: Map[Cell, Int32]): Map[Cell, Int32] =
-        let (next, grown) = frontier |> List.foldLeft((state, cell) ->
-            neighbors4(cell) |> List.foldLeft((inner, c) -> {
-                let (more, known) = inner;
-                if (Map.memberOf(c, known) or not passable(c)) inner
-                else (c :: more, Map.insert(c, depth + 1, known))
+    /// 幅優先: frontier の各マスから next が返す隣へ 1 歩ずつ広げる。
+    def spread(next: Cell -> List[Cell], frontier: List[Cell], depth: Int32, seen: Map[Cell, Int32]): Map[Cell, Int32] =
+        let (more, grown) = frontier |> List.foldLeft((state, cell) ->
+            next(cell) |> List.foldLeft((inner, c) -> {
+                let (found, known) = inner;
+                if (Map.memberOf(c, known)) inner
+                else (c :: found, Map.insert(c, depth + 1, known))
             }, state), (Nil, seen));
-        if (List.isEmpty(next)) grown else spread(passable, next, depth + 1, grown)
+        if (List.isEmpty(more)) grown else spread(next, more, depth + 1, grown)
 
-    /// from から歩けるマスを通った歩数。
-    pub def walkDistances(origin: Cell, b: Board): Map[Cell, Int32] =
-        distancesWithin(c -> isWalkable(c, b), origin)
+    /// 歩けるマスを 8 方向（角は抜けない）に通った、origins のどれかからの歩数（origins は 0）。
+    pub def walkDistancesFrom(origins: List[Cell], b: Board): Map[Cell, Int32] =
+        let walkNext = (cell: Cell) -> neighbors8(cell) |> List.filter(c -> isWalkable(c, b) and isCornerOpen(cell, c, b));
+        spread(walkNext, origins, 0, origins |> List.map(c -> (c, 0)) |> List.toMap)
+
+    /// from から歩けるマスを 8 方向（角は抜けない）に通った歩数。
+    pub def walkDistances(origin: Cell, b: Board): Map[Cell, Int32] = walkDistancesFrom(origin :: Nil, b)
+
+    /// 矢の届く範囲（距離 nearest..farthest）。
+    pub type alias Reach = { nearest = Int32, farthest = Int32 }
+
+    /// origin から dir へ、矢が届くマス（距離 reach の中・矢を止めるマスの手前まで。敵では止めない）。
+    pub def lane(reach: Reach, dir: Dir, origin: Cell, b: Board): List[Cell] =
+        List.range(1, reach#farthest + 1)
+            |> List.map(k -> (k, ahead(dir, k, origin)))
+            |> List.takeWhile(e -> not stopsArrow(snd(e), b))
+            |> List.filter(e -> fst(e) >= reach#nearest)
+            |> List.map(snd)
 }

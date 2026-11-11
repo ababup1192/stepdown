@@ -1,5 +1,5 @@
 // Step — 1 手を Run に当てる（純粋）。
-//   1. 主人公の手: 敵がいれば殴る（移動しない）・歩けなければ何も起きない（手は進まない）・それ以外は動いて拾う。
+//   1. 主人公の手（8 方向。角は抜けない）: 敵がいれば殴る（移動しない）・歩けないか角なら何も起きない（手は進まない）・それ以外は動いて拾う。
 //      待つは「その場に動いた」とみなし、階段の上なら降りる（その手はそこで終わる）。
 //   2. 動いたか待った後、その位置で 1 つだけ判定する: 爆弾（8 近傍の起きた敵が bombNeeds 以上）→ 矢（直線の射程に敵）。
 //   3. 気付いた敵が起きる → 敵の手番（主人公への歩く距離の近い順 → 作った順）。受けるたびに薬・倒れるを見る。
@@ -54,6 +54,7 @@ mod Step {
     def moveTo(ctx: Ctx, dir: Dir8, r: Run.Rec): (Run.State, List[Event]) =
         let target = Board.step8(dir, r#hero#at);
         match Map.get(target, Run.occupancy(r#enemies)) {
+            case _ if not Board.isCornerOpen(r#hero#at, target, ctx#board) => (Run.of(r), Event.HeroBlocked(dir) :: Nil)
             case Some(e) => begin(r) |> strike(ctx, dir, e#id) |> enemyPhase(ctx) |> finish(ctx)
             case None if not Board.isWalkable(target, ctx#board) => (Run.of(r), Event.HeroBlocked(dir) :: Nil)
             case None => begin(r) |> walk(target) |> pickUp(ctx) |> judge(ctx) |> enemyPhase(ctx) |> regen(ctx) |> finish(ctx)
@@ -125,7 +126,7 @@ mod Step {
 
     def judge(ctx: Ctx, t: Turn): Turn =
         let r = t#runState;
-        let around = r#enemies |> List.count(e -> Enemy.isAwake(e) and Set.exists(c -> Board.chebyshev(c, r#hero#at) <= 1, Enemy.cellsOf(e)));
+        let around = r#enemies |> List.count(e -> Enemy.isAwake(e) and isBeside(ctx, e, r#hero#at));
         let bombs = if (around >= RulesDoc.rec(ctx#rules)#bombNeeds) Run.heldOf(Item.Family.Bomb, r#pack) else None;
         match (bombs, arrowTarget(ctx, r)) {
             case (Some(Run.Held.Held(kind, n)), _) if n >= 1 => throwBomb(ctx, kind, t)
@@ -217,11 +218,11 @@ mod Step {
         else enemyOf(id, t) |> Option.map(e -> t |> setEnemy({ rest = Enemy.Rest.Dozing(turns) | e }) |> emit(Event.EnemySlept(id, turns)))
             |> Option.getWithDefault(t)
 
-    /// e が dest（左上）に立てるか: 全部のマスが入れる地形で、主人公とほかの敵がいない。
+    /// e が隣の dest（左上）へ移れるか: 角を抜けず、全部のマスが入れる地形で、主人公とほかの敵がいない。
     def canStand(ctx: Ctx, e: Enemy.Enemy, dest: Cell, r: Run.Rec): Bool =
         let occupied = Run.occupancy(r#enemies);
         let passable = if (Enemy.isFlying(e#kind)) (c -> Board.isFlyable(c, ctx#board)) else (c -> Board.isWalkable(c, ctx#board));
-        Enemy.cellsAt(dest, e#size) |> Set.forAll(c ->
+        Board.isCornerOpen(e#at, dest, ctx#board) and Enemy.cellsAt(dest, e#size) |> Set.forAll(c ->
             passable(c) and c != r#hero#at and Map.get(c, occupied) |> Option.forAll(other -> other#id == e#id))
 
     def moveEnemy(e: Enemy.Enemy, dest: Cell, t: Turn): Turn =
@@ -269,29 +270,31 @@ mod Step {
     }
 
     def act(ctx: Ctx, dist: Map[Cell, Int32], e: Enemy.Enemy, t: Turn): Turn =
-        if (isBeside(e, t#runState#hero#at)) attackHero(ctx, e, false, t)
+        if (isBeside(ctx, e, t#runState#hero#at)) attackHero(ctx, e, false, t)
         else match Enemy.behaviourOf(e#kind) {
             case Enemy.Behaviour.Chase   => chase(ctx, dist, e, t)
             case Enemy.Behaviour.Flutter => flutter(ctx, e, t)
             case Enemy.Behaviour.Shoot   => archer(ctx, dist, e, t)
         }
 
-    /// 主人公が e の上下左右の隣にいる。
-    def isBeside(e: Enemy.Enemy, heroAt: Cell): Bool =
-        Enemy.cellsOf(e) |> Set.exists(c -> List.memberOf(heroAt, Board.neighbors4(c)))
+    /// 主人公が e の 8 近傍の隣にいて、間の角が抜けている（e が攻撃できる隣）。
+    def isBeside(ctx: Ctx, e: Enemy.Enemy, heroAt: Cell): Bool = Run.canReach(ctx, e, heroAt)
 
-    /// 歩ける道の幅優先で主人公へ 1 マス寄る。同点は上・右・下・左、塞がっていれば次の同点、無ければ待つ。
-    def chase(ctx: Ctx, dist: Map[Cell, Int32], e: Enemy.Enemy, t: Turn): Turn =
-        let here = distanceOf(dist, e);
-        Board.dirs()
-            |> List.map(dir -> Board.step(dir, e#at))
-            |> List.find(next -> Map.get(next, dist) == Some(here - 1) and canStand(ctx, e, next, t#runState))
+    /// 歩く距離 toward が 1 少ない隣へ 1 マス寄る。同点は 上・右上・右・右下・下・左下・左・左上、塞がっていれば次の同点、無ければ fallback。
+    def stepDown(ctx: Ctx, toward: Map[Cell, Int32], e: Enemy.Enemy, fallback: Turn, t: Turn): Turn =
+        let here = distanceOf(toward, e);
+        Board.dirs8()
+            |> List.map(dir -> Board.step8(dir, e#at))
+            |> List.find(next -> Map.get(next, toward) == Some(here - 1) and canStand(ctx, e, next, t#runState))
             |> Option.map(next -> moveEnemy(e, next, t))
-            |> Option.getWithDefault(t)
+            |> Option.getWithDefault(fallback)
 
-    /// 2 手に 1 回（手の数が偶数の手）、入れる隣からでたらめに 1 マス。
+    /// 歩ける道（8 方向・角は抜けない）の幅優先で主人公へ 1 マス寄る。
+    def chase(ctx: Ctx, dist: Map[Cell, Int32], e: Enemy.Enemy, t: Turn): Turn = stepDown(ctx, dist, e, t, t)
+
+    /// 2 手に 1 回（手の数が偶数の手）、入れる隣（8 方向）からでたらめに 1 マス。
     def flutter(ctx: Ctx, e: Enemy.Enemy, t: Turn): Turn =
-        let options = Board.dirs() |> List.map(dir -> Board.step(dir, e#at)) |> List.filter(next -> canStand(ctx, e, next, t#runState));
+        let options = Board.dirs8() |> List.map(dir -> Board.step8(dir, e#at)) |> List.filter(next -> canStand(ctx, e, next, t#runState));
         if (Int32.modulo(e#turns, 2) != 0 or List.isEmpty(options)) t
         else {
             let (i, rng) = Rng.below(List.length(options), t#runState#rng);
@@ -299,15 +302,14 @@ mod Step {
             List.drop(i, options) |> List.head |> Option.map(next -> moveEnemy(e, next, moved)) |> Option.getWithDefault(moved)
         }
 
-    /// 列がそろい、距離 arrowMin..arrowMax で間が空いていれば撃つ。そろっていても撃てなければ寄る、そろっていなければ列をそろえる方へ。
+    /// 列がそろい、距離 arrowMin..arrowMax で間が空いていれば撃つ。撃てなければ、主人公を射線に入れるマス（8 方向の道）へ寄る。
     def archer(ctx: Ctx, dist: Map[Cell, Int32], e: Enemy.Enemy, t: Turn): Turn =
         let rules = RulesDoc.rec(ctx#rules);
         let heroAt = t#runState#hero#at;
         match Board.lineTo(e#at, heroAt) {
             case Some((dir, k)) if k >= rules#arrowMin and k <= rules#arrowMax and isLineClear(ctx, t#runState, dir, e#at, k) =>
                 attackHero(ctx, e, true, t)
-            case Some(_) => chase(ctx, dist, e, t)
-            case None    => align(ctx, dist, e, t)
+            case _ => align(ctx, dist, e, t)
         }
 
     /// from から dir へ 1..k-1 マスに、矢を止めるマスも敵も無い。
@@ -318,16 +320,14 @@ mod Step {
             not Board.stopsArrow(cell, ctx#board) and not Map.memberOf(cell, occupied)
         })
 
-    /// 縦横の差の小さい方の軸を 0 にする向きを先に試し、だめならもう一方。どちらも塞がっていれば寄る。
+    /// 主人公を射線に入れる歩けるマス（主人公から 4 方向・距離 arrowMin..arrowMax・矢を止めるマスの手前まで）への歩く距離で 1 マス寄る。
+    /// もう射線のマスにいる（間を敵が塞いでいる）・寄れない時は主人公へ寄る。
     def align(ctx: Ctx, dist: Map[Cell, Int32], e: Enemy.Enemy, t: Turn): Turn =
-        let ((hx, hy), (ex, ey)) = (t#runState#hero#at, e#at);
-        let across = if (hx > ex) Dir.Right else Dir.Left;
-        let along = if (hy > ey) Dir.Down else Dir.Up;
-        let tries = if (Int32.abs(hx - ex) <= Int32.abs(hy - ey)) across :: along :: Nil else along :: across :: Nil;
-        tries |> List.map(dir -> Board.step(dir, e#at))
-            |> List.find(next -> canStand(ctx, e, next, t#runState))
-            |> Option.map(next -> moveEnemy(e, next, t))
-            |> Option.getWithDefault(chase(ctx, dist, e, t))
+        let heroAt = t#runState#hero#at;
+        let lines = Board.dirs() |> List.flatMap(dir -> Board.lane(RulesDoc.reachOf(ctx#rules), dir, heroAt, ctx#board))
+            |> List.filter(c -> Board.isWalkable(c, ctx#board));
+        if (List.memberOf(e#at, lines)) chase(ctx, dist, e, t)
+        else stepDown(ctx, Board.walkDistancesFrom(lines, ctx#board), e, chase(ctx, dist, e, t), t)
 
     // ══════════════════════════════════════════════════════
     // 主人公が受ける・薬・倒れる・自然回復

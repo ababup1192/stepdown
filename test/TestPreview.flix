@@ -29,7 +29,7 @@ mod TestPreview {
              Preview.summarize(Event.HeroWaited :: Event.BombThrown(Item.Kind.SmallBomb, (1, 1)) :: Event.HeroHurt(Run.Source.Melee(0), 5, false) :: Event.HeroDied :: Nil),
              Preview.summarize(Event.Descended :: Nil)))
 
-    /// 方向の予告は本物の step の要約と同じ（5 つの入力）。
+    /// 方向の予告は本物の step の要約と同じ（9 つの入力）。
     @Test
     def testPreviewIsTheSummaryOfStep(): Unit \ Assert =
         let c = Fixtures.ctx(Fixtures.hall());
@@ -46,10 +46,10 @@ mod TestPreview {
     def setup(): PropertyTest.Setup[Key, Game] =
         { keyOf = (key, _) -> key, viewport = { x = World.width(), y = World.height() }, dt = 1.0 / 60.0 }
 
-    /// 種 12 個 × 400 入力。矢印と待つ（倒れた・抜けた後は Enter で題名へ・題名からまた始める）。
+    /// 種 12 個 × 400 入力。矢印・斜めの 4 つと待つ（倒れた・抜けた後は Enter で題名へ・題名からまた始める）。
     def cases(): PropertyTest.Cases[Key] =
         { seeds = 12, length = 400,
-          spec = { taps = List#{Key.Left, Key.Right, Key.Up, Key.Down, Key.Space, Key.Enter},
+          spec = { taps = List#{Key.Left, Key.Right, Key.Up, Key.Down, Key.Q, Key.E, Key.Z, Key.C, Key.Space, Key.Enter},
                    idle = 1 | PropertyTest.emptySpec() } }
 
     def app(): App.App[Game, {}] \ Fs.FileRead = Game.app(Controls.loadDocs(), World.fixedSeed())

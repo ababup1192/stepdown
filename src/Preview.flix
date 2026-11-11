@@ -72,13 +72,13 @@ mod Preview {
         case _ => false
     }
 
-    /// 5 つの入力（4 方向＋待つ）それぞれの要約（遊んでいない Run は空）。
+    /// 9 つの入力（8 方向＋待つ）それぞれの要約（遊んでいない Run は空）。
     pub def preview(ctx: Ctx, runState: Run.State): List[(Input, Summary)] =
         if (Run.statusOf(runState) != Run.Status.Playing) Nil
         else Run.inputs() |> List.map(input -> (input, summarize(snd(Step.step(ctx, runState, input)))))
 
     /// 敵の予告: 主人公の手の後にそこへ立っていたら、この手で敵の攻撃が届きうるマス。
-    /// 起きた敵は上下左右の隣と、弓兵なら射線（距離 arrowMin..arrowMax・矢を止めるマスまで。敵では止めない）。
+    /// 起きた敵は 8 近傍の隣（角で遮られるマスは除く）と、弓兵なら射線（距離 arrowMin..arrowMax・矢を止めるマスまで。敵では止めない）。
     /// 眠っている敵は、そのマスに立つと気付かれる（起きる）所だけ。眠り玉で眠っている敵はこの手では動かないので入れない。
     pub def dangerCells(ctx: Ctx, runState: Run.State): Set[Cell] =
         Run.enemiesOf(runState) |> List.foldLeft((acc, e) -> Set.union(acc, threatOf(ctx, e)), Set.empty())
@@ -92,20 +92,14 @@ mod Preview {
     /// e が今の位置から攻撃を届かせるマス。
     def reachOf(ctx: Ctx, e: Enemy.Enemy): Set[Cell] =
         let own = Enemy.cellsOf(e);
-        let beside = own |> Set.toList |> List.flatMap(Board.neighbors4) |> List.toSet |> Set.filter(c -> not Set.memberOf(c, own));
+        let beside = own |> Set.toList |> List.flatMap(Board.neighbors8) |> List.toSet
+            |> Set.filter(c -> not Set.memberOf(c, own) and Run.canReach(ctx, e, c));
         if (Enemy.behaviourOf(e#kind) == Enemy.Behaviour.Shoot) Set.union(beside, lineOfFire(ctx, e#at)) else beside
 
     def lineOfFire(ctx: Ctx, origin: Cell): Set[Cell] =
         Board.dirs() |> List.flatMap(dir -> laneOf(ctx, dir, origin)) |> List.toSet
 
-    /// origin から dir へ、矢が届くマス（距離 arrowMin..arrowMax・矢を止めるマスまで）。
-    def laneOf(ctx: Ctx, dir: Board.Dir, origin: Cell): List[Cell] =
-        let rules = RulesDoc.rec(ctx#rules);
-        List.range(1, rules#arrowMax + 1)
-            |> List.map(k -> (k, Board.ahead(dir, k, origin)))
-            |> List.takeWhile(e -> not Board.stopsArrow(snd(e), ctx#board))
-            |> List.filter(e -> fst(e) >= rules#arrowMin)
-            |> List.map(snd)
+    def laneOf(ctx: Ctx, dir: Board.Dir, origin: Cell): List[Cell] = Board.lane(RulesDoc.reachOf(ctx#rules), dir, origin, ctx#board)
 
     /// 起きている弓兵の射線: (弓兵のマス, 射線の一番遠いマス) の列（見せる側が床に破線を引く）。
     pub def firingLanes(ctx: Ctx, runState: Run.State): List[(Cell, Cell)] =
