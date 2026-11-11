@@ -1,6 +1,7 @@
-// BotRun — 自動で遊ぶ 3 人（でたらめ・避ける人・戦う人）に 1F を種ごとに遊ばせ、クリア率・死亡率などの数を出す（画面なし）。
+// BotRun — 自動で遊ぶ 4 人（でたらめ・避ける人・戦う人・先を読む人）に 1F を種ごとに遊ばせ、クリア率・死亡率などの数を出す（画面なし）。
 // 回すのは決まりの関数（Step.step と、その要約の Preview.summarize）だけ。見せる側（World・時刻表）は通さない。
-// 実行: make bots（SEEDS=<種の数・既定 200>・LIMIT=<1 回の手の上限・既定 2000>・ONLY=Random,Avoider,Fighter のどれかで絞る）
+// 実行: make bots（SEEDS=<種の数・既定 200、先を読む人だけは 50>・LIMIT=<1 回の手の上限・既定 2000>・ONLY=Random,Avoider,Fighter,Lookahead のどれかで絞る
+//                  ・DEPTH=<先を読む手数・既定 3>・MODE=peek（Run の乱数のまま読む・既定）か sample（乱数を 3 通りに替えて平均））
 mod BotRun {
     use fge::{App, Sort}
     use Board.Cell
@@ -12,11 +13,16 @@ mod BotRun {
     ///   Random  … 9 つの入力から乱数で選ぶ
     ///   Avoider … 被ダメージ 0 の入力のうち、階段への歩く距離が一番縮む物（同点は乱数）。階段の上なら待つ
     ///   Fighter … 被ダメージ 0 で殴れる時は殴る。それ以外は Avoider と同じ
+    ///   Lookahead … Step.step で depth 手先まで全部の入力を試し、局面の点数が一番高くなる入力（同点は乱数）
     pub enum Bot with Eq, ToString {
         case Random
         case Avoider
         case Fighter
+        case Lookahead
     }
+
+    /// 先を読む人の読み方。samples は乱数を替えて試す数（1 なら Run の乱数のまま＝この先の敵の手が分かっている読み）。
+    type alias Look = { depth = Int32, samples = Int32 }
 
     /// 1 つの入力を当てた先。damage は敵から受けるダメージ（空腹は入れない）。
     type alias Candidate = { input = Input, next = Run.State, damage = Int32, blocked = Bool, strike = Bool, at = Cell }
@@ -25,16 +31,17 @@ mod BotRun {
     ///   hands  … 選んだ手の数（選ぶ場面の答えは数えない）
     ///   stuck  … 動ける入力が全部被弾する手の数（赤に囲まれて動けなかった）
     ///   judged … 被弾する入力としない入力が両方ある手の数
-    type alias Tally = { hands = Int32, stuck = Int32, judged = Int32, rng = Int64 }
+    ///   strikes … 自分から殴った手の数
+    type alias Tally = { hands = Int32, stuck = Int32, judged = Int32, strikes = Int32, rng = Int64 }
 
     /// 1 回の遊びの終わり。
-    type alias Outcome = { status = Run.Status, hands = Int32, turns = Int32, fullness = Int32, level = Int32, stuck = Int32, judged = Int32 }
+    type alias Outcome = { status = Run.Status, hands = Int32, turns = Int32, fullness = Int32, level = Int32, stuck = Int32, judged = Int32, strikes = Int32 }
 
     /// 遊ぶ盤（判定の束と、階段からの歩く距離）。
-    type alias Field = { ctx = Ctx, toStairs = Map[Cell, Int32] }
+    type alias Field = { ctx = Ctx, toStairs = Map[Cell, Int32], look = Look }
 
     /// 階を作る Doc と盤。
-    type alias Setup = { docs = Floor.Docs, layouts = Floor.Layouts }
+    type alias Setup = { docs = Floor.Docs, layouts = Floor.Layouts, look = Look }
 
     def enemyDamage(events: List[Event]): Int32 =
         events |> List.map(e -> match e {
@@ -87,10 +94,74 @@ mod BotRun {
 
     def decide(bot: Bot, field: Field, runState: Run.State, options: List[Candidate], rng: Int64): (Candidate, Int64) =
         match bot {
-            case Bot.Random  => pickAny(options, rng)
-            case Bot.Avoider => headFor(field, runState, options, rng)
-            case Bot.Fighter => strikeOr(field, runState, options, rng)
+            case Bot.Random    => pickAny(options, rng)
+            case Bot.Avoider   => headFor(field, runState, options, rng)
+            case Bot.Fighter   => strikeOr(field, runState, options, rng)
+            case Bot.Lookahead => lookAhead(field, runState, options, rng)
         }
+
+    /// 局面の点数の重み。HP は最大の半分より下の 1 点を重く、上の 1 点を軽く数える。
+    /// WhyNot: HP の 1 点を一律に重くする — 満タンでも 1 発を嫌って、通り道で眠る敵の手前で待ち続け、空腹で倒れる。
+    def lowHpWeight(): Int32 = 10
+    def highHpWeight(): Int32 = 2
+    def stairsWeight(): Int32 = 4
+    def levelWeight(): Int32 = 40
+    def expWeight(): Int32 = 4
+    def fullnessWeight(): Int32 = 1
+    def itemWeight(): Int32 = 6
+    def deadScore(): Int32 = -1000000
+    def clearScore(): Int32 = 1000000
+
+    /// 局面の点数（HP・階段への歩く距離・経験値とレベル・満腹度・持ち物の残り数の足し算）。
+    /// left は読み残した手数（早く降りる・遅く倒れる方を高くする）。
+    def scoreOf(field: Field, left: Int32, runState: Run.State): Int32 =
+        let r = Run.rec(runState);
+        let dist = Map.getWithDefault(r#hero#at, 99, field#toStairs);
+        let items = r#pack |> List.map(held -> Run.countOf(Some(held))) |> List.sum;
+        match r#status {
+            case Run.Status.Dead      => deadScore() - left
+            case Run.Status.Descended => clearScore() + left
+            case Run.Status.Playing   =>
+                hpScore(r#hero) - dist * stairsWeight() + r#level * levelWeight() + r#exp * expWeight()
+                + r#fullness * fullnessWeight() + items * itemWeight()
+        }
+
+    def hpScore(hero: Run.Hero): Int32 =
+        let half = hero#maxHp / 2;
+        Int32.min(hero#hp, half) * lowHpWeight() + Int32.max(0, hero#hp - half) * highHpWeight()
+
+    /// left 手先まで読んだ一番良い点数。選ぶ場面は他のボットと同じ答えで進め、手数に数えない。
+    /// WhyNot: つかえる入力を読まない — 何も起きない手で、同じ局面を 2 度読むだけになる。
+    def bestAfter(field: Field, left: Int32, runState: Run.State): Int32 =
+        let r = Run.rec(runState);
+        if (r#status != Run.Status.Playing or left <= 0) scoreOf(field, left, runState)
+        else if (not List.isEmpty(r#pending)) bestAfter(field, left, fst(Step.step(field#ctx, runState, answer(field#ctx, runState))))
+        else Run.inputs()
+            |> List.map(input -> Step.step(field#ctx, runState, input))
+            |> List.filter(stepped -> not isBlocked(snd(stepped)))
+            |> List.map(stepped -> bestAfter(field, left - 1, fst(stepped)))
+            |> List.maximum
+            |> Option.getWithDefault(scoreOf(field, left, runState))
+
+    def isBlocked(events: List[Event]): Bool = Preview.summarize(events) |> List.head == Some(Preview.Mark.Blocked)
+
+    /// 1 つの入力の点数。samples が 2 以上なら Run の乱数を替えた局面から同じ入力を試し、点数を平均する。
+    def valueOf(field: Field, runState: Run.State, c: Candidate): Int32 =
+        let samples = field#look#samples;
+        if (samples <= 1) bestAfter(field, field#look#depth - 1, c#next)
+        else {
+            let r = Run.rec(runState);
+            let total = List.range(1, samples + 1)
+                |> List.map(k -> fst(Step.step(field#ctx, Run.of({ rng = Rng.mix(r#rng, Int32.toInt64(k)) | r }), c#input)))
+                |> List.map(next -> bestAfter(field, field#look#depth - 1, next))
+                |> List.sum;
+            total / samples
+        }
+
+    def lookAhead(field: Field, runState: Run.State, options: List[Candidate], rng: Int64): (Candidate, Int64) =
+        let scored = options |> List.filter(c -> not c#blocked) |> List.map(c -> (c, valueOf(field, runState, c)));
+        let top = scored |> List.map(snd) |> List.maximum |> Option.getWithDefault(0);
+        pickAny(scored |> List.filter(e -> snd(e) == top) |> List.map(fst), rng)
 
     def countIf(cond: Bool): Int32 = if (cond) 1 else 0
 
@@ -106,29 +177,31 @@ mod BotRun {
             let (picked, rng) = decide(bot, field, runState, options, tally#rng);
             play(bot, field, limit, picked#next,
                  { hands = tally#hands + 1, stuck = tally#stuck + countIf(hurting == moving),
-                   judged = tally#judged + countIf(hurting > 0 and hurting < moving), rng = rng })
+                   judged = tally#judged + countIf(hurting > 0 and hurting < moving),
+                   strikes = tally#strikes + countIf(picked#strike), rng = rng })
         }
 
     def salt(bot: Bot): Int64 = match bot {
         case Bot.Random  => 1i64
         case Bot.Avoider => 2i64
         case Bot.Fighter => 3i64
+        case Bot.Lookahead => 4i64
     }
 
-    def fieldOf(ctx: Ctx): Field =
+    def fieldOf(look: Look, ctx: Ctx): Field =
         let stairs = Board.cells(ctx#board) |> List.filter(c -> Board.tileAt(c, ctx#board) == Board.Tile.Stairs);
-        { ctx = ctx, toStairs = Board.walkDistancesFrom(stairs, ctx#board) }
+        { ctx = ctx, toStairs = Board.walkDistancesFrom(stairs, ctx#board), look = look }
 
     /// 種 seed の 1F を bot が limit 手まで遊んだ (最後の Run, 数え)。
     def playSeed(setup: Setup, bot: Bot, limit: Int32, seed: Int64): (Run.State, Tally) =
         let start = Floor.create(setup#docs, setup#layouts, seed, 1);
-        play(bot, fieldOf(Floor.ctxOf(setup#docs, setup#layouts, start)), limit, start,
-             { hands = 0, stuck = 0, judged = 0, rng = Rng.mix(seed, salt(bot)) })
+        play(bot, fieldOf(setup#look, Floor.ctxOf(setup#docs, setup#layouts, start)), limit, start,
+             { hands = 0, stuck = 0, judged = 0, strikes = 0, rng = Rng.mix(seed, salt(bot)) })
 
     def outcomeOf(result: (Run.State, Tally)): Outcome =
         let (runState, tally) = result;
         let r = Run.rec(runState);
-        { status = r#status, hands = tally#hands, turns = r#turns, fullness = r#fullness, level = r#level, stuck = tally#stuck, judged = tally#judged }
+        { status = r#status, hands = tally#hands, turns = r#turns, fullness = r#fullness, level = r#level, stuck = tally#stuck, judged = tally#judged, strikes = tally#strikes }
 
     def median(xs: List[Int32]): String =
         let sorted = Sort.sortStable(xs);
@@ -156,6 +229,7 @@ mod BotRun {
         "  1 階の手数（クリアの中央値）${median(cleared |> List.map(o -> o#turns))}・生き延びた手数（死亡の中央値）${median(dead |> List.map(o -> o#turns))}・全部の中央値 ${median(outcomes |> List.map(o -> o#turns))}\n" +
         "  満腹度の残り（クリアの中央値）${median(cleared |> List.map(o -> o#fullness * 100 / fullnessMax))}%\n" +
         "  到達レベル ${levels}（Lv2 以上 ${percent(List.count(o -> o#level >= 2, outcomes), n)}）\n" +
+        "  自分から殴った手 ${outcomes |> List.map(o -> o#strikes) |> List.sum}（1 回の遊びの中央値 ${median(outcomes |> List.map(o -> o#strikes))}）\n" +
         "  判断の割合 ${percent(outcomes |> List.map(o -> o#judged) |> List.sum, hands)}（${hands} 手）"
 
     /// 種ごとに避ける人で 15 手進めた所の予告（9 入力 × step）を作り直す (1 回の平均の ms, 作った要約の数)。
@@ -181,16 +255,18 @@ mod BotRun {
 
     pub def main(): Unit \ IO =
         let env = App.Headless.envOf(App.Headless.requestFromProcess());
-        let seeds = List.range(1, envInt("SEEDS", 200, env) + 1) |> List.map(Int32.toInt64);
+        let seedsOf = (bot: Bot) -> List.range(1, envInt("SEEDS", if (bot == Bot.Lookahead) 50 else 200, env) + 1) |> List.map(Int32.toInt64);
+        let seeds = seedsOf(Bot.Random);
         let d = run { Controls.loadDocs() } with Fs.FileRead.runWithIO;
         let setup = { docs = { rules = d#rules, items = d#items, enemies = d#enemies, cards = d#cards, floors = d#floors },
-                      layouts = Floor.layoutsOf(d#floors)#layouts };
+                      layouts = Floor.layoutsOf(d#floors)#layouts,
+                      look = { depth = envInt("DEPTH", 3, env), samples = if (Map.get("MODE", env) == Some("sample")) 3 else 1 } };
         let limit = envInt("LIMIT", 2000, env);
         let fullnessMax = RulesDoc.rec(d#rules)#fullnessMax;
         let only = Map.getWithDefault("ONLY", "", env);
-        (Bot.Random :: Bot.Avoider :: Bot.Fighter :: Nil) |> List.filter(bot -> only == "" or String.contains(substr = "${bot}", only)) |> List.forEach(bot -> {
+        (Bot.Random :: Bot.Avoider :: Bot.Fighter :: Bot.Lookahead :: Nil) |> List.filter(bot -> only == "" or String.contains(substr = "${bot}", only)) |> List.forEach(bot -> {
             let t0 = System.nanoTime();
-            let outcomes = seeds |> List.map(seed -> outcomeOf(playSeed(setup, bot, limit, seed)));
+            let outcomes = seedsOf(bot) |> List.map(seed -> outcomeOf(playSeed(setup, bot, limit, seed)));
             let t1 = if (List.length(outcomes) < 0) 0i64 else System.nanoTime();
             println(report(bot, fullnessMax, outcomes));
             println("  （${Int64.toFloat64(t1 - t0) / 1000000000.0} 秒）")

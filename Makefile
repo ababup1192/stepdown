@@ -52,8 +52,9 @@ video:
 	  ffmpeg -y -loglevel error -framerate $(VIDEO_FPS) -i debug/video/$(VIDEO_OUT)/f%04d.png $(VIDEO_X264) -movflags +faststart debug/video/$(VIDEO_OUT).mp4; fi
 	@echo "[video] debug/video/$(VIDEO_OUT).mp4"
 
-# 自動で遊ぶ 3 人（でたらめ・避ける人・戦う人）の数: クリア率・死亡率・手数・満腹度・レベル・判断の割合・予告の時間。
-#   make bots   種の数は SEEDS=<数>（既定 200）・1 回の手の上限は LIMIT=<数>（既定 2000）・ONLY=Fighter などで 1 人に絞る
+# 自動で遊ぶ 4 人（でたらめ・避ける人・戦う人・先を読む人）の数: クリア率・死亡率・手数・満腹度・レベル・自分から殴った手・判断の割合・予告の時間。
+#   make bots   種の数は SEEDS=<数>（既定 200・先を読む人は 50）・1 回の手の上限は LIMIT=<数>（既定 2000）・ONLY=Fighter などで 1 人に絞る
+#               先を読む人は DEPTH=<手数>（既定 3）・MODE=sample で敵の乱数を 3 通りに替えて平均（既定 peek は Run の乱数のまま読む）
 .PHONY: bots
 bots:
-	SEEDS=$(SEEDS) LIMIT=$(LIMIT) ONLY=$(ONLY) $(HEADLESS_RUN) BotRun.main
+	SEEDS=$(SEEDS) LIMIT=$(LIMIT) ONLY=$(ONLY) DEPTH=$(DEPTH) MODE=$(MODE) $(HEADLESS_RUN) BotRun.main
