@@ -1,0 +1,8 @@
+{
+  "note": "マスの性質（歩ける・飛べる・矢を止める・見通しを切る）、地図の文字の印、1 コマの入力の事実は、同時に立つ別々の物で 1 つの enum にまとめる状態ではない。",
+  "boolFieldLimits": {
+    "src/Board.flix::Traits": 4,
+    "src/Board.flix::Glyph": 3,
+    "src/Tap.flix::Pointer": 3
+  }
+}

@@ -1,0 +1,20 @@
+{
+  "version": 1,
+  "title": "遊びの決まり（HP・攻撃・矢・爆弾・薬・回復・見える距離・持ち物）",
+  "note": "1 手の決まりの数。判定の式と敵の動き方はコード（Step）、秒は look。maxHp=最大 HP / baseAttack=剣なしの攻撃 / arrowMin・arrowMax=矢を撃つ距離（主人公も弓兵も。1 には撃たない）/ bombNeeds=8 近傍の起きた敵がこの数以上で爆弾 / potionAt=HP が 最大×これ 以下で薬（切り捨て）/ regenEvery=移動したこの手数ごとに HP+1 / wakeSteps=見える距離（歩く距離。眠った敵が起き、ダッシュが止まる）/ enemyMinSteps=階の始めに敵を置く、始まりからの最小の歩数 / arrowCap・bombCap・potionCap=持ち物の上限 / burnDamage=燃える敵が 1 手に受けるダメージ / tapWaitRadius=主人公のマスの中のタップを待つとみなす半径（マス）/ tapSlop=押してから動いてもタップとみなす距離（px）。",
+  "maxHp": 20,
+  "baseAttack": 2,
+  "arrowMin": 2,
+  "arrowMax": 4,
+  "bombNeeds": 2,
+  "potionAt": 0.25,
+  "regenEvery": 12,
+  "wakeSteps": 5,
+  "enemyMinSteps": 5,
+  "arrowCap": 15,
+  "bombCap": 5,
+  "potionCap": 3,
+  "burnDamage": 1,
+  "tapWaitRadius": 0.45,
+  "tapSlop": 12
+}

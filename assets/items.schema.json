@@ -1,0 +1,68 @@
+{
+  "//": "stepdown.items.json の形の宣言。items は段の名前（Item.Kind の名前）→ 数値の一覧。段の並びと効果の種類はコード。",
+  "version": 1,
+  "sections": {
+    "items": {
+      "kind": "catalog",
+      "label": "段ごとの数値",
+      "order": 1,
+      "fields": {
+        "name": {
+          "type": "text",
+          "label": "名前",
+          "order": 1
+        },
+        "attack": {
+          "type": "int",
+          "label": "攻撃（剣）",
+          "order": 2
+        },
+        "guard": {
+          "type": "int",
+          "label": "守り（盾）",
+          "order": 3
+        },
+        "deflect": {
+          "type": "float",
+          "label": "弾く確率（銀の盾）",
+          "order": 4
+        },
+        "damage": {
+          "type": "int",
+          "label": "ダメージ（矢・爆弾）",
+          "order": 5
+        },
+        "pierce": {
+          "type": "int",
+          "label": "貫通する追加の敵の数（矢）",
+          "order": 6
+        },
+        "burn": {
+          "type": "int",
+          "label": "燃える手の数（火の矢）",
+          "order": 7
+        },
+        "radius": {
+          "type": "int",
+          "label": "範囲（爆弾）",
+          "order": 8
+        },
+        "sleep": {
+          "type": "int",
+          "label": "眠る手の数（眠り玉）",
+          "order": 9
+        },
+        "heal": {
+          "type": "int",
+          "label": "回復量（薬）",
+          "order": 10
+        },
+        "count": {
+          "type": "int",
+          "label": "拾った時に増える数",
+          "order": 11
+        }
+      }
+    }
+  }
+}

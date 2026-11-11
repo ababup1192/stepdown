@@ -1,0 +1,69 @@
+// Enemy — 敵の種類・動き方・眠りの状態と、1 体の値。強さ（HP・攻撃・初出の階）は enemies の Doc、動く決まりは Step。
+mod Enemy {
+
+    use Board.Cell
+
+    /// 敵の種類。
+    pub enum Kind with Eq, Order, ToString {
+        case Jelly
+        case Bat
+        case Archer
+        case Swarm
+    }
+
+    /// 動き方。
+    ///   Chase   … 歩ける道で主人公へ 1 マス寄る
+    ///   Flutter … 2 手に 1 回、飛べるマスへでたらめに 1 マス
+    ///   Shoot   … 列がそろえば矢を撃ち、そろわなければ列をそろえる方へ寄る
+    pub enum Behaviour with Eq, ToString {
+        case Chase
+        case Flutter
+        case Shoot
+    }
+
+    /// 起きているか。
+    ///   Dormant   … 階の始めの眠り（主人公に気付くまで）
+    ///   Awake     … 起きている（以後ずっと）
+    ///   Dozing(n) … 眠り玉の眠り（残りの手の数）
+    pub enum Rest with Eq, ToString {
+        case Dormant
+        case Awake
+        case Dozing(Int32)
+    }
+
+    /// 敵 1 体。id は作った順の番号（同点の時に先に動く）。turns は起きて手番を迎えた数、burn は燃える残りの手の数。
+    /// size はマスの幅（ボスの 2×2 に備える。at は左上）。
+    pub type alias Enemy = {
+        id = Int32,
+        kind = Kind,
+        at = Cell,
+        size = Int32,
+        hp = Int32,
+        rest = Rest,
+        turns = Int32,
+        burn = Int32
+    }
+
+    /// 全部の種類。
+    pub def all(): List[Kind] = Kind.Jelly :: Kind.Bat :: Kind.Archer :: Kind.Swarm :: Nil
+
+    pub def behaviourOf(kind: Kind): Behaviour = match kind {
+        case Kind.Jelly  => Behaviour.Chase
+        case Kind.Swarm  => Behaviour.Chase
+        case Kind.Bat    => Behaviour.Flutter
+        case Kind.Archer => Behaviour.Shoot
+    }
+
+    /// 飛ぶ敵か（飛べるマスを通る）。
+    pub def isFlying(kind: Kind): Bool = behaviourOf(kind) == Behaviour.Flutter
+
+    /// 占めるマス。
+    pub def cellsOf(e: Enemy): Set[Cell] = cellsAt(e#at, e#size)
+
+    /// at を左上にした size×size のマス。
+    pub def cellsAt(at: Cell, size: Int32): Set[Cell] =
+        let (x, y) = at;
+        List.range(0, size) |> List.flatMap(dy -> List.range(0, size) |> List.map(dx -> (x + dx, y + dy))) |> List.toSet
+
+    pub def isAwake(e: Enemy): Bool = e#rest == Rest.Awake
+}

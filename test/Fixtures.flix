@@ -1,0 +1,60 @@
+// テストが共有する組み立てと取り出し（文字の地図から盤と判定の束を組む・置き場から階の始めの Run を組む・Doc の既定で描く元を組む）。
+mod Fixtures {
+
+    use fge::AudioMixer
+    use Board.Cell
+
+    /// 文字の地図から盤を組む。組めない地図はテストの書き誤りなので止める。
+    pub def board(rows: List[String]): Board.Board =
+        match Board.fromRows(rows) {
+            case Ok(b)    => b
+            case Err(why) => bug!("テストの地図が組めない: ${why}")
+        }
+
+    /// 既定の Doc（rules だけ差し替え）で組んだ判定の束。
+    pub def ctxWith(rules: RulesDoc.Doc, rows: List[String]): Run.Ctx =
+        { rules = rules, items = ItemsDoc.defaults(), enemies = EnemiesDoc.defaults(), board = board(rows) }
+
+    /// 既定の Doc で組んだ判定の束。
+    pub def ctx(rows: List[String]): Run.Ctx = ctxWith(RulesDoc.defaults(), rows)
+
+    /// rules の JSON の欄を差し替えた Doc（書き誤りは止める）。
+    pub def rulesWith(json: String): RulesDoc.Doc =
+        match RulesDoc.fromJson(json) {
+            case Some(d) => d
+            case None    => bug!("テストの rules の JSON が読めない: ${json}")
+        }
+
+    /// enemies の JSON の欄を差し替えた Doc（書き誤りは止める）。
+    pub def enemiesWith(json: String): EnemiesDoc.Doc =
+        match EnemiesDoc.fromJson(json) {
+            case Some(d) => d
+            case None    => bug!("テストの enemies の JSON が読めない: ${json}")
+        }
+
+    /// 置き場から階の始めの Run（敵は全員眠っている）。
+    pub def start(ctx: Run.Ctx, enemies: List[(Enemy.Kind, Cell)], items: List[(Item.Kind, Cell)]): Run.State =
+        Run.start(ctx, { floor = 1, layout = 0, seed = 1i64, rng = 1i64 }, { enemies = enemies, items = items })
+
+    /// 1 部屋の広間（7×5 の床。主人公は左の真ん中 (1, 3)・階段は右下 (7, 5)）。
+    pub def hall(): List[String] =
+        "#########" ::
+        "#.......#" ::
+        "#.......#" ::
+        "#@......#" ::
+        "#.......#" ::
+        "#......>#" ::
+        "#########" :: Nil
+
+    /// 敵の id → 位置。
+    pub def enemyCells(runState: Run.State): List[(Int32, Cell)] = Run.enemiesOf(runState) |> List.map(e -> (e#id, e#at))
+
+    /// 敵の id → 起きているか。
+    pub def enemyRests(runState: Run.State): List[(Int32, Enemy.Rest)] = Run.enemiesOf(runState) |> List.map(e -> (e#id, e#rest))
+
+    /// 既定の Doc で組んだ描く元（floors は既定の 1 枚）。
+    pub def res(): Res.Res =
+        Res.build({ rules = RulesDoc.defaults(), items = ItemsDoc.defaults(), enemies = EnemiesDoc.defaults(),
+                    floors = FloorsDoc.defaults(), look = LookDoc.defaults(), text = TextDoc.defaults(),
+                    keys = KeysDoc.defaults(), theme = ThemeDoc.defaults(), mixer = AudioMixer.defaults(), kit = Kit.empty() })
+}

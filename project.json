@@ -1,0 +1,228 @@
+{
+  "version": 1,
+  "title": "ひとあし迷宮",
+  "designWidth": 540,
+  "designHeight": 960,
+  "windowWidth": 540,
+  "windowHeight": 960,
+  "windowScale": 1,
+  "clearColor": {
+    "r": 0.08,
+    "g": 0.086,
+    "b": 0.11
+  },
+  "maxDeltaTime": 0.05,
+  "textures": [
+    {
+      "name": "chr_hero",
+      "path": "assets/chars/hero.png",
+      "hasAlpha": true
+    },
+    {
+      "name": "chr_blob",
+      "path": "assets/chars/blob.png",
+      "hasAlpha": true
+    },
+    {
+      "name": "chr_bat",
+      "path": "assets/chars/bat.png",
+      "hasAlpha": true
+    },
+    {
+      "name": "chr_archer",
+      "path": "assets/chars/archer.png",
+      "hasAlpha": true
+    },
+    {
+      "name": "icon_sword",
+      "path": "assets/icons/sword.png",
+      "hasAlpha": true
+    },
+    {
+      "name": "icon_shield",
+      "path": "assets/icons/shield.png",
+      "hasAlpha": true
+    },
+    {
+      "name": "icon_arrow",
+      "path": "assets/icons/arrow.png",
+      "hasAlpha": true
+    },
+    {
+      "name": "icon_bomb",
+      "path": "assets/icons/bomb.png",
+      "hasAlpha": true
+    },
+    {
+      "name": "icon_herb",
+      "path": "assets/icons/herb.png",
+      "hasAlpha": true
+    }
+  ],
+  "// glyphs": "起動時に焼く字。auto=出た字から順に焼く / used=ソースとアセットにある字を先に焼く / all=フォントの全字",
+  "glyphs": "auto",
+  "fonts": [
+    {
+      "name": "default",
+      "path": "assets/ShipporiMincho-Regular.subset.ttf",
+      "fontSize": 48.0
+    }
+  ],
+  "sounds": [
+    {
+      "name": "sd_step",
+      "path": "assets/sfx/sd_step.wav",
+      "looping": false
+    },
+    {
+      "name": "sd_bump",
+      "path": "assets/sfx/sd_bump.wav",
+      "looping": false
+    },
+    {
+      "name": "sd_strike",
+      "path": "assets/sfx/sd_strike.wav",
+      "looping": false
+    },
+    {
+      "name": "sd_hit",
+      "path": "assets/sfx/sd_hit.wav",
+      "looping": false
+    },
+    {
+      "name": "sd_guard",
+      "path": "assets/sfx/sd_guard.wav",
+      "looping": false
+    },
+    {
+      "name": "sd_arrow",
+      "path": "assets/sfx/sd_arrow.wav",
+      "looping": false
+    },
+    {
+      "name": "sd_bomb",
+      "path": "assets/sfx/sd_bomb.wav",
+      "looping": false
+    },
+    {
+      "name": "sd_pick",
+      "path": "assets/sfx/sd_pick.wav",
+      "looping": false
+    },
+    {
+      "name": "sd_upgrade",
+      "path": "assets/sfx/sd_upgrade.wav",
+      "looping": false
+    },
+    {
+      "name": "sd_defeat",
+      "path": "assets/sfx/sd_defeat.wav",
+      "looping": false
+    },
+    {
+      "name": "sd_potion",
+      "path": "assets/sfx/sd_potion.wav",
+      "looping": false
+    },
+    {
+      "name": "sd_stairs",
+      "path": "assets/sfx/sd_stairs.wav",
+      "looping": false
+    },
+    {
+      "name": "sd_fall",
+      "path": "assets/sfx/sd_fall.wav",
+      "looping": false
+    }
+  ],
+  "editor": {
+    "resources": [
+      {
+        "id": "rules",
+        "pattern": "assets/stepdown.rules.json",
+        "title": "遊びの決まり（HP・攻撃・矢・爆弾・薬・回復・見える距離）",
+        "schema": "assets/rules.schema.json",
+        "role": "tuning"
+      },
+      {
+        "id": "items",
+        "pattern": "assets/stepdown.items.json",
+        "title": "アイテム（段ごとの数値）",
+        "schema": "assets/items.schema.json",
+        "role": "tuning"
+      },
+      {
+        "id": "enemies",
+        "pattern": "assets/stepdown.enemies.json",
+        "title": "敵（強さ）",
+        "schema": "assets/enemies.schema.json",
+        "role": "tuning"
+      },
+      {
+        "id": "floors",
+        "pattern": "assets/stepdown.floors.json",
+        "title": "階（地図と敵・アイテムの数）",
+        "schema": "assets/floors.schema.json",
+        "role": "tuning"
+      },
+      {
+        "id": "look",
+        "pattern": "assets/stepdown.look.json",
+        "title": "見せ方（秒・カメラ・光・炎・水・後処理）",
+        "schema": "assets/look.schema.json",
+        "role": "material"
+      },
+      {
+        "id": "text",
+        "pattern": "assets/stepdown.text.json",
+        "title": "文言（画面と記録）",
+        "schema": "assets/text.schema.json",
+        "role": "tuning"
+      },
+      {
+        "id": "theme",
+        "pattern": "assets/stepdown.theme.json",
+        "title": "色（UI と床の印）",
+        "schema": "assets/theme.schema.json",
+        "role": "material"
+      },
+      {
+        "id": "keys",
+        "pattern": "assets/stepdown.keys.json",
+        "title": "キー割り当て（どのキーで動かすか）",
+        "schema": "assets/keys.schema.json",
+        "role": "tuning"
+      },
+      {
+        "id": "scenes",
+        "pattern": "assets/*.scenes.json",
+        "title": "場面の説明（ギャラリーに出る題と一言）",
+        "schema": "assets/scenes.schema.json",
+        "role": "tuning"
+      },
+      {
+        "id": "mixer",
+        "pattern": "assets/stepdown.mixer.json",
+        "title": "音の通り道（効果音・返事の音のバス）",
+        "role": "tuning"
+      },
+      {
+        "id": "project",
+        "pattern": "project.json",
+        "title": "ゲームの題・画面",
+        "schema": "project.schema.json",
+        "role": "tuning"
+      }
+    ]
+  },
+  "web": {
+    "keysDoc": "assets/stepdown.keys.json",
+    "orientation": "portrait",
+    "touchGestures": {
+      "swipeUp": "dashUp",
+      "swipeDown": "dashDown",
+      "swipeLeft": "dashLeft",
+      "swipeRight": "dashRight"
+    }
+  }
+}

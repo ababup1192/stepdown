@@ -1,0 +1,17 @@
+# 題名の画面から 1F を始め、始まりの小部屋を歩いてダッシュで通路へ出る。周回の種は World.fixedSeed（地図は 1a）。
+start title
+expect screen=Title
+tap confirm
+expect screen=Play&floor=1&col=3&row=3&walked=0
+tap right
+tap up
+tap up
+expect col=4&row=1&walked=3
+tap up                       # 上は松明の壁: 手は進まない
+expect col=4&row=1&walked=3
+tap dashRight                # 部屋の中はまっすぐ、次が壁で止まる
+expect col=5&row=1&walked=4
+tap down
+tap dashRight                # 部屋から通路へ出た 1 歩で止まる（部屋の番号が変わる）
+expect col=6&row=2&walked=6
+mark corridor

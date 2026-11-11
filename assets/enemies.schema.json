@@ -1,0 +1,33 @@
+{
+  "//": "stepdown.enemies.json の形の宣言。enemies は敵の名前（Enemy.Kind の名前）→ 強さ。",
+  "version": 1,
+  "sections": {
+    "enemies": {
+      "kind": "catalog",
+      "label": "敵ごとの強さ",
+      "order": 1,
+      "fields": {
+        "name": {
+          "type": "text",
+          "label": "名前",
+          "order": 1
+        },
+        "hp": {
+          "type": "int",
+          "label": "HP",
+          "order": 2
+        },
+        "attack": {
+          "type": "int",
+          "label": "攻撃",
+          "order": 3
+        },
+        "firstFloor": {
+          "type": "int",
+          "label": "初出の階",
+          "order": 4
+        }
+      }
+    }
+  }
+}

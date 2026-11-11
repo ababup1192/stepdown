@@ -1,0 +1,88 @@
+{
+  "version": 1,
+  "title": "アイテム（段ごとの数値）",
+  "note": "段の並び（木→鉄→銀…）と効果の種類（押し出し・弾く・貫通・燃える・眠り）はコード（Item）で、ここは段ごとの数値だけ。キーは段の名前で、ここで段は足せない。書かない欄は 0。attack=剣の攻撃（素の攻撃と置き換え）/ guard=盾が受ける攻撃から引く数 / deflect=銀の盾が弾く確率 / damage=矢・爆弾のダメージ / pierce=矢が貫いて当たる追加の敵の数 / burn=火の矢の燃える手の数 / radius=爆弾の範囲（主人公から縦横の差がこの数以内）/ sleep=眠り玉の眠る手の数 / heal=薬の回復量 / count=床から拾った時に増える数（矢・爆弾・薬）。",
+  "items": {
+    "WoodSword": {
+      "name": "木の剣",
+      "attack": 3
+    },
+    "IronSword": {
+      "name": "鉄の剣",
+      "attack": 5
+    },
+    "SilverSword": {
+      "name": "銀の剣",
+      "attack": 7
+    },
+    "WoodShield": {
+      "name": "木の盾",
+      "guard": 1
+    },
+    "IronShield": {
+      "name": "鉄の盾",
+      "guard": 2
+    },
+    "SilverShield": {
+      "name": "銀の盾",
+      "guard": 3,
+      "deflect": 0.25
+    },
+    "WoodArrow": {
+      "name": "木の矢",
+      "damage": 3,
+      "count": 5
+    },
+    "IronArrow": {
+      "name": "鉄の矢",
+      "damage": 4,
+      "pierce": 1,
+      "count": 5
+    },
+    "SilverArrow": {
+      "name": "銀の矢",
+      "damage": 5,
+      "pierce": 2,
+      "count": 5
+    },
+    "FireArrow": {
+      "name": "火の矢",
+      "damage": 5,
+      "burn": 3,
+      "count": 3
+    },
+    "SmallBomb": {
+      "name": "小爆弾",
+      "damage": 6,
+      "radius": 1,
+      "count": 2
+    },
+    "BigBomb": {
+      "name": "大爆弾",
+      "damage": 8,
+      "radius": 2,
+      "count": 2
+    },
+    "SleepBomb": {
+      "name": "眠り玉",
+      "radius": 2,
+      "sleep": 3,
+      "count": 2
+    },
+    "Herb": {
+      "name": "薬草",
+      "heal": 6,
+      "count": 1
+    },
+    "Tonic": {
+      "name": "回復薬",
+      "heal": 12,
+      "count": 1
+    },
+    "Elixir": {
+      "name": "万能薬",
+      "heal": 99,
+      "count": 1
+    }
+  }
+}

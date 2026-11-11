@@ -1,0 +1,174 @@
+{
+  "//": "stepdown.text.json の形の宣言。{enemy}・{item}・{n} は差し込み。",
+  "version": 1,
+  "sections": {
+    "title": {
+      "kind": "field",
+      "type": "text",
+      "label": "題名",
+      "order": 1,
+      "group": "画面",
+      "default": "ひとあし迷宮"
+    },
+    "startPrompt": {
+      "kind": "field",
+      "type": "text",
+      "label": "はじめる案内",
+      "order": 2,
+      "group": "画面",
+      "default": "タップか Enter で はじめる"
+    },
+    "dead": {
+      "kind": "field",
+      "type": "text",
+      "label": "倒れた",
+      "order": 3,
+      "group": "画面",
+      "default": "たおれてしまった…"
+    },
+    "cleared": {
+      "kind": "field",
+      "type": "text",
+      "label": "抜けた",
+      "order": 4,
+      "group": "画面",
+      "default": "1F を ぬけた！"
+    },
+    "retry": {
+      "kind": "field",
+      "type": "text",
+      "label": "もう一度の案内",
+      "order": 5,
+      "group": "画面",
+      "default": "タップか Enter で もう一度"
+    },
+    "quitPrompt": {
+      "kind": "field",
+      "type": "text",
+      "label": "終了の確認",
+      "order": 6,
+      "group": "画面",
+      "default": "やめますか?  Enter: はい  /  Esc: いいえ"
+    },
+    "upgraded": {
+      "kind": "field",
+      "type": "text",
+      "label": "上の段を拾った",
+      "order": 7,
+      "group": "記録",
+      "default": "{item}を ひろった！ 手持ちが {item}に なった"
+    },
+    "stacked": {
+      "kind": "field",
+      "type": "text",
+      "label": "同じか下の段を拾った",
+      "order": 8,
+      "group": "記録",
+      "default": "{item}を ひろった"
+    },
+    "discarded": {
+      "kind": "field",
+      "type": "text",
+      "label": "下の剣・盾を拾った",
+      "order": 9,
+      "group": "記録",
+      "default": "{item}は 今のより 弱い"
+    },
+    "struck": {
+      "kind": "field",
+      "type": "text",
+      "label": "殴った",
+      "order": 10,
+      "group": "記録",
+      "default": "{enemy}に {n} のダメージ"
+    },
+    "shot": {
+      "kind": "field",
+      "type": "text",
+      "label": "矢を放った",
+      "order": 11,
+      "group": "記録",
+      "default": "{item}を はなった"
+    },
+    "bombed": {
+      "kind": "field",
+      "type": "text",
+      "label": "爆弾を投げた",
+      "order": 12,
+      "group": "記録",
+      "default": "{item}を なげた"
+    },
+    "defeated": {
+      "kind": "field",
+      "type": "text",
+      "label": "倒した",
+      "order": 13,
+      "group": "記録",
+      "default": "{enemy}を たおした"
+    },
+    "woke": {
+      "kind": "field",
+      "type": "text",
+      "label": "敵が起きた",
+      "order": 14,
+      "group": "記録",
+      "default": "{enemy}が 目をさました"
+    },
+    "approached": {
+      "kind": "field",
+      "type": "text",
+      "label": "敵が隣に来た",
+      "order": 15,
+      "group": "記録",
+      "default": "{enemy}が となりに にじりよってきた！"
+    },
+    "hurt": {
+      "kind": "field",
+      "type": "text",
+      "label": "受けた",
+      "order": 16,
+      "group": "記録",
+      "default": "{enemy}から {n} のダメージ"
+    },
+    "deflected": {
+      "kind": "field",
+      "type": "text",
+      "label": "盾で弾いた",
+      "order": 17,
+      "group": "記録",
+      "default": "盾で はじいた！"
+    },
+    "drank": {
+      "kind": "field",
+      "type": "text",
+      "label": "薬を使った",
+      "order": 18,
+      "group": "記録",
+      "default": "{item}を のんだ（+{n}）"
+    },
+    "descended": {
+      "kind": "field",
+      "type": "text",
+      "label": "階段を降りた",
+      "order": 19,
+      "group": "記録",
+      "default": "階段を おりた"
+    },
+    "blocked": {
+      "kind": "field",
+      "type": "text",
+      "label": "進めない",
+      "order": 20,
+      "group": "記録",
+      "default": "そこへは 進めない"
+    },
+    "floorLabel": {
+      "kind": "field",
+      "type": "text",
+      "label": "階の表示",
+      "order": 21,
+      "group": "上の帯",
+      "default": "{n}F"
+    }
+  }
+}

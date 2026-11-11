@@ -1,0 +1,89 @@
+{
+  "//": "stepdown.floors.json の形の宣言。地図の字の意味は note と Board.glyphOf、置き場を選ぶ決まりは Floor。",
+  "version": 1,
+  "sections": {
+    "maps": {
+      "kind": "catalog",
+      "label": "地図（名前 → 文字の地図）",
+      "order": 1,
+      "fields": {
+        "title": {
+          "type": "text",
+          "label": "地図の説明",
+          "order": 1
+        },
+        "rows": {
+          "type": "grid",
+          "label": "文字の地図（# 壁 t 松明 . 部屋 , 通路 @ 始まり P 柱 r 岩 ~ 水 > 階段）",
+          "order": 2,
+          "required": true
+        }
+      }
+    },
+    "floors": {
+      "kind": "list",
+      "label": "階",
+      "order": 2,
+      "fields": {
+        "floor": {
+          "type": "int",
+          "label": "階",
+          "order": 1
+        },
+        "maps": {
+          "type": {
+            "list": "text"
+          },
+          "label": "使う地図の名前（乱数で 1 つ）",
+          "order": 2
+        },
+        "jelly": {
+          "type": "int",
+          "label": "ゼリーの数",
+          "order": 3
+        },
+        "bat": {
+          "type": "int",
+          "label": "コウモリの数",
+          "order": 4
+        },
+        "archer": {
+          "type": "int",
+          "label": "弓兵の数",
+          "order": 5
+        },
+        "swarm": {
+          "type": "int",
+          "label": "群れの数",
+          "order": 6
+        },
+        "items": {
+          "type": {
+            "list": {
+              "enum": [
+                "WoodSword",
+                "IronSword",
+                "SilverSword",
+                "WoodShield",
+                "IronShield",
+                "SilverShield",
+                "WoodArrow",
+                "IronArrow",
+                "SilverArrow",
+                "FireArrow",
+                "SmallBomb",
+                "BigBomb",
+                "SleepBomb",
+                "Herb",
+                "Tonic",
+                "Elixir"
+              ]
+            }
+          },
+          "label": "床に置くアイテム",
+          "order": 7
+        }
+      }
+    }
+  }
+}

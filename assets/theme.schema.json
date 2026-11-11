@@ -1,0 +1,262 @@
+{
+  "//": "stepdown.theme.json の形の宣言（Studio の sections 方言）。色 1 つ = kind field / type color のセクション 1 つ。",
+  "version": 1,
+  "sections": {
+    "bg": {
+      "kind": "field",
+      "type": "color",
+      "label": "下地",
+      "order": 1,
+      "group": "画面",
+      "required": true
+    },
+    "ink": {
+      "kind": "field",
+      "type": "color",
+      "label": "字",
+      "order": 2,
+      "group": "画面",
+      "required": true
+    },
+    "shade": {
+      "kind": "field",
+      "type": "color",
+      "label": "帯の陰",
+      "order": 3,
+      "group": "画面",
+      "required": true
+    },
+    "hpEdge": {
+      "kind": "field",
+      "type": "color",
+      "label": "HP の枠",
+      "order": 4,
+      "group": "上の帯",
+      "required": true
+    },
+    "hpBack": {
+      "kind": "field",
+      "type": "color",
+      "label": "HP の地",
+      "order": 5,
+      "group": "上の帯",
+      "required": true
+    },
+    "hpTop": {
+      "kind": "field",
+      "type": "color",
+      "label": "HP の上",
+      "order": 6,
+      "group": "上の帯",
+      "required": true
+    },
+    "hpBottom": {
+      "kind": "field",
+      "type": "color",
+      "label": "HP の下",
+      "order": 7,
+      "group": "上の帯",
+      "required": true
+    },
+    "mapFloor": {
+      "kind": "field",
+      "type": "color",
+      "label": "地図の床",
+      "order": 8,
+      "group": "小さい地図",
+      "required": true
+    },
+    "mapWater": {
+      "kind": "field",
+      "type": "color",
+      "label": "地図の水",
+      "order": 9,
+      "group": "小さい地図",
+      "required": true
+    },
+    "mapStairs": {
+      "kind": "field",
+      "type": "color",
+      "label": "地図の階段",
+      "order": 10,
+      "group": "小さい地図",
+      "required": true
+    },
+    "mapHero": {
+      "kind": "field",
+      "type": "color",
+      "label": "地図の主人公",
+      "order": 11,
+      "group": "小さい地図",
+      "required": true
+    },
+    "mapEnemy": {
+      "kind": "field",
+      "type": "color",
+      "label": "地図の敵",
+      "order": 12,
+      "group": "小さい地図",
+      "required": true
+    },
+    "logBack": {
+      "kind": "field",
+      "type": "color",
+      "label": "記録の地",
+      "order": 13,
+      "group": "下の帯",
+      "required": true
+    },
+    "logEdge": {
+      "kind": "field",
+      "type": "color",
+      "label": "記録の枠",
+      "order": 14,
+      "group": "下の帯",
+      "required": true
+    },
+    "slotTop": {
+      "kind": "field",
+      "type": "color",
+      "label": "枠の上",
+      "order": 15,
+      "group": "下の帯",
+      "required": true
+    },
+    "slotBottom": {
+      "kind": "field",
+      "type": "color",
+      "label": "枠の下",
+      "order": 16,
+      "group": "下の帯",
+      "required": true
+    },
+    "tierNone": {
+      "kind": "field",
+      "type": "color",
+      "label": "段なし",
+      "order": 17,
+      "group": "段のふち",
+      "required": true
+    },
+    "tierWood": {
+      "kind": "field",
+      "type": "color",
+      "label": "木の段",
+      "order": 18,
+      "group": "段のふち",
+      "required": true
+    },
+    "tierIron": {
+      "kind": "field",
+      "type": "color",
+      "label": "鉄の段",
+      "order": 19,
+      "group": "段のふち",
+      "required": true
+    },
+    "tierSilver": {
+      "kind": "field",
+      "type": "color",
+      "label": "銀の段",
+      "order": 20,
+      "group": "段のふち",
+      "required": true
+    },
+    "tierFire": {
+      "kind": "field",
+      "type": "color",
+      "label": "火の段",
+      "order": 21,
+      "group": "段のふち",
+      "required": true
+    },
+    "badgeFace": {
+      "kind": "field",
+      "type": "color",
+      "label": "予告の丸",
+      "order": 22,
+      "group": "予告",
+      "required": true
+    },
+    "badgeEdge": {
+      "kind": "field",
+      "type": "color",
+      "label": "予告の丸の縁",
+      "order": 23,
+      "group": "予告",
+      "required": true
+    },
+    "labelBack": {
+      "kind": "field",
+      "type": "color",
+      "label": "予告のラベル",
+      "order": 24,
+      "group": "予告",
+      "required": true
+    },
+    "markMove": {
+      "kind": "field",
+      "type": "color",
+      "label": "移動・待つ",
+      "order": 25,
+      "group": "予告",
+      "required": true
+    },
+    "markStrike": {
+      "kind": "field",
+      "type": "color",
+      "label": "なぐる",
+      "order": 26,
+      "group": "予告",
+      "required": true
+    },
+    "markArrow": {
+      "kind": "field",
+      "type": "color",
+      "label": "矢",
+      "order": 27,
+      "group": "予告",
+      "required": true
+    },
+    "markBomb": {
+      "kind": "field",
+      "type": "color",
+      "label": "爆弾",
+      "order": 28,
+      "group": "予告",
+      "required": true
+    },
+    "markBlocked": {
+      "kind": "field",
+      "type": "color",
+      "label": "進めない",
+      "order": 29,
+      "group": "予告",
+      "required": true
+    },
+    "markDescend": {
+      "kind": "field",
+      "type": "color",
+      "label": "降りる",
+      "order": 30,
+      "group": "予告",
+      "required": true
+    },
+    "markDanger": {
+      "kind": "field",
+      "type": "color",
+      "label": "敵の予告",
+      "order": 31,
+      "group": "予告",
+      "required": true
+    },
+    "sleep": {
+      "kind": "field",
+      "type": "color",
+      "label": "眠りの z",
+      "order": 32,
+      "group": "予告",
+      "required": true
+    }
+  }
+}
