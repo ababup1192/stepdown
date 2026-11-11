@@ -67,7 +67,8 @@ def mat(name, img=None, rgb=(0.5, 0.5, 0.5), rough=0.85, emit=None):
 M_FLOOR = mat("floor", texture("floor", (0.20, 0.16, 0.12), (0.42, 0.34, 0.25), seed=1, edge=0.35))
 M_FLOOR2 = mat("floor_b", texture("floor_b", (0.17, 0.14, 0.11), (0.37, 0.31, 0.24), seed=7, edge=0.35))
 M_WALL = mat("wall", texture("wall", (0.20, 0.17, 0.15), (0.38, 0.33, 0.28), octaves=4, seed=2, edge=0.25))
-M_TOP = mat("wall_top", texture("wall_top", (0.04, 0.035, 0.04), (0.11, 0.09, 0.09), octaves=3, seed=3))
+# 壁の上面は奥の黒い蓋より明るい石の色にする。蓋と同じ黒だと、部屋の間の 2 行の壁が床を覆う黒い板に見える
+M_TOP = mat("wall_top", texture("wall_top", (0.14, 0.12, 0.12), (0.30, 0.26, 0.25), octaves=3, seed=3, edge=0.5))
 M_PIT = mat("pit", texture("pit", (0.10, 0.20, 0.18), (0.28, 0.36, 0.30), seed=4))
 M_MOSS = mat("moss", texture("moss", (0.10, 0.22, 0.07), (0.28, 0.42, 0.14), octaves=3, seed=5, n=64), rough=0.95)
 M_WOOD = mat("wood", rgb=(0.30, 0.17, 0.08), rough=0.7)
