@@ -105,6 +105,14 @@ mod TestStep {
         Assert.assertEq(expected = Event.ArrowShot(Dir.Right, Item.Kind.IronArrow, (5, 3)) :: Event.ArrowHit(0, damage) :: Event.ArrowHit(1, damage) :: Nil,
             events |> List.drop(2) |> List.take(3))
 
+    /// 火の矢が当たった敵は燃え始める（HP 50 のゼリー。1 手目の待つで (5, 2) から (4, 3) へ寄る）。
+    @Test
+    def testFireArrowStartsBurning(): Unit \ Assert =
+        let c = { enemies = Fixtures.enemiesWith("{\"enemies\": {\"Jelly\": {\"hp\": 50}}}") | ctx(hall()) };
+        let (woken, _) = Step.step(c, start(c, (Enemy.Kind.Jelly, (5, 2)) :: Nil, (Item.Kind.FireArrow, (2, 3)) :: Nil), Input.Wait);
+        let (_, events) = Step.step(c, woken, right());
+        Assert.assertEq(expected = true, List.memberOf(Event.Burned(0, stats(Item.Kind.FireArrow)#burn), events))
+
     /// 8 近傍に起きた敵が bombNeeds 体以上で爆弾を投げる（小爆弾の範囲の敵は倒れる）。
     /// 1 手目で爆弾を拾い、2 体は斜めに寄ってきて (3, 3) と (3, 4) に並ぶ。2 手目の待つで投げる。
     @Test

@@ -11,7 +11,8 @@ mod TestPreview {
     // 要約の表
     // ══════════════════════════════════════════════════════
 
-    /// 進めない → ×・殴って殴られる → 殴る + ダメージ・弾いた攻撃も盾で減らした後の数で数える・動いて矢と薬 → 移動 + 矢 + 薬・倒れる。
+    /// 進めない → ×・殴って殴られる → 殴る + ダメージ・弾いた攻撃も盾で減らした後の数で数える・動いて矢と薬 → 移動 + 矢 + 薬・倒れる・
+    /// 小石は矢と分ける・煙玉・空腹のダメージも受けるダメージに数える。
     @Test
     def testSummarizeTable(): Unit \ Assert =
         Assert.assertEq(
@@ -20,14 +21,18 @@ mod TestPreview {
                         Mark.Wait :: Mark.Damage(2) :: Nil,
                         Mark.Move :: Mark.Arrow :: Mark.Potion :: Mark.Damage(4) :: Nil,
                         Mark.Wait :: Mark.Bomb :: Mark.Damage(5) :: Mark.Falls :: Nil,
-                        Mark.Descend :: Nil),
+                        Mark.Descend :: Nil,
+                        Mark.Move :: Mark.Pebble :: Nil,
+                        Mark.Wait :: Mark.Smoke :: Mark.Damage(1) :: Nil),
             (Preview.summarize(Event.HeroBlocked(Dir8.Up) :: Nil),
              Preview.summarize(Event.HeroStruck(0, 2) :: Event.HeroHurt(Run.Source.Melee(0), 3, false) :: Nil),
              Preview.summarize(Event.HeroWaited :: Event.HeroHurt(Run.Source.Melee(1), 2, true) :: Nil),
              Preview.summarize(Event.HeroMoved((1, 1), (2, 1)) :: Event.ArrowShot(Dir.Right, Item.Kind.WoodArrow, (4, 1))
                  :: Event.HeroHurt(Run.Source.Melee(0), 2, false) :: Event.PotionUsed(Item.Kind.Herb, 6) :: Event.HeroHurt(Run.Source.Melee(1), 2, false) :: Nil),
              Preview.summarize(Event.HeroWaited :: Event.BombThrown(Item.Kind.SmallBomb, (1, 1)) :: Event.HeroHurt(Run.Source.Melee(0), 5, false) :: Event.HeroDied :: Nil),
-             Preview.summarize(Event.Descended :: Nil)))
+             Preview.summarize(Event.Descended :: Nil),
+             Preview.summarize(Event.HeroMoved((1, 1), (2, 1)) :: Event.ArrowShot(Dir.Right, Item.Kind.Pebble, (4, 1)) :: Nil),
+             Preview.summarize(Event.HeroWaited :: Event.SmokeThrown((1, 1)) :: Event.HeroHurt(Run.Source.Starve, 1, false) :: Nil)))
 
     /// 方向の予告は本物の step の要約と同じ（9 つの入力）。
     @Test

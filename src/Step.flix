@@ -296,8 +296,9 @@ mod Step {
             else t |> setEnemy({ hp = e#hp - damage, rest = if (Enemy.isAwake(e)) e#rest else Enemy.Rest.Dozing(1) | e })
         ) |> Option.getWithDefault(t)
 
+    /// 生きている敵を turns 手のあいだ燃やす（燃え始めの出来事。燃えるダメージは敵の手番ごとの EnemyBurned）。
     def setBurn(id: Int32, turns: Int32, t: Turn): Turn =
-        if (turns <= 0) t else enemyOf(id, t) |> Option.map(e -> setEnemy({ burn = turns | e }, t)) |> Option.getWithDefault(t)
+        if (turns <= 0) t else enemyOf(id, t) |> Option.map(e -> t |> setEnemy({ burn = turns | e }) |> emit(Event.Burned(id, turns))) |> Option.getWithDefault(t)
 
     def setSleep(id: Int32, turns: Int32, t: Turn): Turn =
         if (turns <= 0) t

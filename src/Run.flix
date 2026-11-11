@@ -140,7 +140,10 @@ mod Run {
         case BombHit(Int32, Int32)
         /// 主人公が煙玉を使った（主人公のマス）。続く EnemySlept が眠った隣の敵。
         case SmokeThrown(Cell)
+        /// 燃えている敵が敵の手番の始めにダメージを受けた（id・ダメージ）。
         case EnemyBurned(Int32, Int32)
+        /// 敵が燃え始めた（id・燃える手の数）。
+        case Burned(Int32, Int32)
         /// 敵が眠った（id・眠る手の数）。
         case EnemySlept(Int32, Int32)
         case EnemyPushed(Int32, Cell, Cell)
