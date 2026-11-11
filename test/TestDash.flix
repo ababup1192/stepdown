@@ -34,6 +34,13 @@ mod TestDash {
         let c = ctx("#######" :: "#@,,,##" :: "####,##" :: "####,>#" :: "#######" :: Nil);
         Assert.assertEq(expected = Some((5, 3)), lastCell(dashFromCorridor(c, start(c, Nil, Nil))))
 
+    /// 斜めにつながる出口どうしは 1 本と数える: (5, 1) の先の (6, 1)・(6, 2)・(5, 2) は 1 本で、同じ向きの (6, 1) へ進む。
+    /// その先は角を曲がって (6, 2) へ下り、階段 (6, 3) と袋の (5, 2) は角の壁で隔たる 2 本なので止まる。
+    @Test
+    def testAdjacentExitsCountAsOnePath(): Unit \ Assert =
+        let c = ctx("########" :: "#@,,,,,#" :: "#####,,#" :: "######>#" :: "########" :: Nil);
+        Assert.assertEq(expected = Some((6, 2)), lastCell(dashFromCorridor(c, start(c, Nil, Nil))))
+
     /// 始めた時に起きた敵が見えていれば 1 歩だけ。
     @Test
     def testOneStepWhenAnEnemyIsInSight(): Unit \ Assert =
