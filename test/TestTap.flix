@@ -89,27 +89,29 @@ mod TestTap {
 
     def heroAt(w: World.World): Board.Cell = Run.heroOf(w#runState)#at
 
-    /// 1 歩見せている間の 2 歩目は溜まり、今の 1 歩を飛ばしてから当たる（始まり (3, 3) から右・上で (4, 2)）。
+    /// 1 歩見せている間の 2 歩目は溜まり、今の 1 歩を飛ばしてから当たる（始まりから右・上）。
     @Test
     def testInputWhileShowingIsQueuedThenApplied(): Unit \ Assert + Fs.FileRead =
         let (res, w) = started();
+        let right = Board.step(Dir.Right, heroAt(w));
         let walking = World.command(res, World.Act.Go(Input.Move(Dir8.Right)), w);
         let queued = World.command(res, World.Act.Go(Input.Move(Dir8.Up)), walking);
-        Assert.assertEq(expected = ((4, 3), true, (4, 2)), (heroAt(queued), Option.nonEmpty(queued#queued), heroAt(World.advance(res, queued))))
+        Assert.assertEq(expected = (right, true, Board.step(Dir.Up, right)), (heroAt(queued), Option.nonEmpty(queued#queued), heroAt(World.advance(res, queued))))
 
-    /// 部屋の中の右へのダッシュは壁まで 2 歩: 始めた時は 1 歩目の Run、見せ終えるごとに次の歩へ進む。
+    /// 部屋の中の右へのダッシュ: 始めた時は 1 歩目の Run、見せ終えるごとに次の歩へ進む。
     @Test
     def testDashShowsOneStepAtATime(): Unit \ Assert + Fs.FileRead =
         let (res, w) = started();
+        let right = Board.step(Dir.Right, heroAt(w));
         let dashing = World.command(res, World.Act.Dash(Dir.Right), w);
-        Assert.assertEq(expected = ((4, 3), (5, 3)), (heroAt(dashing), heroAt(World.advance(res, World.skipShow(dashing)))))
+        Assert.assertEq(expected = (right, Board.step(Dir.Right, right)), (heroAt(dashing), heroAt(World.advance(res, World.skipShow(dashing)))))
 
     /// ダッシュ中の手は溜めずに、次の歩で止める。
     @Test
     def testInputDuringDashStopsAtTheNextStep(): Unit \ Assert + Fs.FileRead =
         let (res, w) = started();
         let stopped = World.command(res, World.Act.Go(Input.Move(Dir8.Up)), World.command(res, World.Act.Dash(Dir.Right), w));
-        Assert.assertEq(expected = ((4, 3), false), (heroAt(World.advance(res, World.skipShow(stopped))), World.isBusy(res, World.skipShow(stopped))))
+        Assert.assertEq(expected = (Board.step(Dir.Right, heroAt(w)), false), (heroAt(World.advance(res, World.skipShow(stopped))), World.isBusy(res, World.skipShow(stopped))))
 
     // ══════════════════════════════════════════════════════
     // 音（時刻表の Cue）

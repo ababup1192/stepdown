@@ -33,19 +33,20 @@ mod FloorsDoc {
     /// コード側の既定（assets の 1F の 1 枚目と同じ地図）。
     pub def defaults(): Doc =
         Doc.Doc({ version = 1,
-                  maps = Map#{ "1a" => { title = "1F 噴水の広間", rows = defaultRows() } },
-                  floors = { floor = 1, maps = "1a" :: Nil, jelly = 2, bat = 1, archer = 1, swarm = 0,
-                             items = Item.Kind.WoodArrow :: Item.Kind.SmallBomb :: Item.Kind.Herb :: Item.Kind.IronArrow :: Item.Kind.IronSword :: Nil,
+                  maps = Map#{ "1a" => { title = "1F 四つの部屋", rows = defaultRows() } },
+                  floors = { floor = 1, maps = "1a" :: Nil, jelly = 3, bat = 2, archer = 1, swarm = 0,
+                             items = Item.Kind.WoodArrow :: Item.Kind.SmallBomb :: Item.Kind.Herb :: Item.Kind.IronSword :: Nil,
                              breadOdds = defaultBreadOdds(), meatChance = 0.15 } :: Nil })
 
     def defaultBreadOdds(): List[Float64] = 0.15 :: 0.7 :: 0.15 :: Nil
 
     def defaultRows(): List[String] =
-        "#t###t#########" :: "#.....#########" :: "#..r..,,,######" :: "#..@..##,######" :: "########,######" ::
-        "#######..######" :: "#######..######" :: "#####......####" :: "####........###" :: "###..P....~~.##" ::
-        "##.......~~~~t#" :: "##..r....~~~.##" :: "##....P...~..##" :: "#t...........##" :: "###..>....P..##" ::
-        "##...........##" :: "####.......####" :: "#####.....#####" :: "######...######" :: "######...######" ::
-        "#######t#######" :: Nil
+        "###t#######t###" :: "#.....###.....#" :: "#..r..,,,..P..#" :: "#..@..###.....#" :: "#.....###..P..#" ::
+        "##,######.....#" :: "##,######.....#" :: "##,#######,####" :: "##,,,,,,,,,####" :: "######,########" ::
+        "##t###,###t####" :: "##.....~~...###" :: "##...~~~~~..###" :: "#t..r.~~~...,,#" :: "##.....~....#,#" ::
+        "##..........#,#" :: "####,########,#" :: "####,########,#" :: "####,,,,,,,,,,#" :: "########,######" ::
+        "###t####,###t##" :: "#.............#" :: "#..P.......P..#" :: "#.............#" :: "t......r......#" ::
+        "#..P.......P..#" :: "#.............#" :: "#.>...........#" :: "#######t#######" :: Nil
 
     /// n 階の決まり（無ければ None）。
     pub def floorOf(n: Int32, d: Doc): Option[FloorDef] = rec(d)#floors |> List.find(f -> f#floor == n)

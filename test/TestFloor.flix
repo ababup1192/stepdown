@@ -20,7 +20,13 @@ mod TestFloor {
     /// 1F の地図は 2 枚とも組めて、どちらも始まりから階段まで歩いて着ける。
     @Test
     def testEveryMapReachesTheStairs(): Unit \ Assert + Fs.FileRead =
-        Assert.assertEq(expected = true :: true :: Nil, layoutIds() |> List.map(layout -> Floor.reachesStairs(Floor.boardOf(layouts(), 1, layout))))
+        Assert.assertEq(expected = layoutIds() |> List.map(_ -> true), layoutIds() |> List.map(layout -> Floor.reachesStairs(Floor.boardOf(layouts(), 1, layout))))
+
+    /// 1F の地図は 2 枚とも、歩けるマスは全部、始まりから角を抜けずに歩いて着ける（斜めの角で閉じた所が無い）。
+    @Test
+    def testEveryWalkableCellIsReachable(): Unit \ Assert + Fs.FileRead =
+        Assert.assertEq(expected = (Nil, Nil),
+            (Floor.unreachableCells(Floor.boardOf(layouts(), 1, 0)), Floor.unreachableCells(Floor.boardOf(layouts(), 1, 1))))
 
     /// どの地図・どの種でも、敵は始まりから enemyMinSteps 歩以上離れている。
     @Test

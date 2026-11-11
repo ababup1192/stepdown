@@ -91,6 +91,11 @@ mod Floor {
         let dist = Board.walkDistances(board#start, board);
         Board.cells(board) |> List.exists(c -> Board.tileAt(c, board) == Board.Tile.Stairs and Map.memberOf(c, dist))
 
+    /// 歩けるのに、始まりから角を抜けずに歩いて着けないマス（読む順）。
+    pub def unreachableCells(board: Board.Board): List[Cell] =
+        let dist = Board.walkDistances(board#start, board);
+        Board.cells(board) |> List.filter(c -> Board.isWalkable(c, board) and not Map.memberOf(c, dist))
+
     /// 床のアイテムが全部、床（階段でも始まりでもない）のマスにあるか。
     pub def itemsOnFloor(board: Board.Board, runState: Run.State): Bool =
         Run.rec(runState)#items |> Map.keysOf |> Set.forAll((c: Cell) -> Board.tileAt(c, board) == Board.Tile.Floor and c != board#start)

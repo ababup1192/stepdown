@@ -17,8 +17,8 @@ mod Shots {
         match name {
             // 主人公の上 3 マスの起きたゼリーへ、待った手で矢を放ち、矢が半ばまで飛んだ所。
             case "arrow" => Some(midTurn(res, lk#arrowSeconds * 0.5,
-                staged(res, (3, 13), Run.Held.Held(Item.Kind.WoodArrow, 6) :: Nil,
-                       (Enemy.Kind.Jelly, (3, 10)) :: Nil, World.begin(res, w0))))
+                staged(res, (3, 15), Run.Held.Held(Item.Kind.WoodArrow, 6) :: Nil,
+                       (Enemy.Kind.Jelly, (3, 12)) :: Nil, World.begin(res, w0))))
             // 起きたゼリー 2 体に左右の斜めから囲まれ、待った手で爆弾が破裂して光と煙が広がっている所。
             case "bomb"  => Some(midTurn(res, lk#arrowSeconds * 0.9,
                 staged(res, (7, 15), Run.Held.Held(Item.Kind.SmallBomb, 2) :: Nil,
