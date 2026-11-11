@@ -39,6 +39,13 @@ mod Fixtures {
             case None    => bug!("テストの items の JSON が読めない: ${json}")
         }
 
+    /// floors の JSON の欄を差し替えた Doc（書き誤りは止める）。
+    pub def floorsWith(json: String): FloorsDoc.Doc =
+        match FloorsDoc.fromJson(json) {
+            case Some(d) => d
+            case None    => bug!("テストの floors の JSON が読めない: ${json}")
+        }
+
     /// 置き場から階の始めの Run（敵は全員眠っている）。
     pub def start(ctx: Run.Ctx, enemies: List[(Enemy.Kind, Cell)], items: List[(Item.Kind, Cell)]): Run.State =
         Run.start(ctx, { floor = 1, layout = 0, seed = 1i64, rng = 1i64 }, { enemies = enemies, items = items })

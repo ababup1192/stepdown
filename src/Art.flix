@@ -51,5 +51,6 @@ mod Art {
         case Item.Family.Arrow  => Icon.Arrow
         case Item.Family.Bomb   => Icon.Bomb
         case Item.Family.Potion => Icon.Herb
+        case Item.Family.Food   => Icon.Herb
     }
 }

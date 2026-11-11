@@ -22,6 +22,18 @@ mod Rng {
         let unit = Int64.toFloat64(Int64.logicalRightShift(dist = 11, z)) / 9007199254740992.0;
         (unit < p, s)
 
+    /// 重みの列から 1 つ選んだ番号（重みが全部 0 以下なら 0）。
+    pub def weighted(weights: List[Float64], state: Int64): (Int32, Int64) =
+        let (z, s) = next(state);
+        let total = weights |> List.filter(w -> w > 0.0) |> List.foldLeft((acc, w) -> acc + w, 0.0);
+        let point = Int64.toFloat64(Int64.logicalRightShift(dist = 11, z)) / 9007199254740992.0 * total;
+        let (index, _) = weights |> List.zipWithIndex |> List.foldLeft((acc, iw) -> {
+            let ((found, left), (i, w)) = (acc, iw);
+            let width = Float64.max(0.0, w);
+            if (found >= 0) acc else if (left < width) (i, left) else (-1, left - width)
+        }, (-1, point));
+        (Int32.max(0, index), s)
+
     /// 2 つの数から種を作る（周回の種と階の番号 → その階の種）。
     pub def mix(a: Int64, b: Int64): Int64 = fst(next(Int64.bitwiseXor(a, b * golden())))
 

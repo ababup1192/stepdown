@@ -76,12 +76,28 @@
                 "SleepBomb",
                 "Herb",
                 "Tonic",
-                "Elixir"
+                "Elixir",
+                "Bread",
+                "Meat"
               ]
             }
           },
           "label": "床に置くアイテム",
           "order": 7
+        },
+        "breadOdds": {
+          "type": {
+            "list": "float"
+          },
+          "label": "パンを 0 個・1 個・2 個…置く重み",
+          "order": 8
+        },
+        "meatChance": {
+          "type": "float",
+          "label": "肉を 1 つ置く確率",
+          "order": 9,
+          "min": 0.0,
+          "max": 1.0
         }
       }
     }

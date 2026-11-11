@@ -20,15 +20,18 @@ mod Item {
         case Herb
         case Tonic
         case Elixir
+        case Bread
+        case Meat
     }
 
-    /// 系統。剣と盾は数なし、矢・爆弾・薬は数あり。
+    /// 系統。剣と盾は数なし、矢・爆弾・薬は数あり。食べ物は持たずに止まったマスで食べる。
     pub enum Family with Eq, Order, ToString {
         case Sword
         case Shield
         case Arrow
         case Bomb
         case Potion
+        case Food
     }
 
     /// 効果の種類（数値は items の Doc）。
@@ -59,7 +62,7 @@ mod Item {
     pub def all(): List[Kind] =
         Kind.WoodSword :: Kind.IronSword :: Kind.SilverSword :: Kind.WoodShield :: Kind.IronShield :: Kind.SilverShield ::
         Kind.WoodArrow :: Kind.IronArrow :: Kind.SilverArrow :: Kind.FireArrow ::
-        Kind.SmallBomb :: Kind.BigBomb :: Kind.SleepBomb :: Kind.Herb :: Kind.Tonic :: Kind.Elixir :: Nil
+        Kind.SmallBomb :: Kind.BigBomb :: Kind.SleepBomb :: Kind.Herb :: Kind.Tonic :: Kind.Elixir :: Kind.Bread :: Kind.Meat :: Nil
 
     /// Doc に書いた名前（enum の名前のまま）から種類へ。
     pub def fromName(name: String): Option[Kind] = all() |> List.find(kind -> "${kind}" == name)
@@ -81,6 +84,8 @@ mod Item {
         case Kind.Herb         => Family.Potion
         case Kind.Tonic        => Family.Potion
         case Kind.Elixir       => Family.Potion
+        case Kind.Bread        => Family.Food
+        case Kind.Meat         => Family.Food
     }
 
     /// 系統の中の段（下から 0, 1, 2, …）。
@@ -101,6 +106,8 @@ mod Item {
         case Kind.Herb         => 0
         case Kind.Tonic        => 1
         case Kind.Elixir       => 2
+        case Kind.Bread        => 0
+        case Kind.Meat         => 1
     }
 
     /// その段だけが持つ効果。

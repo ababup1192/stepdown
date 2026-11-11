@@ -50,6 +50,8 @@ mod Run {
     ///   rng     … 乱数の状態
     ///   seed    … 周回の種（階の種はここと階の番号から作る）
     ///   walked  … 移動した手の数（自然回復の数え）
+    ///   turns   … 手が進んだ数（空腹の数え。つかえた手・降りる手は数えない）
+    ///   fullness … 満腹度（0 の間は 1 手ごとに HP が減り、自然回復は止まる）
     pub type alias Rec = {
         floor = Int32,
         layout = Int32,
@@ -62,6 +64,8 @@ mod Run {
         seed = Int64,
         perks = Perks,
         walked = Int32,
+        turns = Int32,
+        fullness = Int32,
         nextId = Int32,
         status = Status
     }
@@ -105,6 +109,8 @@ mod Run {
         /// 主人公が攻撃を受けた（出所・盾で減らした後のダメージ・弾いたか）。弾いた時は HP は減らない。
         case HeroHurt(Source, Int32, Bool)
         case PotionUsed(Item.Kind, Int32)
+        /// 主人公が足もとの食べ物を食べた（種類・戻った満腹度）。
+        case Ate(Item.Kind, Int32)
         case Regenerated(Int32)
         case HeroDied
     }
@@ -147,7 +153,8 @@ mod Run {
                   pack = Nil,
                   enemies = enemies, items = List.toMap(placement#items |> List.map(match (kind, cell) -> (cell, kind))),
                   seen = Board.viewFrom(start, ctx#board), rng = at#rng, seed = at#seed,
-                  perks = { attack = 0, guard = 0 }, walked = 0, nextId = List.length(enemies), status = Status.Playing })
+                  perks = { attack = 0, guard = 0 }, walked = 0, turns = 0, fullness = RulesDoc.rec(ctx#rules)#fullnessMax,
+                  nextId = List.length(enemies), status = Status.Playing })
 
     // ── 読む口 ──
 
@@ -218,5 +225,5 @@ mod Run {
     pub def fingerprint(runState: State): String =
         let r = rec(runState);
         let enemies = r#enemies |> List.map(e -> "${e#id}:${e#kind}@${e#at}/${e#hp}/${e#rest}") |> List.join(",");
-        "F${r#floor}.${r#layout}|${r#status}|hero=${r#hero#at}/${r#hero#hp}|sword=${r#hero#sword}|shield=${r#hero#shield}|pack=${r#pack}|enemies=${enemies}|items=${r#items}|walked=${r#walked}"
+        "F${r#floor}.${r#layout}|${r#status}|hero=${r#hero#at}/${r#hero#hp}|sword=${r#hero#sword}|shield=${r#hero#shield}|pack=${r#pack}|enemies=${enemies}|items=${r#items}|walked=${r#walked}|turns=${r#turns}|fullness=${r#fullness}"
 }

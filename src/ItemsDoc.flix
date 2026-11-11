@@ -1,4 +1,4 @@
-// ItemsDoc — stepdown.items.json（アイテムの段ごとの数値: 名前・攻撃・守り・弾く確率・ダメージ・貫通・燃える・範囲・眠り・回復・拾う数）の Doc 層。
+// ItemsDoc — stepdown.items.json（アイテムの段ごとの数値: 名前・攻撃・守り・弾く確率・ダメージ・貫通・燃える・範囲・眠り・回復・満腹度・拾う数）の Doc 層。
 // 段の並びと効果の種類はコード（Item）。キーは Item.Kind の名前で、Doc で段は足せない。
 // fail-open — 読めない Doc・書いていない段・書いていない欄は defaults() の値へ落とす。
 mod ItemsDoc {
@@ -15,6 +15,7 @@ mod ItemsDoc {
     ///   radius  … 爆弾の当たる範囲（主人公から縦横の差がこの数以内）
     ///   sleep   … 爆弾が当たった敵の眠る手の数
     ///   heal    … 薬の回復量
+    ///   food    … 食べ物で戻る満腹度
     ///   count   … 床から拾った時に増える数（矢・爆弾・薬）
     pub type alias Stats = {
         name = String,
@@ -27,6 +28,7 @@ mod ItemsDoc {
         radius = Int32,
         sleep = Int32,
         heal = Int32,
+        food = Int32,
         count = Int32
     }
 
@@ -39,7 +41,7 @@ mod ItemsDoc {
     pub def path(): String = "assets/stepdown.items.json"
 
     def zero(name: String): Stats =
-        { name = name, attack = 0, guard = 0, deflect = 0.0, damage = 0, pierce = 0, burn = 0, radius = 0, sleep = 0, heal = 0, count = 0 }
+        { name = name, attack = 0, guard = 0, deflect = 0.0, damage = 0, pierce = 0, burn = 0, radius = 0, sleep = 0, heal = 0, food = 0, count = 0 }
 
     /// コード側の既定（assets/stepdown.items.json と同じ値から出発する）。
     def defaultStats(kind: Item.Kind): Stats = match kind {
@@ -59,6 +61,8 @@ mod ItemsDoc {
         case Item.Kind.Herb         => { heal = 6, count = 1 | zero("薬草") }
         case Item.Kind.Tonic        => { heal = 12, count = 1 | zero("回復薬") }
         case Item.Kind.Elixir       => { heal = 99, count = 1 | zero("万能薬") }
+        case Item.Kind.Bread        => { food = 30 | zero("パン") }
+        case Item.Kind.Meat         => { food = 60 | zero("肉") }
     }
 
     pub def defaults(): Doc =
@@ -85,7 +89,7 @@ mod ItemsDoc {
         { name = JsonCodec.stringOr("name", d#name, obj), attack = int("attack", d#attack), guard = int("guard", d#guard),
           deflect = JsonCodec.floatOr("deflect", d#deflect, obj), damage = int("damage", d#damage),
           pierce = int("pierce", d#pierce), burn = int("burn", d#burn), radius = int("radius", d#radius),
-          sleep = int("sleep", d#sleep), heal = int("heal", d#heal), count = int("count", d#count) }
+          sleep = int("sleep", d#sleep), heal = int("heal", d#heal), food = int("food", d#food), count = int("count", d#count) }
 
     pub def load(p: String): Doc \ Fs.FileRead =
         DocJson.loadOr(fromJson, defaults(), p)

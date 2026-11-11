@@ -37,12 +37,20 @@ mod TestFloor {
             layoutIds() |> List.flatMap(layout -> seeds() |> List.filter(seed ->
                 not Floor.itemsOnFloor(Floor.boardOf(layouts(), 1, layout), floorOn(layout, seed)))))
 
-    /// 階には floors の Doc の数だけ敵とアイテムを置く。
+    /// 階には floors の Doc の数だけ敵を置く。
     @Test
-    def testFloorPlacesTheCountsFromTheDoc(): Unit \ Assert + Fs.FileRead =
+    def testFloorPlacesTheEnemyCountsFromTheDoc(): Unit \ Assert + Fs.FileRead =
         let made = Floor.create(docs(), layouts(), 1i64, 1);
-        Assert.assertEq(expected = FloorsDoc.floorOf(1, docs()#floors) |> Option.map(f -> (f#jelly + f#bat + f#archer + f#swarm, List.length(f#items))),
-            Some((List.length(Run.enemiesOf(made)), Map.size(Run.rec(made)#items))))
+        Assert.assertEq(expected = FloorsDoc.floorOf(1, docs()#floors) |> Option.map(f -> f#jelly + f#bat + f#archer + f#swarm),
+            Some(List.length(Run.enemiesOf(made))))
+
+    /// 床には items に加えて食べ物を置く: パンは breadOdds の重みの番号の数（[0, 0, 1] なら 2 個）、肉は meatChance（1 なら必ず 1 つ）。
+    @Test
+    def testFoodIsAddedToTheFixedItems(): Unit \ Assert + Fs.FileRead =
+        let floors = Fixtures.floorsWith("{\"floors\": [{\"floor\": 1, \"maps\": [\"1a\"], \"items\": [\"Herb\"], \"breadOdds\": [0.0, 0.0, 1.0], \"meatChance\": 1.0}]}");
+        let made = Floor.create({ floors = floors | docs() }, Floor.layoutsOf(floors)#layouts, 1i64, 1);
+        Assert.assertEq(expected = (4, Set#{Item.Kind.Herb, Item.Kind.Bread, Item.Kind.Meat}),
+            (Map.size(Run.rec(made)#items), Run.rec(made)#items |> Map.valuesOf |> List.toSet))
 
     /// 同じ種からは同じ階（地図・敵・アイテム）。
     @Test

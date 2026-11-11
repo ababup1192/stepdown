@@ -1,5 +1,6 @@
 // Floor — 階を作る: floors の Doc の地図から盤を組み（地図ごとに 1 回）、種から地図と敵・アイテムの置き場を選んで Run にする（純粋）。
-// 乱数は地図の選びと置き場だけ。種は Rng.mix(周回の種, 階)。敵は始まりから歩いて enemyMinSteps 以上、アイテムは床だけ（階段と始まりには置かない）。
+// 乱数は地図の選び・食べ物の数・置き場だけ。種は Rng.mix(周回の種, 階)。敵は始まりから歩いて enemyMinSteps 以上、アイテムは床だけ（階段と始まりには置かない）。
+// 食べ物（パンの数は breadOdds の重み・肉は meatChance）は floors の Doc の items の後ろに足して、ほかのアイテムと同じく置く。
 mod Floor {
 
     use Board.Cell
@@ -63,14 +64,22 @@ mod Floor {
         let kinds = Enemy.all()
             |> List.filter(kind -> EnemiesDoc.statsOf(kind, docs#enemies)#firstFloor <= floor)
             |> List.flatMap(kind -> List.repeat(plan |> Option.map(FloorsDoc.enemyCount(kind)) |> Option.getWithDefault(0), kind));
-        let items = plan |> Option.map(f -> f#items) |> Option.getWithDefault(Nil);
+        let fixed = plan |> Option.map(f -> f#items) |> Option.getWithDefault(Nil);
         let dist = Board.walkDistances(board#start, board);
         let open = Board.cells(board) |> List.filter(c -> Board.tileAt(c, board) == Board.Tile.Floor and c != board#start and Map.memberOf(c, dist));
         let far = open |> List.filter(c -> Map.getWithDefault(c, 0, dist) >= RulesDoc.rec(docs#rules)#enemyMinSteps);
         let (enemyCells, afterEnemies) = Rng.pick(List.length(kinds), far, rng);
+        let (food, afterFood) = plan |> Option.map(f -> foodOf(f, afterEnemies)) |> Option.getWithDefault((Nil, afterEnemies));
+        let items = fixed ::: food;
         let taken = List.toSet(enemyCells);
-        let (itemCells, afterItems) = Rng.pick(List.length(items), open |> List.filter(c -> not Set.memberOf(c, taken)), afterEnemies);
+        let (itemCells, afterItems) = Rng.pick(List.length(items), open |> List.filter(c -> not Set.memberOf(c, taken)), afterFood);
         ({ enemies = List.zip(kinds, enemyCells), items = List.zip(items, itemCells) }, afterItems)
+
+    /// 階に置く食べ物: パン（breadOdds の重みで 0, 1, 2… 個）と、meatChance で肉 1 つ。
+    def foodOf(plan: FloorsDoc.FloorDef, rng: Int64): (List[Item.Kind], Int64) =
+        let (breads, afterBread) = Rng.weighted(plan#breadOdds, rng);
+        let (meat, afterMeat) = Rng.chance(plan#meatChance, afterBread);
+        (List.repeat(breads, Item.Kind.Bread) ::: (if (meat) Item.Kind.Meat :: Nil else Nil), afterMeat)
 
     /// 置いた敵のマスの始まりからの歩数のうち一番近い物（置いた敵がいなければ None）。
     pub def nearestEnemySteps(board: Board.Board, runState: Run.State): Option[Int32] =

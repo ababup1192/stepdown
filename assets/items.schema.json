@@ -57,10 +57,15 @@
           "label": "回復量（薬）",
           "order": 10
         },
+        "food": {
+          "type": "int",
+          "label": "戻る満腹度（食べ物）",
+          "order": 11
+        },
         "count": {
           "type": "int",
           "label": "拾った時に増える数",
-          "order": 11
+          "order": 12
         }
       }
     }

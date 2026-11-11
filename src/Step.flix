@@ -3,7 +3,9 @@
 //      待つは「その場に動いた」とみなし、階段の上なら降りる（その手はそこで終わる）。
 //   2. 動いたか待った後、その位置で 1 つだけ判定する: 爆弾（8 近傍の起きた敵が bombNeeds 以上）→ 矢（直線の射程に敵）。
 //   3. 気付いた敵が起きる → 敵の手番（主人公への歩く距離の近い順 → 作った順）。受けるたびに薬・倒れるを見る。
-//   4. 移動した手だけ数え、regenEvery ごとに HP +1。
+//   4. 移動した手だけ数え、regenEvery ごとに HP +1（満腹度 0 の手は飛ばす）。
+//   5. 手が進んだ数を数え、hungerEvery ごとに満腹度 -1。満腹度 0 なら HP が減る（薬 → 倒れるを見る）。
+//   食べ物は持たず、止まったマス（待つも含む）で食べる。満腹度が最大の時は食べずに床に残す。
 mod Step {
 
     use fge::Sort
@@ -49,15 +51,15 @@ mod Step {
     def waitHere(ctx: Ctx, r: Run.Rec): (Run.State, List[Event]) =
         if (Board.tileAt(r#hero#at, ctx#board) == Board.Tile.Stairs)
             finish(ctx, begin({ status = Status.Descended | r }) |> emit(Event.Descended))
-        else begin(r) |> emit(Event.HeroWaited) |> judge(ctx) |> enemyPhase(ctx) |> finish(ctx)
+        else begin(r) |> emit(Event.HeroWaited) |> pickUp(ctx) |> judge(ctx) |> enemyPhase(ctx) |> hunger(ctx) |> finish(ctx)
 
     def moveTo(ctx: Ctx, dir: Dir8, r: Run.Rec): (Run.State, List[Event]) =
         let target = Board.step8(dir, r#hero#at);
         match Map.get(target, Run.occupancy(r#enemies)) {
             case _ if not Board.isCornerOpen(r#hero#at, target, ctx#board) => (Run.of(r), Event.HeroBlocked(dir) :: Nil)
-            case Some(e) => begin(r) |> strike(ctx, dir, e#id) |> enemyPhase(ctx) |> finish(ctx)
+            case Some(e) => begin(r) |> strike(ctx, dir, e#id) |> enemyPhase(ctx) |> hunger(ctx) |> finish(ctx)
             case None if not Board.isWalkable(target, ctx#board) => (Run.of(r), Event.HeroBlocked(dir) :: Nil)
-            case None => begin(r) |> walk(target) |> pickUp(ctx) |> judge(ctx) |> enemyPhase(ctx) |> regen(ctx) |> finish(ctx)
+            case None => begin(r) |> walk(target) |> pickUp(ctx) |> judge(ctx) |> enemyPhase(ctx) |> regen(ctx) |> hunger(ctx) |> finish(ctx)
         }
 
     def walk(target: Cell, t: Turn): Turn =
@@ -90,10 +92,21 @@ mod Step {
 
     def pickUp(ctx: Ctx, t: Turn): Turn =
         let r = t#runState;
-        Map.get(r#hero#at, r#items) |> Option.map(kind -> {
-            let (taken, how) = take(ctx, kind, r);
-            t |> withRun({ items = Map.remove(r#hero#at, r#items) | taken }) |> emit(Event.Picked(kind, how))
-        }) |> Option.getWithDefault(t)
+        Map.get(r#hero#at, r#items) |> Option.map(kind ->
+            if (Item.familyOf(kind) == Item.Family.Food) eat(ctx, kind, t)
+            else {
+                let (taken, how) = take(ctx, kind, r);
+                t |> withRun({ items = Map.remove(r#hero#at, r#items) | taken }) |> emit(Event.Picked(kind, how))
+            }
+        ) |> Option.getWithDefault(t)
+
+    /// 足もとの食べ物を食べる（満腹度が最大なら床に残す。あふれる分は捨てる）。
+    def eat(ctx: Ctx, kind: Item.Kind, t: Turn): Turn =
+        let r = t#runState;
+        let most = RulesDoc.rec(ctx#rules)#fullnessMax;
+        let full = Int32.min(most, r#fullness + ItemsDoc.statsOf(kind, ctx#items)#food);
+        if (r#fullness >= most) t
+        else t |> withRun({ items = Map.remove(r#hero#at, r#items), fullness = full | r }) |> emit(Event.Ate(kind, full - r#fullness))
 
     /// 拾ったアイテムを手持ちへ。
     def take(ctx: Ctx, kind: Item.Kind, r: Run.Rec): (Run.Rec, Item.Pick) =
@@ -365,10 +378,25 @@ mod Step {
     def fallIfDown(t: Turn): Turn =
         if (t#runState#hero#hp > 0) t else t |> withRun({ status = Status.Dead | t#runState }) |> emit(Event.HeroDied)
 
-    /// 移動した手の数が regenEvery の倍数になったら HP +1（最大まで）。
+    /// 移動した手の数が regenEvery の倍数になったら HP +1（最大まで。満腹度 0 の手は飛ばす）。
     def regen(ctx: Ctx, t: Turn): Turn =
         let r = t#runState;
         let every = RulesDoc.rec(ctx#rules)#regenEvery;
-        if (r#status != Status.Playing or every <= 0 or Int32.modulo(r#walked, every) != 0 or r#hero#hp >= r#hero#maxHp) t
+        if (r#status != Status.Playing or r#fullness <= 0 or every <= 0 or Int32.modulo(r#walked, every) != 0 or r#hero#hp >= r#hero#maxHp) t
         else t |> withRun({ hero = { hp = r#hero#hp + 1 | r#hero } | r }) |> emit(Event.Regenerated(1))
+
+    /// 手が進んだ数を数え、hungerEvery の倍数で満腹度 -1。満腹度が 0 なら starveDamage を受ける（薬 → 倒れるを見る）。
+    def hunger(ctx: Ctx, t: Turn): Turn =
+        let r = t#runState;
+        let rules = RulesDoc.rec(ctx#rules);
+        let turns = r#turns + 1;
+        let fullness = if (rules#hungerEvery > 0 and Int32.modulo(turns, rules#hungerEvery) == 0) Int32.max(0, r#fullness - 1) else r#fullness;
+        let fed = { turns = turns, fullness = fullness | r };
+        if (r#status != Status.Playing) t
+        else if (fullness > 0 or rules#starveDamage <= 0) withRun(fed, t)
+        else t
+            |> withRun({ hero = { hp = fed#hero#hp - rules#starveDamage | fed#hero } | fed })
+            |> emit(Event.HeroHurt(Source.Starve, rules#starveDamage, false))
+            |> drinkIfLow(ctx)
+            |> fallIfDown
 }
