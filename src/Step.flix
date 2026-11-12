@@ -494,6 +494,7 @@ mod Step {
         let blockers = blockersFor(e, t);
         match e#intent {
             case Enemy.Intent.Charge(dir) => charge(ctx, blockers, e, dir, t)
+            case Enemy.Intent.Fuse        => explode(ctx, e, t)
             case Enemy.Intent.Idle        =>
                 Run.attackOn(ctx, blockers, e, t#runState#hero#at)
                     |> Option.map(attack -> attackHero(ctx, e, attack, t))
@@ -505,11 +506,30 @@ mod Step {
     def blockersFor(e: Enemy.Enemy, t: Turn): Set[Cell] =
         Run.occupancy(t#runState#enemies) |> Map.filter(other -> other#id != e#id) |> Map.keysOf
 
-    /// 今溜められる技（突進は主人公と列がそろい間が空いた時）。
+    /// 今溜められる技（突進は主人公と列がそろい間が空いた時・自爆虫は主人公が殴れる隣にいる時）。
     def windupOf(ctx: Ctx, blockers: Set[Cell], e: Enemy.Enemy, heroAt: Cell): Option[Enemy.Intent] = match Enemy.behaviourOf(e#kind) {
         case Enemy.Behaviour.Charge => Run.chargeAim(ctx, blockers, e, heroAt) |> Option.map(Enemy.Intent.Charge)
+        case Enemy.Behaviour.Blast  => if (isBeside(ctx, e, heroAt)) Some(Enemy.Intent.Fuse) else None
         case _                      => None
     }
+
+    /// 導火線の付いた自爆虫が弾けて消える: 殴れる隣（Run.attackOn が弾けと言うマス）の敵と主人公に blastDamage（盾は効かない）。
+    /// 巻き込まれて倒れた敵の経験値は主人公に入り、弾けた自爆虫の分は入らない。
+    def explode(ctx: Ctx, e: Enemy.Enemy, t: Turn): Turn =
+        let damage = EnemiesDoc.statsOf(e#kind, ctx#enemies)#blastDamage;
+        let caught = (x: Enemy.Enemy) -> x#id != e#id and Set.exists(c -> Run.attackOn(ctx, Set.empty(), e, c) == Some(Run.Attack.Blast), Enemy.cellsOf(x));
+        let victims = t#runState#enemies |> List.filter(caught) |> List.map(x -> x#id);
+        let heroCaught = Run.attackOn(ctx, Set.empty(), e, t#runState#hero#at) == Some(Run.Attack.Blast);
+        let gone = t |> withRun({ enemies = List.filter(x -> x#id != e#id, t#runState#enemies) | t#runState }) |> emit(Event.EnemyExploded(e#id, e#at));
+        let struck = victims |> List.foldLeft((acc, id) -> bombHit(ctx, id, damage, acc), gone);
+        if (heroCaught and damage > 0) struck |> heroBlast(ctx, e#id, damage) else struck
+
+    def heroBlast(ctx: Ctx, id: Int32, damage: Int32, t: Turn): Turn =
+        let r = t#runState;
+        t |> withRun({ hero = { hp = r#hero#hp - damage | r#hero } | r })
+          |> emit(Event.HeroHurt(Source.Blast(id), damage, false))
+          |> drinkIfLow(ctx)
+          |> fallIfDown
 
     /// 技を溜める（動かず、当てない）。
     def windup(e: Enemy.Enemy, intent: Enemy.Intent, t: Turn): Turn =
@@ -539,6 +559,7 @@ mod Step {
     def moveBy(ctx: Ctx, dist: Map[Cell, Int32], e: Enemy.Enemy, t: Turn): Turn = match Enemy.behaviourOf(e#kind) {
         case Enemy.Behaviour.Chase   => chase(ctx, dist, e, t)
         case Enemy.Behaviour.Charge  => chase(ctx, dist, e, t)
+        case Enemy.Behaviour.Blast   => chase(ctx, dist, e, t)
         case Enemy.Behaviour.Flutter => flutter(ctx, e, t)
         case Enemy.Behaviour.Shoot   => align(ctx, dist, e, t)
     }
@@ -603,6 +624,7 @@ mod Step {
         case Run.Attack.Melee  => Source.Melee(id)
         case Run.Attack.Shot   => Source.Arrow(id)
         case Run.Attack.Charge => Source.Charge(id)
+        case Run.Attack.Blast  => Source.Blast(id)
     }
 
     /// HP が薬の閾値以下で薬があれば 1 つ使う（倒れる判定の前）。

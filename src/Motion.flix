@@ -170,6 +170,7 @@ mod Motion {
             case (i, Event.ThunderHit(id, _))  => flashed(id, i, acc)
             case (i, Event.EnemyBurned(id, _)) => flashed(id, i, acc)
             case (i, Event.EnemyDied(id, _, _)) => dies(id, i, Beat.Die, acc)
+            case (i, Event.EnemyExploded(id, _)) => dies(id, i, Beat.Bomb, acc)
             case (i, Event.HeroHurt(Run.Source.Melee(id), _, _)) => lunged(id, i, acc)
             case _ => acc
         }, Map.empty())
@@ -186,6 +187,7 @@ mod Motion {
         case Enemy.Kind.Archer => Art.Figure.Archer
         case Enemy.Kind.Shield => Art.Figure.Shield
         case Enemy.Kind.Charger => Art.Figure.Charger
+        case Enemy.Kind.Bomber => Art.Figure.Bomber
     }
 
     /// 板の高さ（m）。
@@ -196,6 +198,7 @@ mod Motion {
         case Enemy.Kind.Archer => 1.0
         case Enemy.Kind.Shield => 1.05
         case Enemy.Kind.Charger => 0.95
+        case Enemy.Kind.Bomber => 0.7
     }
 
     /// 床から浮かせる高さ（飛ぶ敵だけ）。
@@ -319,6 +322,7 @@ mod Motion {
     def bombBursts(turn: Turn): List[SceneView.Burst] =
         turn#events |> List.flatMap(ie -> match ie {
             case (i, Event.BombThrown(_, center)) => burstsAt(point(center), progressOf(turn, i, Beat.Bomb))
+            case (i, Event.EnemyExploded(_, center)) => burstsAt(point(center), progressOf(turn, i, Beat.Bomb))
             case _                                => Nil
         })
 

@@ -130,6 +130,11 @@ mod TurnTimeline {
             case Event.ArrowShot(_, _, _)  => { pebble = false | add(cue(Sound.Arrow, after(Beat.Arrow, pace#arrow)) :: Nil, d) }
             case Event.ArrowHit(_, _)      => add(cue(if (d#pebble) Sound.Clink else Sound.Hit, after(Beat.Flash, pace#strike)) :: Nil, d)
             case Event.BombThrown(_, _)    => { bomb = Some((i, Beat.Bomb)) | add(cue(Sound.Bomb, after(Beat.Bomb, pace#arrow * 2.5)) :: Nil, d) }
+            case Event.EnemyExploded(_, _) => { bomb = Some((i, Beat.Bomb)) | add(cue(Sound.Bomb, after(Beat.Bomb, pace#arrow * 2.0)) :: Nil, d) }
+            case Event.HeroHurt(Run.Source.Blast(_), _, _) =>
+                let row = d#bomb |> Option.map(blast -> flashOn(pace, blast, pace#arrow * 0.5, i, Sound.Hit))
+                    |> Option.getWithDefault(cue(Sound.Hit, after(Beat.Flash, pace#strike)));
+                add(row :: Nil, d)
             case Event.BombHit(_, _)       =>
                 let row = d#bomb |> Option.map(bomb -> flashOn(pace, bomb, pace#arrow * 0.5, i, Sound.Hit))
                     |> Option.getWithDefault(cue(Sound.Hit, after(Beat.Flash, pace#strike)));

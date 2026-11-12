@@ -35,5 +35,7 @@
   "shieldBlocked": "{enemy}が 盾で ふせいだ",
   "alarmed": "警報が ひびいた！",
   "braced": "{enemy}が 身がまえた！",
+  "fused": "{enemy}の 導火線に 火が ついた！",
+  "exploded": "{enemy}が はじけた！",
   "floorLabel": "{n}F"
 }

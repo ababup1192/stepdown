@@ -155,9 +155,10 @@ mod Fixtures {
         (c, Run.of({ hero = { at = heroAt, hp = 1 + hpLeft | r#hero }, pack = List.nth(packAt, packs) |> Option.getWithDefault(Nil),
                      enemies = enemies, nextId = List.length(enemies), revealed = List.toSet(shown), seen = Board.viewFrom(heroAt, b) | r }))
 
-    /// 生成器の溜め: 突進は k 番目の上下左右へ溜める。溜めない種類は Idle。
+    /// 生成器の溜め: 突進は k 番目の上下左右へ溜め、自爆虫は導火線を付ける。溜めない種類は Idle。
     def intentOf(kind: Enemy.Kind, k: Int32): Enemy.Intent = match kind {
         case Enemy.Kind.Charger => Enemy.Intent.Charge(List.nth(k, Board.dirs()) |> Option.getWithDefault(Board.Dir.Up))
+        case Enemy.Kind.Bomber  => Enemy.Intent.Fuse
         case _                  => Enemy.Intent.Idle
     }
 

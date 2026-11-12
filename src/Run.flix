@@ -187,6 +187,8 @@ mod Run {
         case EnemyWindup(Int32, Enemy.Intent)
         /// 突進がまっすぐ走った（敵の id・走る前のマス・止まったマス）。主人公に当たれば続く HeroHurt。
         case EnemyCharged(Int32, Cell, Cell)
+        /// 自爆虫が弾けて消えた（敵の id・マス）。続く BombHit が巻き込まれた敵、HeroHurt が主人公への当たり。経験値は入らない。
+        case EnemyExploded(Int32, Cell)
         /// 押し出しの先が壁・柱・岩で、押せずにダメージが増えた（敵の id・足したダメージ）。続く出来事で HP が減る。
         case PushedIntoWall(Int32, Int32)
         /// カードを取った。
@@ -199,12 +201,14 @@ mod Run {
     ///   Melee(id) … 隣の敵に殴られた
     ///   Arrow(id) … 弓兵の矢が当たった
     ///   Charge(id) … 突進に当たった
+    ///   Blast(id) … 自爆虫の弾けに巻き込まれた
     ///   Starve    … 満腹度が 0 で減った
     ///   Trap(kind) … 罠を踏んだ
     pub enum Source with Eq, ToString {
         case Melee(Int32)
         case Arrow(Int32)
         case Charge(Int32)
+        case Blast(Int32)
         case Starve
         case Trap(Trap.Kind)
     }
@@ -214,6 +218,7 @@ mod Run {
         case Source.Melee(id) => Some(id)
         case Source.Arrow(id) => Some(id)
         case Source.Charge(id) => Some(id)
+        case Source.Blast(id) => Some(id)
         case Source.Starve    => None
         case Source.Trap(_)   => None
     }
@@ -328,23 +333,27 @@ mod Run {
     ///   Melee  … 隣を殴る
     ///   Shot   … 弓兵の矢
     ///   Charge … 溜めた突進が走って当たる
+    ///   Blast  … 導火線の付いた自爆虫が弾ける
     pub enum Attack with Eq, ToString {
         case Melee
         case Shot
         case Charge
+        case Blast
     }
 
     /// e が今の位置から cell へ当てる攻撃（届かなければ None）。敵の手番（Step）と敵の予告（Preview）はどちらもこれだけを見る。
-    ///   殴る … e のどれかのマスの 8 近傍の隣で、間の角が抜けている
+    ///   殴る … e のどれかのマスの 8 近傍の隣で、間の角が抜けている（自爆虫は殴らない）
     ///   矢   … 弓兵で、上下左右の列がそろい距離 arrowMin..arrowMax、間に矢を止めるマスも blockers も無い
     ///   突進 … 溜めた向きの走る道（chargeLane）の上。溜めている手は隣でも殴らない
+    ///   弾け … 導火線の付いた自爆虫の殴れる隣と同じマス（壁と、壁の角の向こうは入らない）
     /// blockers は矢と突進を止める敵のマス。予告は敵が動いた後も当たる側に倒すので空で渡す。
     pub def attackOn(ctx: Ctx, blockers: Set[Cell], e: Enemy.Enemy, cell: Cell): Option[Attack] = match e#intent {
         case Enemy.Intent.Idle =>
-            if (isBeside(ctx, e, cell)) Some(Attack.Melee)
+            if (Enemy.strikesBeside(e#kind) and isBeside(ctx, e, cell)) Some(Attack.Melee)
             else if (Enemy.behaviourOf(e#kind) == Enemy.Behaviour.Shoot and isInLine(ctx, blockers, e#at, cell)) Some(Attack.Shot)
             else None
         case Enemy.Intent.Charge(dir) => if (List.memberOf(cell, chargeLane(ctx, blockers, e, dir))) Some(Attack.Charge) else None
+        case Enemy.Intent.Fuse        => if (isBeside(ctx, e, cell)) Some(Attack.Blast) else None
     }
 
     /// 突進が dir へ走る道（e の隣から近い順）。歩けないマスか blockers の手前で止まり、長さは chargeMax + 1 まで。
