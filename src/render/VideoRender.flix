@@ -4,13 +4,14 @@
 //
 // 手順は e2e/tour.flow（e2e と同じ flow の実行器）で、キーを実機と同じ 1 フレームずつ World に流す。撮るのは mark in_<名前> から
 // out_<名前> までの区間だけで、並んだ順につなぐ。手順は 60 fps で流し、VIDEO_FPS ごとに間引いて描く。
-// 音はまだ混ぜず、絵だけの mp4 を書く。コマは 540×960（design のまま）で描く。周回の種は World.fixedSeed。
+// 音は撮る区間のフレームごとの音の宣言を実機と同じミキサーで混ぜ、debug/video/<名前>.wav に書く（make が mp4 へ重ねる）。
+// コマは 540×960（design のまま）で描く。周回の種は World.fixedSeed。
 //
 // 環境変数: VIDEO_FPS（既定 30。60 を割り切る数）・VIDEO_FLOW（手順。既定 e2e/tour.flow）・
 //           VIDEO_OUT（コマを書く debug/video/<名前>。既定 showcase）・VIDEO_X264（GPU の道で mp4 を書く ffmpeg の旗）・
 //           FGE_GPU / FGE_VIDEO_PAINT / FFMPEG（VideoOut.settingsOf）
 mod VideoRender {
-    use fge::{App, Flow, FontAtlas, HeadlessFont, HeadlessLoad, Render, Resources, Sort, VideoOut}
+    use fge::{App, AudioMixdown, Flow, FontAtlas, HeadlessFont, HeadlessLoad, Render, Resources, SfxSynth, Sort, VideoOut}
 
     import java.io.File
     import java.nio.file.{Files, Paths}
@@ -74,7 +75,28 @@ mod VideoRender {
                     |> List.map(p -> snd(p)#step#after);
                 println("[video] ${List.length(outcome#frames)} フレームを流し、${List.length(segments)} 区間・${List.length(painted)} コマを撮る（${Int32.toString(List.length(painted) / fps)} 秒・${Int32.toString(fps)} fps）");
                 writeVideo(settings, encoderOf(env, fps, take), fps, take#outDir, painted);
+                writeAudio(take, shown |> List.map(p -> p#step));
                 0
+        }
+
+    /// 音を混ぜる速さ（効果音の WAV と同じ）。
+    def sampleRate(): Int32 = 44100
+
+    /// 撮るフレームの音を混ぜて debug/video/<名前>.wav に書く。素材は assets/sfx の WAV（名前はファイル名から .wav を除いた物）。
+    def writeAudio(take: Take, steps: List[App.TraceStep[AppState]]): Unit \ IO =
+        let dir = new File("assets/sfx");
+        let names: List[String] = Array.toList(dir.list());
+        let sounds = names |> List.filter(n -> String.endsWith(suffix = ".wav", n))
+            |> List.map(n -> (String.dropRight(4, n), AudioMixdown.loadWav(sampleRate(), "assets/sfx/${n}"))) |> List.toMap;
+        let mixer = steps |> List.head |> Option.map(st -> Resources.read((r, _) -> r#mixer, st#after));
+        match mixer {
+            case None    => ()
+            case Some(m) =>
+                let frames = steps |> List.map(st -> { plays = st#sounds, sustained = st#sustained, mixer = m });
+                let samples = AudioMixdown.mixdown(sampleRate(), Int32.toFloat64(playFps()), sounds, frames) |> Vector.toList;
+                let path = "${take#outDir}.wav";
+                SfxSynth.writeBytes(path, SfxSynth.wavBytes({ sampleRate = sampleRate() }, samples));
+                println("[video] 音: ${path}（いちばん大きな振れ幅 ${AudioMixdown.peakOf(List.toVector(samples))}）")
         }
 
     /// mark の in_<名前> / out_<名前> の組を、始まりのフレームの順に (始まり, 終わり) で並べる。

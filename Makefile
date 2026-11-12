@@ -38,7 +38,7 @@ precommit-local:
 	  else echo "[pre-commit] flixlint を用意できないので lint/rules.flix の検査は飛ばします（後で make lint-flixlint）"; fi; \
 	fi
 
-# 紹介の動画 = debug/video/<flow の名前>.mp4（540×960・30 fps）。手順は e2e/<名前>.flow（撮るのは mark in_ / out_ の間だけ）。
+# 紹介の動画 = debug/video/<flow の名前>.mp4（540×960・30 fps・音は同じ名前の .wav を重ねる）。手順は e2e/<名前>.flow（撮るのは mark in_ / out_ の間だけ）。
 #   make video FLOW=e2e/showcase.flow   出力の名前は OUT=<名前> で替えられる
 VIDEO_FLOW = $(or $(FLOW),e2e/showcase.flow)
 VIDEO_OUT = $(or $(OUT),$(basename $(notdir $(VIDEO_FLOW))))
@@ -46,10 +46,13 @@ VIDEO_FPS ?= 30
 VIDEO_X264 ?= -c:v libx264 -preset medium -crf 18 -pix_fmt yuv420p
 .PHONY: video
 video:
-	rm -rf debug/video/$(VIDEO_OUT) debug/video/$(VIDEO_OUT).mp4
+	rm -rf debug/video/$(VIDEO_OUT) debug/video/$(VIDEO_OUT).mp4 debug/video/$(VIDEO_OUT).wav
 	VIDEO_FPS=$(VIDEO_FPS) VIDEO_FLOW=$(VIDEO_FLOW) VIDEO_OUT=$(VIDEO_OUT) VIDEO_X264="$(VIDEO_X264)" $(HEADLESS_RUN) VideoRender.frames
 	@if [ -f debug/video/$(VIDEO_OUT)/f0000.png ]; then \
 	  ffmpeg -y -loglevel error -framerate $(VIDEO_FPS) -i debug/video/$(VIDEO_OUT)/f%04d.png $(VIDEO_X264) -movflags +faststart debug/video/$(VIDEO_OUT).mp4; fi
+	@if [ -f debug/video/$(VIDEO_OUT).wav ] && [ -f debug/video/$(VIDEO_OUT).mp4 ]; then \
+	  ffmpeg -y -loglevel error -i debug/video/$(VIDEO_OUT).mp4 -i debug/video/$(VIDEO_OUT).wav -map 0:v -map 1:a -c:v copy -c:a aac -b:a 160k -shortest -movflags +faststart debug/video/$(VIDEO_OUT).av.mp4 \
+	  && mv debug/video/$(VIDEO_OUT).av.mp4 debug/video/$(VIDEO_OUT).mp4; fi
 	@echo "[video] debug/video/$(VIDEO_OUT).mp4"
 
 # 自動で遊ぶ 4 人（でたらめ・避ける人・戦う人・先を読む人）の数: クリア率・死亡率・手数・満腹度・レベル・自分から殴った手・判断の割合・予告の時間。
