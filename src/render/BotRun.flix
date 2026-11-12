@@ -222,6 +222,15 @@ mod BotRun {
             "${tenths / 10}.${Int32.remainder(tenths, 10)}%"
         }
 
+    /// 階ごとの「着いた回数・その階で倒れた割合・その階を抜けた割合」（抜けた = 次の階に着いたかクリア）。
+    def byFloor(deepest: Int32, outcomes: List[Outcome]): String =
+        List.range(1, deepest + 1) |> List.map(f -> {
+            let reached = List.count(o -> o#floor >= f, outcomes);
+            let died = List.count(o -> o#floor == f and o#status == Run.Status.Dead, outcomes);
+            let passed = List.count(o -> o#floor > f or (o#floor == f and o#status == Run.Status.Cleared), outcomes);
+            "${f}F 着 ${reached}・倒 ${percent(died, reached)}・抜 ${percent(passed, reached)}"
+        }) |> List.join(" / ")
+
     /// 1 人分の結果の表の行。
     def report(bot: Bot, fullnessMax: Int32, outcomes: List[Outcome]): String =
         let n = List.length(outcomes);
@@ -236,6 +245,7 @@ mod BotRun {
         "[bots] ${bot}（${n} 回）\n" +
         "  クリア ${percent(List.length(cleared), n)}・死亡 ${percent(List.length(dead), n)}・打ち切り ${cut}\n" +
         "  最後にいた階 ${floors}\n" +
+        "  階ごと（着いた回数・そこで倒れた割合・抜けた割合）${byFloor(deepest, outcomes)}\n" +
         "  赤に囲まれて動けなかった手 ${outcomes |> List.map(o -> o#stuck) |> List.sum}（${List.count(o -> o#stuck > 0, outcomes)} 回の遊びで）\n" +
         "  手数（クリアの中央値）${median(cleared |> List.map(o -> o#turns))}・生き延びた手数（死亡の中央値）${median(dead |> List.map(o -> o#turns))}・全部の中央値 ${median(outcomes |> List.map(o -> o#turns))}\n" +
         "  満腹度の残り（クリアの中央値）${median(cleared |> List.map(o -> o#fullness * 100 / fullnessMax))}%\n" +
