@@ -11,6 +11,11 @@ mod Art {
         case Jelly
         case Bat
         case Archer
+        case Swarm
+        case Shield
+        case Charger
+        case Bomber
+        case Boss
     }
 
     /// アイコンの絵。
@@ -29,6 +34,14 @@ mod Art {
         case BreadBitten
         case PebbleOne
         case Thunder
+        case IronBall
+        case Doll
+        case WoodShield
+        case IronShield
+        case Coin
+        case TrapDart
+        case TrapAlarm
+        case TrapPit
     }
 
     /// 画面に重ねる演出の絵（assets/fx/）。
@@ -41,6 +54,11 @@ mod Art {
         case Figure.Jelly  => { name = "chr_blob", path = "assets/chars/blob.png", width = 284.0, height = 320.0 }
         case Figure.Bat    => { name = "chr_bat", path = "assets/chars/bat.png", width = 496.0, height = 320.0 }
         case Figure.Archer => { name = "chr_archer", path = "assets/chars/archer.png", width = 261.0, height = 320.0 }
+        case Figure.Swarm  => { name = "chr_swarm", path = "assets/chars/swarm.png", width = 364.0, height = 320.0 }
+        case Figure.Shield => { name = "chr_shieldbearer", path = "assets/chars/shieldbearer.png", width = 230.0, height = 320.0 }
+        case Figure.Charger => { name = "chr_charger", path = "assets/chars/charger.png", width = 343.0, height = 320.0 }
+        case Figure.Bomber => { name = "chr_bomber", path = "assets/chars/bomber.png", width = 242.0, height = 320.0 }
+        case Figure.Boss   => { name = "chr_boss", path = "assets/chars/boss.png", width = 863.0, height = 480.0 }
     }
 
     pub def icon(i: Icon): Picture =
@@ -59,8 +77,15 @@ mod Art {
             case Icon.Bone        => square("bone")
             case Icon.BreadBitten => square("bread_bitten")
             case Icon.PebbleOne   => square("pebble_one")
-            // WhyNot: thunder.png を足す — 物の絵は別の人が assets/icons/ に描いている所で、届くまでは煙玉の雲の絵を借りる。
-            case Icon.Thunder     => square("smoke")
+            case Icon.Thunder     => square("scroll_thunder")
+            case Icon.IronBall    => square("ironball")
+            case Icon.Doll        => square("doll")
+            case Icon.WoodShield  => square("shield_wood")
+            case Icon.IronShield  => square("shield_iron")
+            case Icon.Coin        => square("coin")
+            case Icon.TrapDart    => square("trap_arrow")
+            case Icon.TrapAlarm   => square("trap_alarm")
+            case Icon.TrapPit     => square("trap_pit")
         }
 
     pub def fx(f: Fx): Picture = match f {
@@ -68,11 +93,12 @@ mod Art {
     }
 
     def icons(): List[Icon] =
-        Icon.Sword :: Icon.Shield :: Icon.Arrow :: Icon.Bomb :: Icon.Herb :: Icon.Bread :: Icon.Meat :: Icon.Pebble :: Icon.Smoke :: Icon.BottleEmpty :: Icon.Bone :: Icon.BreadBitten :: Icon.PebbleOne :: Nil
+        Icon.Sword :: Icon.Shield :: Icon.Arrow :: Icon.Bomb :: Icon.Herb :: Icon.Bread :: Icon.Meat :: Icon.Pebble :: Icon.Smoke :: Icon.BottleEmpty :: Icon.Bone :: Icon.BreadBitten :: Icon.PebbleOne ::
+        Icon.Thunder :: Icon.IronBall :: Icon.Doll :: Icon.WoodShield :: Icon.IronShield :: Icon.Coin :: Icon.TrapDart :: Icon.TrapAlarm :: Icon.TrapPit :: Nil
 
     /// 全部の絵（描き出しが読む）。
     pub def all(): List[Picture] =
-        List.map(figure, Figure.Hero :: Figure.Jelly :: Figure.Bat :: Figure.Archer :: Nil)
+        List.map(figure, Figure.Hero :: Figure.Jelly :: Figure.Bat :: Figure.Archer :: Figure.Swarm :: Figure.Shield :: Figure.Charger :: Figure.Bomber :: Figure.Boss :: Nil)
             ::: List.map(icon, icons()) ::: (fx(Fx.LevelUp) :: Nil)
 
     /// アイテムの系統の絵（食べ物はパン）。
@@ -84,14 +110,23 @@ mod Art {
         case Item.Family.Potion => Icon.Herb
         case Item.Family.Food   => Icon.Bread
         case Item.Family.Pebble => Icon.Pebble
-        case Item.Family.IronBall => Icon.Pebble
+        case Item.Family.IronBall => Icon.IronBall
         case Item.Family.Smoke  => Icon.Smoke
         case Item.Family.Thunder => Icon.Thunder
     }
 
-    /// アイテムの種類の絵（食べ物だけ種類で絵が分かれる）。
+    /// アイテムの種類の絵（食べ物と、木と鉄の盾は種類で絵が分かれる）。
     pub def iconOfKind(kind: Item.Kind): Icon = match kind {
-        case Item.Kind.Meat => Icon.Meat
-        case _              => iconOfFamily(Item.familyOf(kind))
+        case Item.Kind.Meat       => Icon.Meat
+        case Item.Kind.WoodShield => Icon.WoodShield
+        case Item.Kind.IronShield => Icon.IronShield
+        case _                    => iconOfFamily(Item.familyOf(kind))
+    }
+
+    /// 罠の床の板の絵。
+    pub def iconOfTrap(kind: Trap.Kind): Icon = match kind {
+        case Trap.Kind.PoisonDart => Icon.TrapDart
+        case Trap.Kind.Alarm      => Icon.TrapAlarm
+        case Trap.Kind.Pit        => Icon.TrapPit
     }
 }

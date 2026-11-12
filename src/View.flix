@@ -425,11 +425,9 @@ mod View {
             { at = FloorMesh.cellPoint(c), color = t#markDanger, stroke = SceneView.Stroke.Fill } :: { at = FloorMesh.cellPoint(c), color = t#markDanger, stroke = SceneView.Stroke.Dashed } :: Nil);
         if (Set.memberOf(hero, danger)) { at = FloorMesh.cellPoint(hero), color = t#markDanger, stroke = SceneView.Stroke.Frame } :: fills else fills
 
-    /// 見えている罠（踏まれた罠）: 床に罠の色の面と、毒矢は枠・警報は破線（罠の絵ができるまでの印）。
+    /// 見えている罠（踏まれた罠）の床: 罠の色の面（罠の絵の板は Motion が立てる）。
     def trapMarks(t: ThemeDoc.Rec, r: Run.Rec): List[SceneView.Mark] =
-        Run.seenTraps(r) |> Map.toList |> List.flatMap(match (c, kind) ->
-            { at = FloorMesh.cellPoint(c), color = t#markTrap, stroke = SceneView.Stroke.Fill }
-                :: { at = FloorMesh.cellPoint(c), color = t#markTrap, stroke = if (kind == Trap.Kind.Alarm) SceneView.Stroke.Dashed else SceneView.Stroke.Frame } :: Nil)
+        Run.seenTraps(r) |> Map.keysOf |> Set.toList |> List.map(c -> { at = FloorMesh.cellPoint(c), color = t#markTrap, stroke = SceneView.Stroke.Fill })
 
     def laneOf(t: ThemeDoc.Rec, lane: (Cell, Cell)): SceneView.Lane =
         let (archer, far) = (FloorMesh.cellPoint(fst(lane)), FloorMesh.cellPoint(snd(lane)));
@@ -460,8 +458,7 @@ mod View {
         case Act.Smoke   => MarkView.Glyph.Picture(Art.Icon.Smoke)
         case Act.Potion  => MarkView.Glyph.Picture(Art.Icon.Herb)
         case Act.Descend => MarkView.Glyph.Stairs
-        case Act.Trap(Trap.Kind.Alarm) => MarkView.Glyph.Alert
-        case Act.Trap(_) => MarkView.Glyph.Picture(Art.Icon.Arrow)
+        case Act.Trap(kind) => MarkView.Glyph.Picture(Art.iconOfTrap(kind))
         case Act.Guarded => MarkView.Glyph.Picture(Art.Icon.Shield)
         case Act.Thunder => MarkView.Glyph.Bolt
     }
@@ -487,7 +484,7 @@ mod View {
     /// 剣と盾の枠（持っている段のふちの色）。
     def gearOf(t: ThemeDoc.Rec, hero: Run.Hero): List[HudView.Gear] =
         let gear = (icon: Art.Icon, held: Option[Item.Kind]) -> { icon = icon, tier = tierColor(t, held), held = Option.nonEmpty(held) };
-        gear(Art.Icon.Sword, hero#sword) :: gear(Art.Icon.Shield, hero#shield) :: Nil
+        gear(Art.Icon.Sword, hero#sword) :: gear(hero#shield |> Option.map(Art.iconOfKind) |> Option.getWithDefault(Art.Icon.WoodShield), hero#shield) :: Nil
 
     /// 段のふちの色（系統の中で何段目か）。
     def tierColor(t: ThemeDoc.Rec, kind: Option[Item.Kind]): Color = match kind {

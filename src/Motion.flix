@@ -26,7 +26,7 @@ mod Motion {
     pub def poseOf(turn: Turn, time: Float64, fallen: Bool, light: Float64): Pose =
         let moves = movesOf(turn);
         let shaded = (f: SceneView.Figure) -> { let (r, g, b) = Color.channels(f#tint); { tint = Color.rgb(r * light, g * light, b * light), lit = false | f } };
-        { figures = List.flatten(heroFigure(turn, time, fallen) :: enemyFigures(turn, moves, time) :: itemFigures(turn, time) :: arrows(turn) :: smokeBalls(turn) :: Nil)
+        { figures = List.flatten(trapFigures(turn) :: heroFigure(turn, time, fallen) :: enemyFigures(turn, moves, time) :: itemFigures(turn, time) :: arrows(turn) :: smokeBalls(turn) :: Nil)
               |> List.map(shaded),
           bursts = bombBursts(turn) ::: smokeBursts(turn),
           slotGlow = turn#after#pack |> List.map(held -> (Run.familyOfHeld(held), glowOf(turn, Run.familyOfHeld(held)))) |> List.toMap }
@@ -171,10 +171,10 @@ mod Motion {
 
     def figureOf(kind: Enemy.Kind): Art.Figure = match kind {
         case Enemy.Kind.Jelly  => Art.Figure.Jelly
-        case Enemy.Kind.Swarm  => Art.Figure.Jelly
+        case Enemy.Kind.Swarm  => Art.Figure.Swarm
         case Enemy.Kind.Bat    => Art.Figure.Bat
         case Enemy.Kind.Archer => Art.Figure.Archer
-        case Enemy.Kind.Shield => Art.Figure.Archer
+        case Enemy.Kind.Shield => Art.Figure.Shield
     }
 
     /// 板の高さ（m）。
@@ -184,13 +184,6 @@ mod Motion {
         case Enemy.Kind.Bat    => 0.95
         case Enemy.Kind.Archer => 1.0
         case Enemy.Kind.Shield => 1.05
-    }
-
-    /// 種類の色合い（絵を流用する敵を色で分ける）。
-    def tintOf(kind: Enemy.Kind): Color = match kind {
-        case Enemy.Kind.Swarm  => Color.rgb(0.75, 1.0, 0.7)
-        case Enemy.Kind.Shield => Color.rgb(0.7, 0.82, 1.1)
-        case _                 => white()
     }
 
     /// 床から浮かせる高さ（飛ぶ敵だけ）。
@@ -233,7 +226,7 @@ mod Motion {
         else {
             let base = walkingPoint(turn, moves) |> Option.getWithDefault(settledPoint(moves, e));
             let lunge = Vec3.mul(toward(base, heroAt), 0.3 * h#lunge);
-            let kindTint = tintOf(e#kind);
+            let kindTint = white();
             let tint = if (Enemy.isAwake(e)) kindTint else Color.mix(kindTint, Color.rgb(0.2, 0.22, 0.35), 0.45);
             let bob = if (Enemy.isFlying(e#kind)) 0.08 * Num.sin(t * 3.3 + Int32.toFloat64(e#id)) else 0.0;
             let scale = 1.0 - dying;
@@ -242,6 +235,13 @@ mod Motion {
                    height = heightOf(e#kind) * scale, tint = flashTint(tint, Float64.max(h#flash#glow, dying * 0.6)), lit = h#flash#glow <= 0.0 and dying <= 0.0,
                    shadow = (if (e#kind == Enemy.Kind.Swarm) 0.2 else 0.3) * scale })
         }
+
+    // ── 罠 ──
+
+    /// 見えている罠（踏まれた罠）の床の板: 罠の絵の低い板を床に置く（影は落とさない）。
+    def trapFigures(turn: Turn): List[SceneView.Figure] =
+        Run.seenTraps(turn#after) |> Map.toList |> List.map(match (cell, kind) ->
+            { picture = Art.icon(Art.iconOfTrap(kind)), at = Vec3.add(point(cell), up(0.02)), height = 0.42, tint = Color.rgb(0.85, 0.85, 0.85), lit = false, shadow = 0.0 })
 
     // ── アイテム ──
 
