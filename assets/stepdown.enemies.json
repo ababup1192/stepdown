@@ -96,12 +96,12 @@
     "Boss": {
       "name": "ゴーレム",
       "hp": 40,
-      "attack": 4,
+      "attack": 3,
       "exp": 30,
       "dropChance": 0.0,
       "drops": [],
-      "slamDamage": 8,
-      "sweepDamage": 6,
+      "slamDamage": 10,
+      "sweepDamage": 8,
       "cooldownMin": 2,
       "cooldownMax": 3
     }

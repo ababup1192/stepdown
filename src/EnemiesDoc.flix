@@ -36,7 +36,7 @@ mod EnemiesDoc {
                                      drops = Item.Kind.Bread :: Item.Kind.Herb :: Nil, chargeMin = 2, chargeMax = 5 | plain() }
         case Enemy.Kind.Bomber => { name = "自爆虫", hp = 4, attack = 0, exp = 5, dropChance = 0.25,
                                     drops = Item.Kind.Smoke :: Item.Kind.Bread :: Nil, blastDamage = 6 | plain() }
-        case Enemy.Kind.Boss   => { name = "ゴーレム", hp = 40, attack = 4, exp = 30, slamDamage = 8, sweepDamage = 6, cooldownMin = 2, cooldownMax = 3 | plain() }
+        case Enemy.Kind.Boss   => { name = "ゴーレム", hp = 40, attack = 3, exp = 30, slamDamage = 10, sweepDamage = 8, cooldownMin = 2, cooldownMax = 3 | plain() }
     }
 
     /// 使わない欄を 0 にした強さ（種類ごとの既定はこれに欄を書き足す）。

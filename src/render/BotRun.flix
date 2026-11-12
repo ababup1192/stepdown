@@ -109,16 +109,16 @@ mod BotRun {
 
     /// 局面の点数の重み。HP は最大の半分より下の 1 点を重く、上の 1 点を軽く数える。
     /// WhyNot: HP の 1 点を一律に重くする — 満タンでも 1 発を嫌って、通り道で眠る敵の手前で待ち続け、空腹で倒れる。
-    def lowHpWeight(): Int32 = 10
+    def lowHpWeight(): Int32 = 20
     def highHpWeight(): Int32 = 2
     def stairsWeight(): Int32 = 4
     /// 階に着いてからこの手の数ごとに、階段へ 1 歩寄る点を 1 ずつ重くする。
     /// WhyNot: 階段の点をはじめから重くする — 着いたばかりの階で、拾える物と倒せる敵に寄らずに降りる。
-    def impatienceEvery(): Int32 = 25
+    def impatienceEvery(): Int32 = 50
 
     /// 避ける人・戦う人が、赤の手前で待つのをやめて少しの被弾を受け入れ始める、階に着いてからの手の数。
     def stallTurns(): Int32 = 120
-    def levelWeight(): Int32 = 40
+    def levelWeight(): Int32 = 60
     def expWeight(): Int32 = 4
     def fullnessWeight(): Int32 = 1
     def itemWeight(): Int32 = 6
