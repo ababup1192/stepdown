@@ -75,8 +75,15 @@ mod TestFloor {
     @Test
     def testFloorPlacesTheEnemyCountsFromTheDoc(): Unit \ Assert + Fs.FileRead =
         let made = Floor.begin(docs(), layouts(), 1i64);
-        Assert.assertEq(expected = FloorsDoc.floorOf(1, docs()#floors) |> Option.map(f -> f#jelly + f#bat + f#archer + f#swarm),
+        Assert.assertEq(expected = FloorsDoc.floorOf(1, docs()#floors) |> Option.map(FloorsDoc.bodyCount),
             Some(List.length(Run.enemiesOf(made))))
+
+    /// 群れは 1 組 3 体で、どの小ゼリーもほかの小ゼリーの隣にいる（広間に 2 組: 6 体）。
+    @Test
+    def testSwarmGroupsAreThreeSideBySide(): Unit \ Assert + Fs.FileRead =
+        let floors = Fixtures.floorsWith("{\"maps\": {\"h\": {\"rows\": [\"###########\", \"#.........#\", \"#.........#\", \"#@........#\", \"#.........#\", \"#........>#\", \"###########\"]}}, \"floors\": [{\"floor\": 1, \"maps\": [\"h\"], \"enemies\": {\"Swarm\": 2}, \"breadOdds\": [1.0], \"meatChance\": 0.0}]}");
+        let made = Floor.begin({ floors = floors | docs() }, Floor.layoutsOf(floors)#layouts, 3i64);
+        Assert.assertEq(expected = (6, Nil), (List.length(Run.enemiesOf(made)), Floor.straySwarms(made)))
 
     /// 床には items に加えて食べ物を置く: パンは breadOdds の重みの番号の数（[0, 0, 1] なら 2 個）、肉は meatChance（1 なら必ず 1 つ）。
     @Test

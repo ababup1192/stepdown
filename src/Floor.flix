@@ -1,5 +1,5 @@
 // Floor — 階を作る: floors の Doc の地図から盤を組み（地図ごとに 1 回）、種から地図と敵・アイテムの置き場を選んで Run にする（純粋）。
-// 乱数は地図の選び・食べ物の数・置き場だけ。種は Rng.mix(周回の種, 階)。敵は始まりから歩いて enemyMinSteps 以上、アイテムは床だけ（階段と始まりには置かない）。
+// 乱数は地図の選び・食べ物の数・置き場だけ。種は Rng.mix(周回の種, 階)。敵は始まりから歩いて enemyMinSteps 以上（群れは 3 体を隣り合わせて置く）、アイテムは床だけ（階段と始まりには置かない）。
 // 食べ物（パンの数は breadOdds の重み・肉は meatChance）は、字の候補が無い盤では floors の Doc の items の後ろに足してほかのアイテムと同じく置き、
 // 字の候補がある盤では食べ物の候補（%）から選ぶ。罠は地図の字のまま。
 mod Floor {
@@ -79,19 +79,38 @@ mod Floor {
     /// 敵とアイテムの置き場を選ぶ。罠と物の候補を字で置いた盤は字のとおりに、そうでない盤は物を乱数で床に置く。
     def placementOf(docs: Docs, floor: Int32, board: Board.Board, rng: Int64): (Run.Placement, Int64) =
         let plan = FloorsDoc.floorOf(floor, docs#floors);
-        let kinds = Enemy.all()
-            |> List.flatMap(kind -> List.repeat(plan |> Option.map(FloorsDoc.enemyCount(kind)) |> Option.getWithDefault(0), kind));
+        let countOf = (kind: Enemy.Kind) -> plan |> Option.map(FloorsDoc.enemyCount(kind)) |> Option.getWithDefault(0);
+        let kinds = Enemy.all() |> List.filter(kind -> kind != Enemy.Kind.Swarm) |> List.flatMap(kind -> List.repeat(countOf(kind), kind));
         let dist = Board.walkDistances(board#start, board);
         let marked = Set.union(Map.keysOf(board#traps), Map.keysOf(board#spots));
         let open = Board.cells(board) |> List.filter(c -> Board.tileAt(c, board) == Board.Tile.Floor and c != board#start and Map.memberOf(c, dist) and not Set.memberOf(c, marked));
         let far = open |> List.filter(c -> Map.getWithDefault(c, 0, dist) >= RulesDoc.rec(docs#rules)#enemyMinSteps);
-        let (enemyCells, afterEnemies) = Rng.pick(List.length(kinds), far, rng);
+        let (singleCells, afterSingles) = Rng.pick(List.length(kinds), far, rng);
+        let (swarmCells, afterEnemies) = swarmsOf(board, countOf(Enemy.Kind.Swarm), far, List.toSet(singleCells), afterSingles);
+        let enemyCells = singleCells ::: swarmCells;
         let (food, afterFood) = plan |> Option.map(f -> foodOf(f, afterEnemies)) |> Option.getWithDefault((Nil, afterEnemies));
         let fixed = plan |> Option.map(f -> f#items) |> Option.getWithDefault(Nil);
         let (items, afterItems) =
             if (Board.hasSpots(board)) placeOnSpots(board, food, fixed, afterFood)
             else scatter(open |> List.filter(c -> not List.memberOf(c, enemyCells)), fixed ::: food, afterFood);
-        ({ enemies = List.zip(kinds, enemyCells), items = items, traps = board#traps }, afterItems)
+        ({ enemies = List.zip(kinds, singleCells) ::: (swarmCells |> List.map(c -> (Enemy.Kind.Swarm, c))), items = items, traps = board#traps }, afterItems)
+
+    /// 群れの組を groups 組置く: 組ごとに空いたマスを 1 つ選び、その隣（8 方向・角を抜けない）の空いたマスから 2 つ足す（足りなければ置ける数だけ）。
+    def swarmsOf(board: Board.Board, groups: Int32, far: List[Cell], taken: Set[Cell], rng: Int64): (List[Cell], Int64) =
+        let farSet = List.toSet(far);
+        let (placed, rest, _) = List.range(0, groups) |> List.foldLeft((acc, _) -> {
+            let (cells, state, used) = acc;
+            let (heads, afterHead) = Rng.pick(1, far |> List.filter(c -> not Set.memberOf(c, used)), state);
+            match heads {
+                case head :: _ =>
+                    let beside = Board.neighbors8(head) |> List.filter(c -> Set.memberOf(c, farSet) and not Set.memberOf(c, used) and Board.isStepOpen(head, c, board));
+                    let (mates, afterMates) = Rng.pick(Int32.min(2, List.length(beside)), beside, afterHead);
+                    let group = head :: mates;
+                    (cells ::: group, afterMates, Set.union(used, List.toSet(group)))
+                case Nil => (cells, afterHead, used)
+            }
+        }, (Nil, rng, taken));
+        (placed, rest)
 
     /// 物を床の空いたマスへ乱数で置く。
     def scatter(free: List[Cell], items: List[Item.Kind], rng: Int64): (List[(Item.Kind, Cell)], Int64) =
@@ -122,6 +141,12 @@ mod Floor {
     pub def nearestEnemySteps(board: Board.Board, runState: Run.State): Option[Int32] =
         let dist = Board.walkDistances(board#start, board);
         Run.enemiesOf(runState) |> List.filterMap(e -> Map.get(e#at, dist)) |> List.minimum
+
+    /// 隣（8 方向）にほかの小ゼリーがいない小ゼリーのマス（群れが組で置かれていれば空）。
+    pub def straySwarms(runState: Run.State): List[Cell] =
+        let swarms = Run.enemiesOf(runState) |> List.filter(e -> e#kind == Enemy.Kind.Swarm) |> List.map(e -> e#at);
+        let occupied = List.toSet(swarms);
+        swarms |> List.filter(c -> not List.exists(n -> Set.memberOf(n, occupied), Board.neighbors8(c)))
 
     /// 始まりから階段まで、罠を踏まずに歩いて着けるか。
     pub def reachesStairs(board: Board.Board): Bool =
