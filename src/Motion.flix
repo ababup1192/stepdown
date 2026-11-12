@@ -158,6 +158,7 @@ mod Motion {
             case (i, Event.HeroStruck(id, _))  => flashed(id, i, acc)
             case (i, Event.ArrowHit(id, _))    => flashed(id, i, acc)
             case (i, Event.BombHit(id, _))     => flashed(id, i, acc)
+            case (i, Event.ThunderHit(id, _))  => flashed(id, i, acc)
             case (i, Event.EnemyBurned(id, _)) => flashed(id, i, acc)
             case (i, Event.EnemyDied(id, _, _)) =>
                 let h = Map.getWithDefault(id, none, acc);

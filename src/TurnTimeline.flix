@@ -18,6 +18,7 @@ mod TurnTimeline {
         case Upgrade       // 上位を拾って持ち物の枠が光る
         case Arrow         // 主人公の矢の板が飛ぶ
         case Bomb          // 爆弾の光と煙が広がる
+        case Thunder       // 画面が一瞬白くなり、敵ごとに稲妻が落ちる
         case Smoke         // 煙玉が主人公から敵の方へ弧を描いて飛ぶ
         case Puff          // 着いた所で灰色の煙が広がって弾ける
         case Flash         // 当たった物が白く光って震える
@@ -126,6 +127,11 @@ mod TurnTimeline {
             case Event.BombThrown(_, _)    => { bomb = Some((i, Beat.Bomb)) | add(cue(Sound.Bomb, after(Beat.Bomb, pace#arrow * 2.5)) :: Nil, d) }
             case Event.BombHit(_, _)       =>
                 let row = d#bomb |> Option.map(bomb -> flashOn(pace, bomb, pace#arrow * 0.5, i, Sound.Hit))
+                    |> Option.getWithDefault(cue(Sound.Hit, after(Beat.Flash, pace#strike)));
+                add(row :: Nil, d)
+            case Event.ThunderCast(_)      => { bomb = Some((i, Beat.Thunder)) | add(cue(Sound.Bomb, after(Beat.Thunder, pace#arrow * 2.0)) :: Nil, d) }
+            case Event.ThunderHit(_, _)    =>
+                let row = d#bomb |> Option.map(cast -> flashOn(pace, cast, pace#arrow * 0.3, i, Sound.Hit))
                     |> Option.getWithDefault(cue(Sound.Hit, after(Beat.Flash, pace#strike)));
                 add(row :: Nil, d)
             case Event.SmokeThrown(_)      => add(after(Beat.Smoke, pace#smoke * 0.5) :: cue(Sound.Puff, after(Beat.Puff, pace#smoke * 0.5)) :: Nil, d)

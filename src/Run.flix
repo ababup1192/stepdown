@@ -145,6 +145,9 @@ mod Run {
         /// 主人公が爆弾を投げた（段・中心のマス）。
         case BombThrown(Item.Kind, Cell)
         case BombHit(Int32, Int32)
+        /// 主人公がかみなりの書を使った（当てる敵の id）。続く ThunderHit がそれぞれの当たり。
+        case ThunderCast(List[Int32])
+        case ThunderHit(Int32, Int32)
         /// 主人公が煙玉を使った（主人公のマス）。続く EnemySlept が眠った隣の敵。
         case SmokeThrown(Cell)
         /// 燃えている敵が敵の手番の始めにダメージを受けた（id・ダメージ）。

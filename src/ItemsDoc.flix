@@ -70,6 +70,7 @@ mod ItemsDoc {
         case Item.Kind.Pebble       => { damage = 1, range = 3, count = 6, cap = 12 | zero("小石") }
         case Item.Kind.Smoke        => { sleep = 2, count = 2, cap = 3 | zero("煙玉") }
         case Item.Kind.IronBall     => { damage = 3, range = 3, count = 2, cap = 4 | zero("鉄球") }
+        case Item.Kind.Thunder      => { damage = 2, count = 1, cap = 2 | zero("かみなりの書") }
     }
 
     pub def defaults(): Doc =

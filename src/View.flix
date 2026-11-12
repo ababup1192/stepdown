@@ -101,6 +101,7 @@ mod View {
           quitPrompt = if (World.isAskingQuit(w)) Some(TextDoc.lineOf(TextDoc.Line.QuitPrompt, res#text)) else None,
           showBars = w#screen != World.Screen.Title,
           edge = fade(lk#edgeSeconds, Popup.Kind.Taken, aged),
+          flash = thunderFlash(turn),
           veil = World.veilOf(res, w) };
         let marks = { theme = theme, time = time,
           timing = { life = lk#popupSeconds, popScale = lk#popupPopScale, popSeconds = lk#popupPopSeconds, rise = lk#popupRise, fall = lk#popupFall,
@@ -114,7 +115,8 @@ mod View {
           rings = aged |> List.filterMap(ringOf(screen)),
           slashes = slashesOf(theme, screen, turn),
           trails = trailsOf(theme, screen, turn),
-          alerts = alertsOf(screen, turn) };
+          alerts = alertsOf(screen, turn),
+          bolts = boltsOf(screen, turn) };
         let choosing = w#screen == World.Screen.Cards;
         let pending = if (choosing) Run.pendingOf(w#runState) |> List.head else None;
         let cards = { theme = theme, time = time,
@@ -279,6 +281,31 @@ mod View {
             case _ => Nil
         })
 
+    /// かみなりの白い光（落ちた瞬間に 1 で、すぐ消える）。
+    def thunderFlash(turn: Motion.Turn): Float64 =
+        turn#events |> List.map(ie -> match ie {
+            case (i, Run.Event.ThunderCast(_)) => Curve.pieces((0.0, 0.0) :: (0.05, 0.85) :: (0.35, 0.0) :: (1.0, 0.0) :: Nil, clamp01(turn#progress((i, TurnTimeline.Beat.Thunder))))
+            case _                             => 0.0
+        }) |> List.foldLeft(Float64.max, 0.0)
+
+    /// かみなりの稲妻: 敵ごとに画面の上の方から体へ、折れ曲がった線（敵の id で折れ方を変える）。
+    def boltsOf(screen: Vec3.Vec3 -> Option[Vec2.Vec2], turn: Motion.Turn): List[MarkView.Bolt] =
+        let foes = List.toMap(turn#before#enemies |> List.map(e -> (e#id, e#at)));
+        turn#events |> List.flatMap(ie -> match ie {
+            case (i, Run.Event.ThunderCast(ids)) =>
+                let progress = turn#progress((i, TurnTimeline.Beat.Thunder));
+                if (progress <= 0.0 or progress >= 1.0) Nil
+                else ids |> List.filterMap(id -> Map.get(id, foes) |> Option.flatMap(cell -> bodyOf(screen, cell)) |> Option.map(at -> {
+                    let bend = (k: Int32) -> 14.0 * Num.sin(Int32.toFloat64(id * 7 + k * 3) * 1.7);
+                    let points = List.range(0, 7) |> List.map(k -> {
+                        let f = Int32.toFloat64(k) / 6.0;
+                        { x = at#x + (if (k == 0 or k == 6) 0.0 else bend(k)), y = at#y - 260.0 * (1.0 - f) }
+                    });
+                    { points = points, alpha = Curve.pieces((0.0, 1.0) :: (0.5, 1.0) :: (1.0, 0.0) :: Nil, progress) }
+                }))
+            case _ => Nil
+        })
+
     // ── カード ──
 
     def isLevelUp(choice: Run.Choice): Bool = match choice {
@@ -327,6 +354,7 @@ mod View {
         case Descend
         case Trap(Trap.Kind)
         case Guarded
+        case Thunder
     }
 
     /// 見せる予告 1 つ: 入力・マス・主な種類・受けるダメージ。
@@ -343,6 +371,7 @@ mod View {
         if (has(Preview.Mark.Blocked)) None
         else if (Option.nonEmpty(trapIn(summary))) trapIn(summary) |> Option.map(Act.Trap)
         else if (has(Preview.Mark.Bomb)) Some(Act.Bomb)
+        else if (has(Preview.Mark.Thunder)) Some(Act.Thunder)
         else if (has(Preview.Mark.Arrow)) Some(Act.Arrow)
         else if (has(Preview.Mark.IronBall) or has(Preview.Mark.Pebble)) Some(Act.Pebble)
         else if (has(Preview.Mark.Smoke)) Some(Act.Smoke)
@@ -382,6 +411,7 @@ mod View {
         case Act.Descend => t#markDescend
         case Act.Trap(_) => t#markTrap
         case Act.Guarded => t#markBlocked
+        case Act.Thunder => t#markBomb
     }
 
     def markOf(t: ThemeDoc.Rec, s: Shown): List[SceneView.Mark] =
@@ -433,6 +463,7 @@ mod View {
         case Act.Trap(Trap.Kind.Alarm) => MarkView.Glyph.Alert
         case Act.Trap(_) => MarkView.Glyph.Picture(Art.Icon.Arrow)
         case Act.Guarded => MarkView.Glyph.Picture(Art.Icon.Shield)
+        case Act.Thunder => MarkView.Glyph.Bolt
     }
 
     /// 斜めの向きか（予告のアイコンを小さくする）。
@@ -481,6 +512,7 @@ mod View {
         match family {
             case Item.Family.Bomb   => PartsView.Cue.Surround(rules#bombNeeds)
             case Item.Family.Smoke  => PartsView.Cue.Surround(rules#bombNeeds)
+            case Item.Family.Thunder => PartsView.Cue.Surround(rules#thunderNeeds)
             case Item.Family.Potion => PartsView.Cue.LowHp(rules#potionAt)
             case Item.Family.Pebble => PartsView.Cue.Line(1)
             case Item.Family.IronBall => PartsView.Cue.Line(1)
@@ -539,6 +571,7 @@ mod View {
             case Run.Event.HeroHurt(Run.Source.Trap(_), n, _) => say(TextDoc.Line.Darted, ("n", "${n}") :: Nil)
             case Run.Event.EnemyTrapped(id, n)  => say(TextDoc.Line.EnemyDarted, enemy(id) :: ("n", "${n}") :: Nil)
             case Run.Event.AlarmRang(_)         => say(TextDoc.Line.Alarmed, Nil)
+            case Run.Event.ThunderCast(_)       => say(TextDoc.Line.Thundered, Nil)
             case Run.Event.Guarded(id)          => say(TextDoc.Line.ShieldBlocked, enemy(id) :: Nil)
             case Run.Event.HeroHurt(_, 0, _)    => say(TextDoc.Line.Guarded, Nil)
             case Run.Event.HeroHurt(source, n, _) => Run.attackerOf(source) |> Option.flatMap(id -> say(TextDoc.Line.Hurt, enemy(id) :: ("n", "${n}") :: Nil))

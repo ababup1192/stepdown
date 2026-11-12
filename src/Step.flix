@@ -2,7 +2,8 @@
 //   1. 主人公の手（8 方向。角は抜けない）: 敵がいれば殴る（移動しない）・歩けないか角なら何も起きない（手は進まない）・それ以外は動いて罠を踏み（倒れたらそこで終わり）、拾う。
 //      罠は見えていなくても効く（踏まれて見えるようになる）。歩く敵も罠を踏む。
 //      待つは「その場に動いた」とみなし、階段の上なら降りる（その手はそこで終わる。最後の階なら Cleared）。
-//   2. 動いたか待った後、その位置で 1 つだけ判定する: 爆弾（攻撃できる隣の起きた敵が bombNeeds 以上）→ 矢 → 鉄球（当たると 1 マス押す）→ 小石（直線の射程の起きた敵）
+//   2. 動いたか待った後、その位置で 1 つだけ判定する: 爆弾（攻撃できる隣の起きた敵が bombNeeds 以上）→ かみなりの書（気付いている起きた敵が thunderNeeds 以上）
+//      → 矢 → 鉄球（当たると 1 マス押す）→ 小石（直線の射程の起きた敵）
 //      → 煙玉（隣の起きた敵が bombNeeds 以上か、1 体以上で HP が smokeAt 以下）。
 //   拾う: 枠は slotCount まで。埋まっていて 4 種類目なら床に残して捨てるカード（pending）を積む。手は最後まで進め、Choose で答える。
 //   3. 気付いた敵が起きる → 敵の手番（主人公への歩く距離の近い順 → 作った順）。受けるたびに薬・倒れるを見る。
@@ -244,7 +245,7 @@ mod Step {
         })
 
     // ══════════════════════════════════════════════════════
-    // 立ち位置の判定（1 手に 1 つ: 爆弾 → 矢 → 鉄球 → 小石 → 煙玉）
+    // 立ち位置の判定（1 手に 1 つ: 爆弾 → かみなりの書 → 矢 → 鉄球 → 小石 → 煙玉）
     // ══════════════════════════════════════════════════════
 
     def judge(ctx: Ctx, t: Turn): Turn =
@@ -255,7 +256,9 @@ mod Step {
         let needs = if (Run.perkCount(Run.Perk.LoneBomb, r) > 0) 1 else rules#bombNeeds;
         let smoky = around >= rules#bombNeeds or (around >= 1 and r#hero#hp <= RulesDoc.smokeHp(r#hero#maxHp, ctx#rules));
         let shots = (family: Item.Family) -> if (usable(family)) lineTarget(ctx, family, r) else None;
+        let noticing = noticingIds(ctx, r);
         if (around >= needs and usable(Item.Family.Bomb)) throwBomb(ctx, t)
+        else if (List.length(noticing) >= rules#thunderNeeds and usable(Item.Family.Thunder)) castThunder(ctx, noticing, t)
         else shots(Item.Family.Arrow) |> Option.map(dir -> shoot(ctx, Item.Family.Arrow, dir, t))
             |> Option.withDefault(default = shots(Item.Family.IronBall) |> Option.map(dir -> shoot(ctx, Item.Family.IronBall, dir, t)))
             |> Option.withDefault(default = shots(Item.Family.Pebble) |> Option.map(dir -> shoot(ctx, Item.Family.Pebble, dir, t)))
@@ -332,6 +335,20 @@ mod Step {
 
     def bombHit(ctx: Ctx, id: Int32, damage: Int32, t: Turn): Turn =
         if (damage <= 0) t else t |> emit(Event.BombHit(id, damage)) |> hurt(ctx, id, damage)
+
+    /// 主人公に気付いている起きた敵の id（作った順）。
+    def noticingIds(ctx: Ctx, r: Run.Rec): List[Int32] =
+        let dist = Board.walkDistances(r#hero#at, ctx#board);
+        r#enemies |> List.filter(e -> Enemy.isAwake(e) and Run.notices(ctx, dist, r#hero#at, e)) |> List.map(e -> e#id)
+
+    /// かみなりの書: 気付いている起きた敵の全員に damage（盾では防げない）。
+    def castThunder(ctx: Ctx, targets: List[Int32], t: Turn): Turn =
+        let r = t#runState;
+        Run.heldOf(Item.Family.Thunder, r#pack) |> Option.map(held -> {
+            let damage = ItemsDoc.statsOf(Run.kindOfHeld(held), ctx#items)#damage;
+            let cast = t |> withRun({ pack = Run.spend(Item.Family.Thunder, r#pack) | r }) |> emit(Event.ThunderCast(targets));
+            targets |> List.foldLeft((acc, id) -> acc |> emit(Event.ThunderHit(id, damage)) |> hurt(ctx, id, damage), cast)
+        }) |> Option.getWithDefault(t)
 
     /// 煙玉: 主人公を攻撃できる隣の起きた敵を、煙玉の sleep 手だけ眠らせる。
     def throwSmoke(ctx: Ctx, t: Turn): Turn =

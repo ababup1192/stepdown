@@ -22,6 +22,7 @@ mod RulesDoc {
     ///   levelExp       … 次のレベルまでに要る経験値（Lv1→2, 2→3, …。表を超えたら最後の数で続ける）
     ///   lastFloor      … 最後の階（ここの階段で降りたらクリア）
     ///   trapDamage     … 毒矢の罠のダメージ（盾は効かない）
+    ///   thunderNeeds   … 主人公に気付いている起きた敵がこの数以上でかみなりの書を使う
     ///   tapWaitRadius  … 主人公のマスの中でタップしたら待つとみなす半径（マス）
     ///   tapWaitPx      … 主人公の体（待つのアイコン）の真ん中から、この px 以内のタップは待つ
     ///   tapSlop        … 押してから動いてもタップとみなす距離（px）
@@ -44,6 +45,7 @@ mod RulesDoc {
         levelExp = List[Int32],
         lastFloor = Int32,
         trapDamage = Int32,
+        thunderNeeds = Int32,
         tapWaitRadius = Float64,
         tapWaitPx = Float64,
         tapSlop = Float64
@@ -61,7 +63,7 @@ mod RulesDoc {
         Doc.Doc({ version = 1, maxHp = 20, baseAttack = 2, arrowMin = 2, arrowMax = 4, bombNeeds = 2,
                   potionAt = 0.25, regenEvery = 12, wakeSteps = 5, enemyMinSteps = 5,
                   smokeAt = 0.5, burnDamage = 1,
-                  fullnessMax = 100, hungerEvery = 3, starveDamage = 1, levelExp = 3 :: 7 :: 10 :: 14 :: 20 :: 26 :: 32 :: Nil, lastFloor = 2, trapDamage = 2,
+                  fullnessMax = 100, hungerEvery = 3, starveDamage = 1, levelExp = 3 :: 7 :: 10 :: 14 :: 20 :: 26 :: 32 :: Nil, lastFloor = 2, trapDamage = 2, thunderNeeds = 3,
                   tapWaitRadius = 0.45, tapWaitPx = 32.0, tapSlop = 12.0 })
 
     /// テキストから Doc へ（fail-open）。JSON でない・形が違うフィールドは既定へ落とす。
@@ -82,7 +84,7 @@ mod RulesDoc {
                   starveDamage = int("starveDamage", d#starveDamage),
                   levelExp = Map.get("levelExp", root) |> Option.flatMap(JsonCodec.decodeList(JsonCodec.expectInt))
                       |> Option.filter(xs -> not List.isEmpty(xs)) |> Option.getWithDefault(d#levelExp),
-                  lastFloor = int("lastFloor", d#lastFloor), trapDamage = int("trapDamage", d#trapDamage),
+                  lastFloor = int("lastFloor", d#lastFloor), trapDamage = int("trapDamage", d#trapDamage), thunderNeeds = int("thunderNeeds", d#thunderNeeds),
                   tapWaitRadius = float("tapWaitRadius", d#tapWaitRadius), tapWaitPx = float("tapWaitPx", d#tapWaitPx), tapSlop = float("tapSlop", d#tapSlop) })
 
     /// 薬を使う HP（最大 HP × potionAt を切り捨て）。

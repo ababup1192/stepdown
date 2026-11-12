@@ -12,6 +12,7 @@ mod MarkView {
         case Stairs
         case Hourglass
         case Alert
+        case Bolt
     }
 
     /// 方向の予告 1 つ。at = アイコンの真ん中・hurt = 受けるダメージ（無ければ 0）・color = 枠の色・scale = 大きさの倍（斜めは小さい）・
@@ -40,6 +41,9 @@ mod MarkView {
     /// 起きかけた敵の頭の「!」。at = 頭の上・progress = 進み（0..1）。
     pub type alias Alert = { at = Vec2.Vec2, progress = Float64 }
 
+    /// かみなりの稲妻（points を上から順につなぐ折れ線）。
+    pub type alias Bolt = { points = List[Vec2.Vec2], alpha = Float64 }
+
     /// 矢の軌跡（tail から head へ細る線）。
     pub type alias Trail = { tail = Vec2.Vec2, head = Vec2.Vec2, color = Color }
 
@@ -62,7 +66,8 @@ mod MarkView {
         rings = List[Ring],
         slashes = List[Slash],
         trails = List[Trail],
-        alerts = List[Alert]
+        alerts = List[Alert],
+        bolts = List[Bolt]
     }
 
     /// 場面の上の印（奥から: 予告 → 眠りの z → 軌跡 → 弧 → 輪 → 頭の上 → 数）。
@@ -71,6 +76,7 @@ mod MarkView {
             (w#badges |> List.flatMap(badge(atlas, w#theme)))
             :: (w#sleepers |> List.flatMap(sleeper(atlas, w)))
             :: (w#trails |> List.flatMap(trail))
+            :: (w#bolts |> List.flatMap(bolt))
             :: (w#slashes |> List.flatMap(slash))
             :: (w#rings |> List.flatMap(ring(w)))
             :: (w#overheads |> List.flatMap(overhead(w)))
@@ -96,6 +102,7 @@ mod MarkView {
             case Glyph.Stairs     => small(stairs(c, color, 3))
             case Glyph.Hourglass  => small(hourglass(c, color, 3))
             case Glyph.Alert      => centered(atlas, "!", c, 30.0 * k, color, 3) :: Nil
+            case Glyph.Bolt       => shape(boltShape(c, 13.0 * k), Color.rgb(1.0, 0.85, 0.2), 3) :: Nil
         }
 
     /// 受けるダメージ: アイコンの下の赤いラベルに、小さなハートと数。
@@ -237,6 +244,17 @@ mod MarkView {
         if (head - tail < 0.05) Nil
         else arcBand(c, 30.0, tail, head, 12.0 * fade, Color.mix(s#color, Color.rgb(1.0, 1.0, 1.0), 0.5), 5) |> faded(0.35 * fade)
             :: arcBand(c, 30.0, tail, head, 6.0 * fade, s#color, 6) |> faded(fade) :: Nil
+
+    /// 稲妻の形（真ん中 c・半分の高さ r の折れた板）。
+    def boltShape(c: Vec2.Vec2, r: Float64): List[Vec2.Vec2] =
+        p(c#x + 0.3 * r, c#y - r) :: p(c#x - 0.45 * r, c#y + 0.1 * r) :: p(c#x - 0.02 * r, c#y + 0.1 * r)
+            :: p(c#x - 0.3 * r, c#y + r) :: p(c#x + 0.45 * r, c#y - 0.15 * r) :: p(c#x + 0.02 * r, c#y - 0.15 * r) :: Nil
+
+    /// 稲妻: 太い淡い光の線の上に、白く細い芯の線。
+    def bolt(b: Bolt): List[Render.PlacedItem] =
+        let pairs = List.zip(b#points, List.drop(1, b#points));
+        (pairs |> List.map(match (a, z) -> RawDraw.lineSeg(a, z, 9.0, Color.rgb(0.75, 0.8, 1.0), 4) |> faded(0.35 * b#alpha)))
+            ::: (pairs |> List.map(match (a, z) -> RawDraw.lineSeg(a, z, 3.0, Color.rgb(1.0, 1.0, 0.92), 5) |> faded(b#alpha)))
 
     /// 矢の軌跡: 尾から頭へ太くなる 2 本の線。
     def trail(t: Trail): List[Render.PlacedItem] =

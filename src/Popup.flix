@@ -44,6 +44,7 @@ mod Popup {
         case Event.EnemyBurned(_, _) => Some(Beat.Flash)
         case Event.EnemyTrapped(_, _) => Some(Beat.Flash)
         case Event.Guarded(_)        => Some(Beat.Flash)
+        case Event.ThunderHit(_, _)  => Some(Beat.Flash)
         case Event.HeroHurt(_, _, _) => Some(Beat.Flash)
         case Event.PotionUsed(_, _)  => Some(Beat.Heal)
         case Event.Ate(_, _)         => Some(Beat.Full)
@@ -56,6 +57,7 @@ mod Popup {
         case Event.HeroStruck(_, n)  => dealt(n)
         case Event.ArrowHit(_, n)    => dealt(n)
         case Event.Guarded(_)        => Some((Kind.Blocked, 0, None))
+        case Event.ThunderHit(_, n)  => dealt(n)
         case Event.BombHit(_, n)     => Some((Kind.Dealt, n, None))
         case Event.EnemyBurned(_, n) => Some((Kind.Burned, n, None))
         case Event.EnemyTrapped(_, n) => Some((Kind.Dealt, n, None))
@@ -87,6 +89,7 @@ mod Popup {
             case Event.EnemyBurned(id, _) => Map.getWithDefault(id, hero, foes)
             case Event.EnemyTrapped(id, _) => Map.getWithDefault(id, hero, foes)
             case Event.Guarded(id)        => Map.getWithDefault(id, hero, foes)
+            case Event.ThunderHit(id, _)  => Map.getWithDefault(id, hero, foes)
             case Event.ExpGained(_)       => Option.getWithDefault(hero, d#lastDied)
             case _                        => hero
         };

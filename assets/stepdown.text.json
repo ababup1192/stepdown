@@ -31,6 +31,7 @@
   "slammed": "{enemy}を 壁に たたきつけた",
   "darted": "毒矢を ふんだ！ {n} のダメージ",
   "enemyDarted": "{enemy}に 毒矢が ささった（{n}）",
+  "thundered": "かみなりが おちた！",
   "shieldBlocked": "{enemy}が 盾で ふせいだ",
   "alarmed": "警報が ひびいた！",
   "floorLabel": "{n}F"

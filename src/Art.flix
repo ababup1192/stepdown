@@ -28,6 +28,7 @@ mod Art {
         case Bone
         case BreadBitten
         case PebbleOne
+        case Thunder
     }
 
     /// 画面に重ねる演出の絵（assets/fx/）。
@@ -58,6 +59,8 @@ mod Art {
             case Icon.Bone        => square("bone")
             case Icon.BreadBitten => square("bread_bitten")
             case Icon.PebbleOne   => square("pebble_one")
+            // WhyNot: thunder.png を足す — 物の絵は別の人が assets/icons/ に描いている所で、届くまでは煙玉の雲の絵を借りる。
+            case Icon.Thunder     => square("smoke")
         }
 
     pub def fx(f: Fx): Picture = match f {
@@ -83,6 +86,7 @@ mod Art {
         case Item.Family.Pebble => Icon.Pebble
         case Item.Family.IronBall => Icon.Pebble
         case Item.Family.Smoke  => Icon.Smoke
+        case Item.Family.Thunder => Icon.Thunder
     }
 
     /// アイテムの種類の絵（食べ物だけ種類で絵が分かれる）。

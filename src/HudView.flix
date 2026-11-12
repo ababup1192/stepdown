@@ -28,7 +28,7 @@ mod HudView {
     pub type alias Exp = { level = Int32, now = Int32, need = Int32 }
 
     /// 描くのに要る値。log = 記録の 1 行（無ければ空）・slots = 3 枠（None は空き枠）・edge = 画面の周りの赤（0..1）・
-    /// veil = 階を降りる暗転の濃さ（0..1）。
+    /// flash = かみなりの白い光（0..1）・veil = 階を降りる暗転の濃さ（0..1）。
     pub type alias In = {
         theme = ThemeDoc.Rec,
         time = Float64,
@@ -44,6 +44,7 @@ mod HudView {
         quitPrompt = Option[String],
         showBars = Bool,
         edge = Float64,
+        flash = Float64,
         veil = Float64
     }
 
@@ -160,6 +161,10 @@ mod HudView {
 
     /// 受けた時に画面の周りが一瞬赤く滲む（4 辺の内へ向けて薄れる帯）。
     pub def edge(w: In): List[Render.PlacedItem] =
+        let white = if (w#flash <= 0.0) Nil else band(Vec2.zero(), p(width(), height()), Color.rgb(1.0, 1.0, 1.0), { top = w#flash, bottom = w#flash }, 0) :: Nil;
+        white ::: redEdge(w)
+
+    def redEdge(w: In): List[Render.PlacedItem] =
         if (w#edge <= 0.0) Nil
         else {
             let c = w#theme#popTaken;
