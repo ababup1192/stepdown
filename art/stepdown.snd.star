@@ -1,4 +1,4 @@
-# 石のダンジョンの効果音 20 個（1 手の時刻表の Cue で鳴らす。名前は TurnTimeline.Sound と同じ sd_*）。
+# 石のダンジョンの効果音 25 個（1 手の時刻表の Cue で鳴らす。名前は TurnTimeline.Sound と同じ sd_*）。
 # bin/fge snd build art/stepdown.snd.star で art/sfx/*.sndsrc.json を書き、検査を通った物を atelier/sfx/<名前>.wav へ書く
 # （採用した物を assets/sfx へ移し、project.json の sounds に載せる）。
 # 石の部屋なので短い響きを少し足す。1 手は 0.1〜0.2 秒で回るので、どれも 0.25 秒以内に収め、続けて鳴っても濁らない長さにする。
@@ -85,4 +85,17 @@ def main():
     # 小石が当たる: 軽い「コツン」（高めの硬い短音と、小さな跳ね返り）。
     sound("sd_clink", [tone(1250, 40, amp = 0.22, decay = 12, duty = 0.25, cut = 3.0), hiss(18, amp = 0.15, hz = 4000, decay = 5, attack = 2),
                        tone(1500, 25, at = 70, amp = 0.1, decay = 8, duty = 0.25, cut = 3.0)], room = 0.25, wet = 0.08, lufs = -24)
+    # 溜める（突進の構え・自爆虫の導火線）: 低くうなって上がる「ググッ」と、火花の細かい粒。次の手に来ると知らせる音なので短く、上がって終える。
+    sound("sd_windup", [tone(140, 160, amp = 0.3, decay = 70, to_hz = 260, attack = 20), hiss(120, at = 60, amp = 0.1, hz = 5000, decay = 40, attack = 10)], room = 0.25, wet = 0.08, lufs = -23)
+    # 突進が走る: 低い踏み鳴らし 3 つと、前へ抜ける風切り。
+    sound("sd_charge", [tone(90, 50, at = 45 * i, amp = 0.35, decay = 16, to_hz = 70) for i in range(3)] +
+                       [sweep(200, amp = 0.25, hz = 600, to_hz = 2200, attack = 10, decay = 80)], room = 0.3, wet = 0.1, lufs = -21)
+    # 身代わり人形が砕ける: 木の割れる乾いた「パキッ」と、上がる光の 2 音。
+    sound("sd_doll", [hiss(40, amp = 0.4, hz = 2600, decay = 12, attack = 2), tone(300, 50, amp = 0.25, decay = 15, to_hz = 200),
+                      tone(880, 90, at = 90, amp = 0.18, decay = 50, duty = 0.25), tone(1320, 160, at = 160, amp = 0.18, decay = 90, duty = 0.25)], room = 0.4, wet = 0.18, lufs = -22)
+    # 落とし穴: 床が抜ける崩れの雑音と、下へ落ちていく音。
+    sound("sd_pit", [hiss(120, amp = 0.35, hz = 1200, decay = 40, attack = 3), tone(400, 380, at = 60, amp = 0.25, decay = 200, to_hz = 90, duty = 0.25)], room = 0.5, wet = 0.22, lufs = -21)
+    # ちいさなコインを拾う: 明るい金属の「チャリン」（高い 2 音を短くずらして重ね、きらめきを少し）。小石の「コツン」より高く長い。
+    sound("sd_coin", [tone(1760, 120, amp = 0.2, decay = 60, duty = 0.25, cut = 3.0), tone(2640, 180, at = 70, amp = 0.18, decay = 100, duty = 0.25, cut = 3.0),
+                      hiss(80, at = 70, amp = 0.05, hz = 8000, decay = 40)], room = 0.35, wet = 0.15, lufs = -23)
 main()
