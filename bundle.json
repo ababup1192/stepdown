@@ -1,6 +1,6 @@
 {
  "id": "stepdown",
- "title": "ひとあし迷宮",
+ "title": "片手間迷宮",
  "files": [
   "assets/cards.schema.json",
   "assets/chars/archer.png",
