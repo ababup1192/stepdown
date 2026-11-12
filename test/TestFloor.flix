@@ -78,14 +78,14 @@ mod TestFloor {
             mapIds() |> List.flatMap(id -> seeds() |> List.filter(seed ->
                 not Floor.itemsOnFloor(boardAt(id), floorOn(id, seed)))))
 
-    /// 2F の地図はどの種でも、食べ物は % に、items は $ に置き、items は $ の数（6）まで重複なしで全部置く（2F の items は 6 種類）。
+    /// 2F の地図はどの種でも、食べ物は % に、コインは * に、items は $ に置き、items は $ の数（6）まで重複なしで全部置く（2F の items は 6 種類）。
     @Test
     def testSecondFloorItemsSitOnTheirSpots(): Unit \ Assert + Fs.FileRead =
         let made = floorOn((2, 0), 3i64);
         let fixed = FloorsDoc.floorOf(2, docs()#floors) |> Option.map(f -> List.toSet(f#items));
         Assert.assertEq(expected = (true, true, fixed),
             (Floor.itemsOnSpots(boardAt((2, 0)), made), Floor.itemsOnSpots(boardAt((2, 1)), floorOn((2, 1), 50i64)),
-             Some(Run.rec(made)#items |> Map.valuesOf |> List.filter(k -> Item.familyOf(k) != Item.Family.Food) |> List.toSet)))
+             Some(Run.rec(made)#items |> Map.valuesOf |> List.filter(k -> Item.familyOf(k) != Item.Family.Food and Item.familyOf(k) != Item.Family.Coin) |> List.toSet)))
 
     /// 階には floors の Doc の数だけ敵を置く。
     @Test

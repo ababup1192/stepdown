@@ -122,10 +122,12 @@ mod BotRun {
     def expWeight(): Int32 = 4
     def fullnessWeight(): Int32 = 1
     def itemWeight(): Int32 = 6
+    /// コイン 1 枚の点（階段へ 7 歩ほど。近くのコインなら寄り道して拾う）。
+    def coinWeight(): Int32 = 30
     def deadScore(): Int32 = -1000000
     def clearScore(): Int32 = 1000000
 
-    /// 局面の点数（HP・階段への歩く距離・経験値とレベル・満腹度・持ち物の残り数の足し算）。
+    /// 局面の点数（HP・階段への歩く距離・経験値とレベル・満腹度・持ち物の残り数・コインの足し算）。
     /// left は読み残した手数（早く降りる・遅く倒れる方を高くする）。
     def scoreOf(field: Field, left: Int32, runState: Run.State): Int32 =
         let r = Run.rec(runState);
@@ -137,7 +139,7 @@ mod BotRun {
             case Run.Status.Cleared   => clearScore() + left
             case Run.Status.Playing   =>
                 hpScore(r#hero) - dist * (stairsWeight() + (r#turns - field#arrived) / impatienceEvery()) + r#level * levelWeight() + r#exp * expWeight()
-                + r#fullness * fullnessWeight() + items * itemWeight()
+                + r#fullness * fullnessWeight() + items * itemWeight() + r#coins * coinWeight()
         }
 
     def hpScore(hero: Run.Hero): Int32 =
