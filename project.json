@@ -44,6 +44,41 @@
       "hasAlpha": true
     },
     {
+      "name": "chr_shieldbearer_back",
+      "path": "assets/chars/shieldbearer_back.png",
+      "hasAlpha": true
+    },
+    {
+      "name": "chr_shieldbearer_back34_right",
+      "path": "assets/chars/shieldbearer_back34_right.png",
+      "hasAlpha": true
+    },
+    {
+      "name": "chr_shieldbearer_back34_left",
+      "path": "assets/chars/shieldbearer_back34_left.png",
+      "hasAlpha": true
+    },
+    {
+      "name": "chr_shieldbearer_side_right",
+      "path": "assets/chars/shieldbearer_side_right.png",
+      "hasAlpha": true
+    },
+    {
+      "name": "chr_shieldbearer_side_left",
+      "path": "assets/chars/shieldbearer_side_left.png",
+      "hasAlpha": true
+    },
+    {
+      "name": "chr_shieldbearer_front34_right",
+      "path": "assets/chars/shieldbearer_front34_right.png",
+      "hasAlpha": true
+    },
+    {
+      "name": "chr_shieldbearer_front34_left",
+      "path": "assets/chars/shieldbearer_front34_left.png",
+      "hasAlpha": true
+    },
+    {
       "name": "chr_charger",
       "path": "assets/chars/charger.png",
       "hasAlpha": true

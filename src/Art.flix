@@ -103,10 +103,25 @@ mod Art {
         if (k == 0) icon(Icon.IronBall)
         else { name = "icon_ironball_roll${k}", path = "assets/icons/ironball_roll${k}.png", width = 128.0, height = 128.0 }
 
+    /// 盾持ちの向き facing（北が画面の奥）から見た絵。下向きは正面の絵。左向きの 3 枚は右向きを左右に反転した絵。
+    /// 正面の絵 1 枚に盾の板を足すだけでは、奥や横を向いた時にどちらが前か読めなかった。
+    pub def shieldBearer(facing: Board.Dir8): Picture =
+        let view = (v: String, w: Float64) -> { name = "chr_shieldbearer_${v}", path = "assets/chars/shieldbearer_${v}.png", width = w, height = 320.0 };
+        match facing {
+            case Board.Dir8.Down => figure(Figure.Shield)
+            case Board.Dir8.Up => view("back", 200.0)
+            case Board.Dir8.UpRight => view("back34_right", 279.0)
+            case Board.Dir8.Right => view("side_right", 141.0)
+            case Board.Dir8.DownRight => view("front34_right", 205.0)
+            case Board.Dir8.UpLeft => view("back34_left", 279.0)
+            case Board.Dir8.Left => view("side_left", 141.0)
+            case Board.Dir8.DownLeft => view("front34_left", 205.0)
+        }
+
     /// 全部の絵（描き出しが読む）。
     pub def all(): List[Picture] =
         List.map(figure, Figure.Hero :: Figure.Jelly :: Figure.Bat :: Figure.Archer :: Figure.Swarm :: Figure.Shield :: Figure.Charger :: Figure.Bomber :: Figure.Boss :: Nil)
-            ::: List.map(icon, icons()) ::: List.map(ironBallRolled, List.range(1, 8)) ::: (fx(Fx.LevelUp) :: Nil)
+            ::: List.map(icon, icons()) ::: List.map(ironBallRolled, List.range(1, 8)) ::: List.map(shieldBearer, Board.dirs8()) ::: (fx(Fx.LevelUp) :: Nil)
 
     /// アイテムの系統の絵（食べ物はパン）。
     def iconOfFamily(family: Item.Family): Icon = match family {
