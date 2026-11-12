@@ -13,6 +13,9 @@
     {"name": "foes", "kind": "num", "doc": "生きている敵の数"},
     {"name": "arrows", "kind": "num", "doc": "持っている矢の数"},
     {"name": "bombs", "kind": "num", "doc": "持っている爆弾の数"},
+    {"name": "level", "kind": "num", "doc": "主人公のレベル"},
+    {"name": "fullness", "kind": "num", "doc": "満腹度"},
+    {"name": "held", "kind": "num", "doc": "持ち物の枠に入っている種類の数"},
     {"name": "busy", "kind": "flag", "doc": "1 手を見せている途中か（ダッシュの残りも含む）"}
   ],
   "drives": [],

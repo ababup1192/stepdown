@@ -1,109 +1,240 @@
 # 紹介の動画の手順（make video FLOW=e2e/showcase.flow）。周回の種は World.fixedSeed（地図は 1a）。
-# 題名 → 薬草を拾う → スワイプのダッシュで通路へ → 起きたゼリーを通路の口で殴る → 部屋で弓兵に列をそろえられて矢が飛ぶ
-# → コウモリを殴って爆弾を拾う（薬が効く）→ 2 体に囲まれて爆弾 → 鉄の剣（上位）を拾う → 階段で待って降りる → Clear。
+# 手は tour.flow と同じで、見どころの 5 区間だけを撮る（in_<名前> / out_<名前>）。
+# 題名から斜めに歩いて爆弾・ダッシュ → 弓兵の矢と爆弾・LEVEL UP のカード → パンを食べる
+# → 4 種類目の薬草と捨てるカード・噛まれて薬草が効く・コウモリを斜めに殴る → ダッシュで階段へ走って降りる → Clear。
 start title
-mark in_all
+mark in_start
 wait 1.5
 tap confirm
-wait 0.7
+wait 1.0
 expect screen=Play&col=3&row=3
 wait 0.5
-# 始まりの小部屋で薬草を拾う
+# 始まりの小部屋: 斜めに歩いて爆弾を拾う（岩の角は斜めに抜けられない）
 tap left
-wait 0.7
-tap up
-wait 0.7
-expect col=2&row=2
-tap down
-wait 0.7
+wait 0.6
+tap upLeft
+wait 0.6
+expect col=1&row=2&bombs=2
+tap downRight
+wait 0.6
 tap right
-wait 0.7
+wait 0.6
 tap right
-wait 0.7
-tap up
-wait 0.3
-# スワイプのダッシュ: 部屋から通路へ 1 歩、通路は角を曲がって、ゼリーが起きた所で止まる
+wait 0.6
+tap upRight
+wait 0.6
+expect col=5&row=2
+# ダッシュで部屋から通路へ（部屋を出た 1 歩で止まる）
 tap dashRight
-tap dashRight
-until !busy max 3
-expect col=7&row=2
-wait 0.4
-# ゼリーが寄ってくるのを待ち、通路の口で 3 回殴って倒す
-tap wait
-wait 0.7
-tap wait
-wait 0.7
-tap wait
-wait 0.7
-tap right
-wait 0.7
-tap right
-wait 0.7
-tap right
-wait 0.7
-expect foes=3
+until !busy max 5
 wait 0.5
-# 下の部屋へ。弓兵が列をそろえて矢を撃ってくる
+expect col=6&row=2
+mark out_start
 tap right
-wait 0.7
-tap down
-wait 0.7
-tap down
-wait 0.7
-tap down
-wait 0.7
-tap down
-wait 0.7
-tap down
-wait 0.7
-tap left
-wait 0.7
-tap left
-wait 0.7
-tap left
-wait 0.7
-tap down
-wait 0.7
-tap left
-wait 0.7
-# 道をふさぐコウモリを殴って倒す
-tap down
-wait 0.7
-tap left
-wait 0.7
-tap down
-wait 0.7
-tap down
-wait 0.7
-tap down
-wait 0.7
-# 爆弾を拾う（HP が減って薬草が効く）
-tap left
-wait 0.7
-expect bombs=2
-wait 0.4
-# ゼリーと弓兵の 2 体の隣へ出て、爆弾で両方倒す
+wait 0.6
 tap right
-wait 0.7
+wait 0.6
+# 柱の部屋の手前で、起きたコウモリが飛び回るのを見る
+tap wait
+wait 0.6
+tap wait
+wait 0.6
+mark in_pillar
+# 柱の部屋へ入ると弓兵が起き、列をそろえて矢を撃ってくる
 tap right
-wait 0.7
-expect foes=0&bombs=1
-wait 0.8
-# 鉄の剣（上位）を拾い、階段で待って降りる
+wait 0.6
 tap down
-wait 0.7
+wait 0.6
+tap wait
+wait 0.6
+tap wait
+wait 0.6
+# 弓兵とコウモリの 2 体の隣に出て爆弾。弓兵を殴りきって LEVEL UP
 tap down
-wait 0.7
+wait 0.6
 tap down
-wait 0.7
-tap right
-wait 0.7
+wait 0.6
+tap down
+until screen=Cards max 5
+expect level=2&foes=5
+wait 3.0
+tap card3                    # 攻撃 +1
+wait 1.2
+expect screen=Play
+mark out_pillar
+# 落とし物の木の矢と小石を拾い、3 枠が埋まる
+tap down
+wait 0.6
+tap upRight
+wait 0.9
+expect held=3&arrows=5
+# 通路へ下りると、起きたゼリーを矢で撃ち、寄ってきたところをもう 1 本で倒す
+tap down
+wait 0.6
+tap down
+wait 0.6
+tap down
+wait 0.6
+tap wait
+until screen=Cards max 5
+expect level=3&foes=4
+wait 2.8
+tap card3                    # 食べ物 +10
+wait 1.2
+# ダッシュで通路を左へ。水場のゼリーが起きて止まる
+tap dashLeft
+until !busy max 5
+wait 0.5
+expect col=6&row=8
+tap down
+wait 0.6
+tap down
+wait 0.6
+# 通路の口でゼリーに何度か殴られる（赤い数・HP の棒の赤い残り）
+tap wait
+wait 0.6
+tap wait
+wait 0.6
+tap wait
+wait 0.6
+tap down
+wait 0.6
+tap down
+wait 0.9
+expect foes=3
+# 水場の左を回り、パンを食べる（黄色い数・満腹度の棒が光る）
 tap down
 wait 0.6
 tap left
-wait 0.3
+wait 0.6
+tap downLeft
+wait 0.6
+tap left
+wait 0.6
+tap down
+wait 0.6
+tap down
+wait 0.6
+mark in_bread
+tap right
+wait 0.6
+tap right
+wait 0.6
+tap right
+wait 2.0
+expect col=6&row=14&fullness=100
+mark out_bread
+# ダッシュで水場を出て、通路の角を曲がる（下の広間のゼリーが起きて止まる）
+tap downLeft
+wait 0.6
+tap left
+wait 0.6
+tap dashDown
+until !busy max 5
+wait 0.4
+tap dashDown
+until !busy max 5
+wait 0.5
+expect col=5&row=18
+# 寄ってくるゼリーを矢で撃ち、殴って倒す
+tap wait
+wait 0.6
+tap wait
+wait 0.6
+tap right
+wait 0.6
+tap right
+wait 0.6
+expect foes=2
+# 広間のゼリーも通路へ上ってくる。矢で撃って殴り、3 回目の LEVEL UP
+tap right
+wait 0.6
+tap right
+wait 0.6
+tap dashDown
+until !busy max 5
+wait 0.4
+tap dashDown
+until screen=Cards max 5
+expect level=4&foes=1
+wait 2.8
+tap card1                    # 押し出し
+wait 1.2
+# 落とし物のパンを食べて広間へ。斜めに抜けて薬草へ
+tap down
+wait 0.6
+tap down
+wait 0.6
+tap downRight
+wait 0.6
+tap downRight
+wait 0.6
+tap down
+wait 0.6
+tap down
+wait 0.6
+tap down
+wait 0.6
+mark in_swap
+tap downRight
+until screen=Cards max 5
+expect held=3
+wait 3.0
+tap card3                    # 捨てるカード: 小石を捨てて薬草を持つ
+wait 1.2
+expect screen=Play&held=3
+# コウモリに寄って噛まれると、薬草が効く（緑の数）
+tap upLeft
+wait 0.6
+tap upLeft
+wait 0.6
+tap upLeft
+wait 0.6
+tap up
+wait 0.6
+tap left
+wait 2.0
+expect hp=10&held=2
+# コウモリを斜めに殴って倒す
+tap upLeft
+wait 1.5
+expect foes=0
+mark out_swap
+# 岩をよけて鉄の剣を拾う
+tap left
+wait 0.6
+tap down
+wait 0.6
+tap down
+wait 0.6
+tap downRight
+wait 1.5
+expect col=7&row=26
+# ダッシュで広間の左下の角から左上へ走り、木の矢を拾う
+tap dashLeft
+until !busy max 5
+wait 0.4
+tap dashUp
+until !busy max 5
+wait 1.5
+expect col=1&row=21&arrows=6
+mark in_stairs
+# 広間の上の端を右の角まで走り、右の端を下りて、下の端を階段まで走る
+tap dashRight
+until !busy max 5
+wait 0.5
+expect col=13&row=21
+tap dashDown
+until !busy max 5
+wait 0.5
+expect col=13&row=27
+tap dashLeft
+until !busy max 5
+wait 0.6
+expect col=2&row=27
+# 階段の上で待って降りる
 tap wait
 until !busy max 3
 expect screen=Clear
-wait 2.0
-mark out_all
+wait 3.5
+mark out_stairs
