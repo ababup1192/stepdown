@@ -216,16 +216,7 @@ mod Motion {
         let fallen = turn#before#enemies |> List.filter(e -> not Set.memberOf(e#id, alive));
         let heroAt = point(turn#after#hero#at);
         List.append(turn#after#enemies, fallen) |> List.flatMap(e ->
-            enemyFigure(turn, t, heroAt, Map.getWithDefault(e#id, Nil, moves), Map.get(e#id, hits), e) |> Option.toList |> List.flatMap(body -> body :: shieldOf(e, body)))
-
-    /// 盾持ちの盾: 向き facing の側に盾の絵を体より手前へ寄せて立てる（正面がどこかを読ませる）。
-    def shieldOf(e: Enemy.Enemy, body: SceneView.Figure): List[SceneView.Figure] =
-        if (e#kind != Enemy.Kind.Shield) Nil
-        else {
-            let ahead = Vec3.sub(point(Board.step8(e#facing, e#at)), point(e#at));
-            { picture = Art.icon(Art.Icon.Shield), at = Vec3.add(Vec3.add(body#at, Vec3.mul(ahead, 0.34)), up(0.12 * body#height)),
-              height = 0.55 * body#height, tint = body#tint, lit = body#lit, shadow = 0.0 } :: Nil
-        }
+            enemyFigure(turn, t, heroAt, Map.getWithDefault(e#id, Nil, moves), Map.get(e#id, hits), e) |> Option.toList)
 
     /// 今の移動の途中の点（移動が全部済んでいれば None）。
     def walkingPoint(turn: Turn, moves: List[(Int32, Cell, Cell)]): Option[Vec3.Vec3] =
@@ -250,7 +241,7 @@ mod Motion {
             let tint = if (Enemy.isAwake(e)) kindTint else Color.mix(kindTint, Color.rgb(0.2, 0.22, 0.35), 0.45);
             let bob = if (Enemy.isFlying(e#kind)) 0.08 * Num.sin(t * 3.3 + Int32.toFloat64(e#id)) else 0.0;
             let scale = 1.0 - dying;
-            Some({ picture = Art.figure(figureOf(e#kind)),
+            Some({ picture = if (e#kind == Enemy.Kind.Shield) Art.shieldBearer(e#facing) else Art.figure(figureOf(e#kind)),
                    at = Vec3.add(Vec3.add(base, lunge), Vec3.v3(h#flash#shake, (liftOf(e#kind) + bob) * scale, 0.0)),
                    height = heightOf(e#kind) * scale * (if (e#intent == Enemy.Intent.Idle) 1.0 else 0.88), tint = flashTint(tint, Float64.max(h#flash#glow, dying * 0.6)), lit = h#flash#glow <= 0.0 and dying <= 0.0,
                    shadow = (if (e#kind == Enemy.Kind.Swarm) 0.2 else 0.3) * scale })
