@@ -326,6 +326,7 @@ mod View {
         case Potion
         case Descend
         case Trap(Trap.Kind)
+        case Guarded
     }
 
     /// 見せる予告 1 つ: 入力・マス・主な種類・受けるダメージ。
@@ -345,6 +346,7 @@ mod View {
         else if (has(Preview.Mark.Arrow)) Some(Act.Arrow)
         else if (has(Preview.Mark.IronBall) or has(Preview.Mark.Pebble)) Some(Act.Pebble)
         else if (has(Preview.Mark.Smoke)) Some(Act.Smoke)
+        else if (has(Preview.Mark.Guarded)) Some(Act.Guarded)
         else if (has(Preview.Mark.Descend)) Some(Act.Descend)
         else if (has(Preview.Mark.Strike)) Some(Act.Strike)
         else if (has(Preview.Mark.Potion)) Some(Act.Potion)
@@ -379,6 +381,7 @@ mod View {
         case Act.Potion  => t#markDescend
         case Act.Descend => t#markDescend
         case Act.Trap(_) => t#markTrap
+        case Act.Guarded => t#markBlocked
     }
 
     def markOf(t: ThemeDoc.Rec, s: Shown): List[SceneView.Mark] =
@@ -429,6 +432,7 @@ mod View {
         case Act.Descend => MarkView.Glyph.Stairs
         case Act.Trap(Trap.Kind.Alarm) => MarkView.Glyph.Alert
         case Act.Trap(_) => MarkView.Glyph.Picture(Art.Icon.Arrow)
+        case Act.Guarded => MarkView.Glyph.Picture(Art.Icon.Shield)
     }
 
     /// 斜めの向きか（予告のアイコンを小さくする）。
@@ -535,6 +539,7 @@ mod View {
             case Run.Event.HeroHurt(Run.Source.Trap(_), n, _) => say(TextDoc.Line.Darted, ("n", "${n}") :: Nil)
             case Run.Event.EnemyTrapped(id, n)  => say(TextDoc.Line.EnemyDarted, enemy(id) :: ("n", "${n}") :: Nil)
             case Run.Event.AlarmRang(_)         => say(TextDoc.Line.Alarmed, Nil)
+            case Run.Event.Guarded(id)          => say(TextDoc.Line.ShieldBlocked, enemy(id) :: Nil)
             case Run.Event.HeroHurt(_, 0, _)    => say(TextDoc.Line.Guarded, Nil)
             case Run.Event.HeroHurt(source, n, _) => Run.attackerOf(source) |> Option.flatMap(id -> say(TextDoc.Line.Hurt, enemy(id) :: ("n", "${n}") :: Nil))
             case Run.Event.Ate(kind, n)         => say(TextDoc.Line.Ate, item(kind) :: ("n", "${n}") :: Nil)

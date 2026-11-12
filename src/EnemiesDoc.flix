@@ -27,6 +27,8 @@ mod EnemiesDoc {
                                     drops = Item.Kind.WoodArrow :: Item.Kind.WoodArrow :: Item.Kind.Smoke :: Nil }
         case Enemy.Kind.Swarm  => { name = "群れ", hp = 3, attack = 1, exp = 1, dropChance = 0.1,
                                     drops = Item.Kind.Bread :: Nil }
+        case Enemy.Kind.Shield => { name = "盾持ち", hp = 8, attack = 3, exp = 7, dropChance = 0.3,
+                                    drops = Item.Kind.Herb :: Item.Kind.Bread :: Nil }
     }
 
     pub def defaults(): Doc =

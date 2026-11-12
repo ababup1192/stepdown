@@ -259,6 +259,17 @@ mod Board {
         let ((ax, ay), (bx, by)) = (a, b);
         Int32.max(Int32.abs(ax - bx), Int32.abs(ay - by))
 
+    /// a から b への大まかな向き（縦と横の差の符号の組。同じマスなら None）。
+    pub def headingTo(a: Cell, b: Cell): Option[Dir8] =
+        let ((ax, ay), (bx, by)) = (a, b);
+        dirTo(a, (ax + Int32.signum(bx - ax), ay + Int32.signum(by - ay)))
+
+    /// 2 つの向きが 8 方向の輪で何歩離れているか（0..4）。
+    pub def turnsBetween(a: Dir8, b: Dir8): Int32 =
+        let index = (d: Dir8) -> List.indexOf(d, dirs8()) |> Option.getWithDefault(0);
+        let k = Int32.modulo(index(a) - index(b), 8);
+        Int32.min(k, 8 - k)
+
     /// a から見て b が上下左右の直線上にあれば、その向きと距離。
     pub def lineTo(a: Cell, b: Cell): Option[(Dir, Int32)] =
         let ((ax, ay), (bx, by)) = (a, b);

@@ -121,8 +121,17 @@ mod Step {
     def strike(ctx: Ctx, dir: Dir8, id: Int32, t: Turn): Turn =
         let r = t#runState;
         let damage = attackOf(ctx, r);
-        let struck = t |> emit(Event.HeroStruck(id, damage)) |> hurt(ctx, id, damage);
-        if (pushes(r)) push(ctx, dir, id, struck) else struck
+        if (isGuarded(r#hero#at, id, t)) t |> emit(Event.HeroStruck(id, 0)) |> guarded(ctx, id)
+        else {
+            let struck = t |> emit(Event.HeroStruck(id, damage)) |> hurt(ctx, id, damage);
+            if (pushes(r)) push(ctx, dir, id, struck) else struck
+        }
+
+    /// id の敵が attacker のマスからの攻撃を盾の正面で受けるか。
+    def isGuarded(attacker: Cell, id: Int32, t: Turn): Bool = enemyOf(id, t) |> Option.exists(Enemy.guards(attacker))
+
+    /// 盾で防いだ: ダメージは 0 だが当たったので、眠っていれば Dozing(1) にする（押さない・燃えない）。
+    def guarded(ctx: Ctx, id: Int32, t: Turn): Turn = t |> emit(Event.Guarded(id)) |> hurt(ctx, id, 0)
 
     /// 殴った敵を dir へ 1 マス押す。押し先が壁・柱・岩なら動かさずに wallDamage を足す。水・ほかの敵・角では押さない。
     def push(ctx: Ctx, dir: Dir8, id: Int32, t: Turn): Turn =
@@ -258,14 +267,14 @@ mod Step {
             else RulesDoc.rec(ctx#rules)#arrowMax;
         base + Run.perkCount(Run.Perk.Reach, r) * CardsDoc.rec(ctx#cards)#reach
 
-    /// 矢・小石を撃つ向き: 直線の距離 arrowMin..届く距離 の最初の敵が起きていて、間に矢を止めるマスも敵も無い向きのうち、近い順 → 上・右・下・左。
+    /// 矢・小石を撃つ向き: 直線の距離 arrowMin..届く距離 の最初の敵が起きていて盾の正面でなく、間に矢を止めるマスも敵も無い向きのうち、近い順 → 上・右・下・左。
     def lineTarget(ctx: Ctx, family: Item.Family, r: Run.Rec): Option[Dir] =
         let occupied = Run.occupancy(r#enemies);
         let nearest = RulesDoc.rec(ctx#rules)#arrowMin;
         let farthest = farthestOf(ctx, family, r);
         Board.dirs()
             |> List.filterMap(dir -> firstEnemyAlong(ctx, occupied, farthest, dir, r#hero#at, 1)
-                |> Option.filter(hit -> fst(hit) >= nearest and Enemy.isAwake(snd(hit))) |> Option.map(hit -> (fst(hit), dir)))
+                |> Option.filter(hit -> fst(hit) >= nearest and Enemy.isAwake(snd(hit)) and not Enemy.guards(r#hero#at, snd(hit))) |> Option.map(hit -> (fst(hit), dir)))
             |> List.foldLeft((best, c) -> if (Option.exists(b -> fst(b) <= fst(c), best)) best else Some(c), None)
             |> Option.map(snd)
 
@@ -286,8 +295,16 @@ mod Step {
                 let shot = t |> withRun({ pack = Run.spend(family, r#pack) | r })
                     |> emit(Event.ArrowShot(dir, kind, end));
                 let knock = (id: Int32, acc: Turn) -> if (family == Item.Family.IronBall) push(ctx, Board.toDir8(dir), id, acc) else acc;
-                hits |> List.foldLeft((acc, id) ->
-                    acc |> emit(Event.ArrowHit(id, stats#damage)) |> hurt(ctx, id, stats#damage) |> setBurn(id, stats#burn) |> knock(id), shot)
+                let hit = (id: Int32, acc: Turn) -> acc |> emit(Event.ArrowHit(id, stats#damage)) |> hurt(ctx, id, stats#damage) |> setBurn(id, stats#burn) |> knock(id);
+                let block = (id: Int32, acc: Turn) -> acc |> emit(Event.ArrowHit(id, 0)) |> guarded(ctx, id);
+                // WhyNot: 防がれた後も貫いて後ろの敵に当てる — 盾持ちの前に並ぶ敵を盾ごと射抜けて、正面を外す意味が消える。
+                let (struck, _) = hits |> List.foldLeft((acc, id) -> {
+                    let (turn, stopped) = acc;
+                    if (stopped) acc
+                    else if (isGuarded(r#hero#at, id, turn)) (block(id, turn), true)
+                    else (hit(id, turn), false)
+                }, (shot, false));
+                struck
             case None => t
         }
 

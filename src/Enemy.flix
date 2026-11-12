@@ -9,6 +9,7 @@ mod Enemy {
         case Bat
         case Archer
         case Swarm
+        case Shield
     }
 
     /// 動き方。
@@ -57,11 +58,12 @@ mod Enemy {
         { id = id, kind = kind, at = at, size = 1, hp = hp, rest = Rest.Dormant, turns = 0, burn = 0, facing = Board.Dir8.Down, intent = Intent.Idle }
 
     /// 全部の種類。
-    pub def all(): List[Kind] = Kind.Jelly :: Kind.Bat :: Kind.Archer :: Kind.Swarm :: Nil
+    pub def all(): List[Kind] = Kind.Jelly :: Kind.Bat :: Kind.Archer :: Kind.Swarm :: Kind.Shield :: Nil
 
     pub def behaviourOf(kind: Kind): Behaviour = match kind {
         case Kind.Jelly  => Behaviour.Chase
         case Kind.Swarm  => Behaviour.Chase
+        case Kind.Shield => Behaviour.Chase
         case Kind.Bat    => Behaviour.Flutter
         case Kind.Archer => Behaviour.Shoot
     }
@@ -78,4 +80,8 @@ mod Enemy {
         List.range(0, size) |> List.flatMap(dy -> List.range(0, size) |> List.map(dx -> (x + dx, y + dy))) |> List.toSet
 
     pub def isAwake(e: Enemy): Bool = e#rest == Rest.Awake
+
+    /// 盾持ちが attacker のマスからの攻撃を正面で防ぐか: attacker への大まかな向きが、向き facing と 8 方向の輪で 1 歩以内（前の 3 方向）。
+    pub def guards(attacker: Cell, e: Enemy): Bool =
+        e#kind == Kind.Shield and Board.headingTo(e#at, attacker) |> Option.exists(d -> Board.turnsBetween(d, e#facing) <= 1)
 }

@@ -43,6 +43,7 @@ mod Popup {
         case Event.BombHit(_, _)     => Some(Beat.Flash)
         case Event.EnemyBurned(_, _) => Some(Beat.Flash)
         case Event.EnemyTrapped(_, _) => Some(Beat.Flash)
+        case Event.Guarded(_)        => Some(Beat.Flash)
         case Event.HeroHurt(_, _, _) => Some(Beat.Flash)
         case Event.PotionUsed(_, _)  => Some(Beat.Heal)
         case Event.Ate(_, _)         => Some(Beat.Full)
@@ -52,8 +53,9 @@ mod Popup {
 
     /// 出来事 1 つの数（種類・量・物）。数を出さない出来事は None。
     def numberOf(event: Event): Option[(Kind, Int32, Option[Item.Kind])] = match event {
-        case Event.HeroStruck(_, n)  => Some((Kind.Dealt, n, None))
-        case Event.ArrowHit(_, n)    => Some((Kind.Dealt, n, None))
+        case Event.HeroStruck(_, n)  => dealt(n)
+        case Event.ArrowHit(_, n)    => dealt(n)
+        case Event.Guarded(_)        => Some((Kind.Blocked, 0, None))
         case Event.BombHit(_, n)     => Some((Kind.Dealt, n, None))
         case Event.EnemyBurned(_, n) => Some((Kind.Burned, n, None))
         case Event.EnemyTrapped(_, n) => Some((Kind.Dealt, n, None))
@@ -64,6 +66,9 @@ mod Popup {
         case Event.ExpGained(n)      => Some((Kind.Exp, n, None))
         case _                       => None
     }
+
+    /// 与えた数（盾で防がれた 0 は出さない。続く Guarded が灰色の 0 と盾を出す）。
+    def dealt(n: Int32): Option[(Kind, Int32, Option[Item.Kind])] = if (n <= 0) None else Some((Kind.Dealt, n, None))
 
     /// 並べている途中: 足した数（逆順）・前の数の時刻表の秒・最後に倒れた敵のマス。
     type alias Draft = { made = List[Popup], offset = Float64, lastDied = Option[Cell] }
@@ -81,6 +86,7 @@ mod Popup {
             case Event.BombHit(id, _)     => Map.getWithDefault(id, hero, foes)
             case Event.EnemyBurned(id, _) => Map.getWithDefault(id, hero, foes)
             case Event.EnemyTrapped(id, _) => Map.getWithDefault(id, hero, foes)
+            case Event.Guarded(id)        => Map.getWithDefault(id, hero, foes)
             case Event.ExpGained(_)       => Option.getWithDefault(hero, d#lastDied)
             case _                        => hero
         };

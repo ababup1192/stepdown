@@ -55,10 +55,16 @@ mod Fixtures {
         let r = Run.rec(runState);
         Run.of({ enemies = r#enemies |> List.map(e -> { rest = Enemy.Rest.Awake | e }) | r })
 
-    /// id の敵の眠り方を rest にした Run。
-    pub def resting(id: Int32, rest: Enemy.Rest, runState: Run.State): Run.State =
+    /// id の敵を f で替えた Run。
+    pub def withEnemy(id: Int32, f: Enemy.Enemy -> Enemy.Enemy, runState: Run.State): Run.State =
         let r = Run.rec(runState);
-        Run.of({ enemies = r#enemies |> List.map(e -> if (e#id == id) { rest = rest | e } else e) | r })
+        Run.of({ enemies = r#enemies |> List.map(e -> if (e#id == id) f(e) else e) | r })
+
+    /// id の敵の眠り方を rest にした Run。
+    pub def resting(id: Int32, rest: Enemy.Rest, runState: Run.State): Run.State = withEnemy(id, e -> { rest = rest | e }, runState)
+
+    /// id の敵の向きを dir にした Run。
+    pub def facing(id: Int32, dir: Board.Dir8, runState: Run.State): Run.State = withEnemy(id, e -> { facing = dir | e }, runState)
 
     /// cells の罠を見えている罠にした Run。
     pub def revealing(cells: List[Cell], runState: Run.State): Run.State =

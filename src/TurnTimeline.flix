@@ -132,6 +132,7 @@ mod TurnTimeline {
             case Event.EnemyBurned(_, _)   => add(cue(Sound.Hit, after(Beat.Flash, pace#strike)) :: Nil, d)
             case Event.TrapSprung(Trap.Kind.Alarm, _) => add(cue(Sound.Clink, after(Beat.Trap, pace#arrow)) :: Nil, d)
             case Event.TrapSprung(_, _)    => add(cue(Sound.Arrow, after(Beat.Trap, pace#arrow)) :: Nil, d)
+            case Event.Guarded(_)          => add(cue(Sound.Guard, after(Beat.Flash, pace#strike)) :: Nil, d)
             case Event.AlarmRang(_)        => add(after(Beat.Alarm, pace#strike * 2.0) :: Nil, d)
             case Event.EnemyTrapped(_, _)  => add(cue(Sound.Hit, after(Beat.Flash, pace#strike)) :: Nil, d)
             case Event.EnemyPushed(_, _, _) => add(after(Beat.EnemyMove, pace#step) :: Nil, d)

@@ -178,6 +178,8 @@ mod Run {
         case EnemyTrapped(Int32, Int32)
         /// 警報で、眠っていた敵（id）が起きかけた（その手の敵の番では動かない）。
         case AlarmRang(List[Int32])
+        /// 盾持ちが正面からの殴る・矢・石を盾で防いだ（敵の id）。前の HeroStruck・ArrowHit のダメージは 0。
+        case Guarded(Int32)
         /// 押し出しの先が壁・柱・岩で、押せずにダメージが増えた（敵の id・足したダメージ）。続く出来事で HP が減る。
         case PushedIntoWall(Int32, Int32)
         /// カードを取った。
