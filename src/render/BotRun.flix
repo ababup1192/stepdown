@@ -33,10 +33,11 @@ mod BotRun {
     ///   stuck  … 動ける入力が全部被弾する手の数（赤に囲まれて動けなかった）
     ///   judged … 被弾する入力としない入力が両方ある手の数
     ///   strikes … 自分から殴った手の数
-    type alias Tally = { hands = Int32, stuck = Int32, judged = Int32, strikes = Int32, rng = Int64 }
+    ///   cause   … 倒れた手で最後に受けたダメージの出所（倒れていなければ空）
+    type alias Tally = { hands = Int32, stuck = Int32, judged = Int32, strikes = Int32, cause = String, rng = Int64 }
 
     /// 1 回の遊びの終わり。
-    type alias Outcome = { status = Run.Status, floor = Int32, hands = Int32, turns = Int32, fullness = Int32, level = Int32, stuck = Int32, judged = Int32, strikes = Int32 }
+    type alias Outcome = { status = Run.Status, floor = Int32, hands = Int32, turns = Int32, fullness = Int32, level = Int32, stuck = Int32, judged = Int32, strikes = Int32, cause = String }
 
     /// 遊ぶ盤（判定の束と、階段からの歩く距離）。
     type alias Field = { ctx = Ctx, toStairs = Map[Cell, Int32], look = Look }
@@ -178,11 +179,27 @@ mod BotRun {
             let moving = List.length(options |> List.filter(c -> not c#blocked));
             let hurting = List.count(c -> not c#blocked and c#damage > 0, options);
             let (picked, rng) = decide(bot, field, seen, options, tally#rng);
-            play(bot, field, limit, fst(Step.step(field#ctx, runState, picked#input)),
+            let (next, events) = Step.step(field#ctx, runState, picked#input);
+            play(bot, field, limit, next,
                  { hands = tally#hands + 1, stuck = tally#stuck + countIf(hurting == moving),
                    judged = tally#judged + countIf(hurting > 0 and hurting < moving),
-                   strikes = tally#strikes + countIf(picked#strike), rng = rng })
+                   strikes = tally#strikes + countIf(picked#strike), cause = causeOf(events, tally#cause), rng = rng })
         }
+
+    /// 倒れた手なら最後に受けたダメージの出所の名前（敵の id は落とす）、そうでなければ前の値。
+    def causeOf(events: List[Event], before: String): String =
+        if (not List.memberOf(Event.HeroDied, events)) before
+        else events |> List.filterMap(e -> match e {
+            case Event.HeroHurt(source, _, _) => Some(sourceName(source))
+            case _                            => None
+        }) |> List.last |> Option.getWithDefault("?")
+
+    def sourceName(source: Run.Source): String = match source {
+        case Run.Source.Melee(_) => "殴る"
+        case Run.Source.Arrow(_) => "矢"
+        case Run.Source.Starve   => "空腹"
+        case Run.Source.Trap(_)  => "罠"
+    }
 
     def salt(bot: Bot): Int64 = match bot {
         case Bot.Random  => 1i64
@@ -198,7 +215,7 @@ mod BotRun {
     /// 種 seed で 1F から bot が limit 手まで遊んだ (最後の Run, 数え)。階段で降りたら次の階を作って続ける。
     def playSeed(setup: Setup, bot: Bot, limit: Int32, seed: Int64): (Run.State, Tally) =
         playFloors(setup, bot, limit, Floor.begin(setup#docs, setup#layouts, seed),
-                   { hands = 0, stuck = 0, judged = 0, strikes = 0, rng = Rng.mix(seed, salt(bot)) })
+                   { hands = 0, stuck = 0, judged = 0, strikes = 0, cause = "", rng = Rng.mix(seed, salt(bot)) })
 
     def playFloors(setup: Setup, bot: Bot, limit: Int32, runState: Run.State, tally: Tally): (Run.State, Tally) =
         let (after, counted) = play(bot, fieldOf(setup#look, Floor.ctxOf(setup#docs, setup#layouts, runState)), limit, runState, tally);
@@ -209,7 +226,7 @@ mod BotRun {
     def outcomeOf(result: (Run.State, Tally)): Outcome =
         let (runState, tally) = result;
         let r = Run.rec(runState);
-        { status = r#status, floor = r#floor, hands = tally#hands, turns = r#turns, fullness = r#fullness, level = r#level, stuck = tally#stuck, judged = tally#judged, strikes = tally#strikes }
+        { status = r#status, floor = r#floor, hands = tally#hands, turns = r#turns, fullness = r#fullness, level = r#level, stuck = tally#stuck, judged = tally#judged, strikes = tally#strikes, cause = tally#cause }
 
     def median(xs: List[Int32]): String =
         let sorted = Sort.sortStable(xs);
@@ -231,6 +248,11 @@ mod BotRun {
             "${f}F 着 ${reached}・倒 ${percent(died, reached)}・抜 ${percent(passed, reached)}"
         }) |> List.join(" / ")
 
+    /// 倒れた手の出所ごとの回数（階ごと）。
+    def causes(dead: List[Outcome]): String =
+        dead |> List.map(o -> "${o#floor}F ${o#cause}") |> List.toSet |> Set.toList
+            |> List.map(key -> "${key} ${List.count(o -> "${o#floor}F ${o#cause}" == key, dead)}") |> List.join(" / ")
+
     /// 1 人分の結果の表の行。
     def report(bot: Bot, fullnessMax: Int32, outcomes: List[Outcome]): String =
         let n = List.length(outcomes);
@@ -246,6 +268,7 @@ mod BotRun {
         "  クリア ${percent(List.length(cleared), n)}・死亡 ${percent(List.length(dead), n)}・打ち切り ${cut}\n" +
         "  最後にいた階 ${floors}\n" +
         "  階ごと（着いた回数・そこで倒れた割合・抜けた割合）${byFloor(deepest, outcomes)}\n" +
+        "  倒れた手の出所 ${causes(dead)}\n" +
         "  赤に囲まれて動けなかった手 ${outcomes |> List.map(o -> o#stuck) |> List.sum}（${List.count(o -> o#stuck > 0, outcomes)} 回の遊びで）\n" +
         "  手数（クリアの中央値）${median(cleared |> List.map(o -> o#turns))}・生き延びた手数（死亡の中央値）${median(dead |> List.map(o -> o#turns))}・全部の中央値 ${median(outcomes |> List.map(o -> o#turns))}\n" +
         "  満腹度の残り（クリアの中央値）${median(cleared |> List.map(o -> o#fullness * 100 / fullnessMax))}%\n" +
