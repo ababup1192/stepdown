@@ -57,4 +57,16 @@ mod TestDash {
         let steps = Dash.dash(c, ready, Dir.Right);
         Assert.assertEq(expected = (Some((7, 1)), Some(Run.Choice.Swap(Item.Kind.Pebble) :: Nil)),
             (lastCell(steps), List.last(steps) |> Option.map(e -> Run.pendingOf(fst(e)))))
+
+    /// 部屋の壁際を歩くと、横の壁に開いた通路の口の隣で止まる（(1, 3) から上へ。口は (0, 2)。壁まで行かずに (1, 2) で止まる）。
+    @Test
+    def testStopsBesideACorridorOpeningAlongAWall(): Unit \ Assert =
+        let c = ctx("#######" :: "#.....#" :: ",.....#" :: "#@....#" :: "#....>#" :: "#######" :: Nil);
+        Assert.assertEq(expected = Some((1, 2)), lastCell(Dash.dash(c, start(c, Nil, Nil), Dir.Up)))
+
+    /// 口の隣から歩き出した時は、その口では止まらない（同じ口の横に居続けないので、次の壁で止まる）。
+    @Test
+    def testDoesNotStopAtTheOpeningItStartsBeside(): Unit \ Assert =
+        let c = ctx("#######" :: "#.....#" :: "#.....#" :: ",@....#" :: "#....>#" :: "#######" :: Nil);
+        Assert.assertEq(expected = Some((1, 1)), lastCell(Dash.dash(c, start(c, Nil, Nil), Dir.Up)))
 }

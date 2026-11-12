@@ -217,6 +217,11 @@ expect col=1&row=21&arrows=6
 tap dashRight
 until !busy max 5
 wait 0.5
+expect col=8&row=21
+# 上の通路の口の横で止まるので、もう 1 回右へ
+tap dashRight
+until !busy max 5
+wait 0.5
 expect col=13&row=21
 tap dashDown
 until !busy max 5

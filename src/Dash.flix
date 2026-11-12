@@ -1,6 +1,6 @@
 // Dash — ダッシュ: 始めた時に最後まで計算する（1 歩ずつ同じ Step.step を通す）。見せる側は列を 1 歩ずつ流す。
 // 止まる（その歩で止まる）: 敵が見えた・拾った・食べた・階段に乗った・次が歩けない・分かれ道・部屋の番号が変わった・HP が減った・
-// 殴った・矢か小石か爆弾か煙玉を使った・満腹度が 0 になった・選ぶ場面が立った。
+// 殴った・矢か小石か爆弾か煙玉を使った・満腹度が 0 になった・選ぶ場面が立った・部屋の中で通路の口の横に来た。
 // 一本道の通路の角は自動で曲がる（斜めにも曲がる）。始めた時に敵が見えていれば 1 歩だけ。始める向きは上下左右。
 mod Dash {
 
@@ -31,6 +31,15 @@ mod Dash {
             or Board.tileAt(now#at, ctx#board) == Board.Tile.Stairs
             or Board.roomAt(now#at, ctx#board) != Board.roomAt(was#at, ctx#board)
             or Run.seesAwakeEnemy(ctx, after)
+            or reachesOpening(ctx#board, was#at, now#at)
+
+    /// 部屋の中で、上下左右の隣に前の歩には無かった通路の口が来たか（壁際を歩いていて横の通路を通り過ぎない）。
+    def reachesOpening(b: Board.Board, was: Cell, now: Cell): Bool =
+        Board.roomAt(now, b) != 0 and not Set.isEmpty(Set.difference(openingsBeside(b, now), Set.insert(now, openingsBeside(b, was))))
+
+    def openingsBeside(b: Board.Board, at: Cell): Set[Cell] =
+        Board.dirs() |> List.map(d -> Board.step8(Board.toDir8(d), at))
+            |> List.filter(c -> Board.isWalkable(c, b) and Board.roomAt(c, b) == 0) |> List.toSet
 
     def isStop(e: Event): Bool = match e {
         case Event.Picked(_, _)       => true
