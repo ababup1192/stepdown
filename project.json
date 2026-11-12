@@ -79,6 +79,21 @@
       "hasAlpha": true
     },
     {
+      "name": "icon_bottle_empty",
+      "path": "assets/icons/bottle_empty.png",
+      "hasAlpha": true
+    },
+    {
+      "name": "icon_bone",
+      "path": "assets/icons/bone.png",
+      "hasAlpha": true
+    },
+    {
+      "name": "icon_bread_bitten",
+      "path": "assets/icons/bread_bitten.png",
+      "hasAlpha": true
+    },
+    {
       "name": "fx_levelup",
       "path": "assets/fx/levelup.png",
       "hasAlpha": true
@@ -177,6 +192,21 @@
     {
       "name": "sd_fanfare",
       "path": "assets/sfx/sd_fanfare.wav",
+      "looping": false
+    },
+    {
+      "name": "sd_munch",
+      "path": "assets/sfx/sd_munch.wav",
+      "looping": false
+    },
+    {
+      "name": "sd_puff",
+      "path": "assets/sfx/sd_puff.wav",
+      "looping": false
+    },
+    {
+      "name": "sd_clink",
+      "path": "assets/sfx/sd_clink.wav",
       "looping": false
     }
   ],

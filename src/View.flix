@@ -9,7 +9,7 @@
 // 終了の確認の窓（Layer.Prompt）: どれよりも手前。
 mod View {
 
-    use fge::{App, Camera3d, Clock, Color, Num, Render, SortingLayer, Timeline, Vec2, Vec3, ZStack}
+    use fge::{App, Camera3d, Clock, Color, Curve, Num, Render, SortingLayer, Timeline, Vec2, Vec3, ZStack}
     use Board.{Cell, Dir8}
     use ZOrder.Layer
 
@@ -109,6 +109,7 @@ mod View {
               |> List.filterMap(e -> screen(Vec3.add(FloorMesh.cellPoint(e#at), Vec3.v3(0.0, Motion.heightOf(e#kind) + Motion.liftOf(e#kind) + 0.1, 0.0)))),
           numbers = aged |> List.filterMap(numberOf(screen, { stack = lk#popupStack, gap = lk#popupHeadGap }, headOf(r))),
           overheads = aged |> List.filterMap(overheadOf(screen)),
+          uses = usesOf(screen, { side = lk#useIconSize, tilt = lk#useTilt, gap = lk#popupHeadGap }, turn),
           rings = aged |> List.filterMap(ringOf(screen)),
           slashes = slashesOf(theme, screen, turn),
           trails = trailsOf(theme, screen, turn) };
@@ -143,12 +144,82 @@ mod View {
         if (cell == r#hero#at) Motion.heroHeight()
         else r#enemies |> List.find(e -> e#at == cell) |> Option.map(e -> Motion.heightOf(e#kind) + Motion.liftOf(e#kind)) |> Option.getWithDefault(0.8)
 
-    /// 頭の横に出す物: 薬・食べ物はその絵、盾の 0 は盾（数は頭の上へ昇るので、絵は左へ寄せる）。
+    /// 頭の横に出す物: 盾の 0 は盾（数は頭の上へ昇るので、絵は左へ寄せる）。薬・食べ物の絵は usesOf が時刻表で動かす。
     def overheadOf(screen: Vec3.Vec3 -> Option[Vec2.Vec2], e: (Popup.Popup, Float64)): Option[MarkView.Overhead] =
         let (pop, age) = e;
-        let pictured = if (pop#kind == Popup.Kind.Blocked) Some(Art.Icon.Shield) else pop#item |> Option.map(Art.iconOfKind);
+        let pictured = if (pop#kind == Popup.Kind.Blocked) Some(Art.Icon.Shield) else None;
         pictured |> Option.flatMap(i -> screen(Vec3.add(FloorMesh.cellPoint(pop#cell), Vec3.v3(0.0, 1.3, 0.0)))
             |> Option.map(at -> { at = { x = at#x - 40.0, y = at#y }, icon = i, age = age }))
+
+    // ── 使う物の演出（頭の上・遊びの時計の時刻表で動く） ──
+
+    /// 0..1 に収める。
+    def clamp01(x: Float64): Float64 = Float64.max(0.0, Float64.min(1.0, x))
+
+    /// a..b の間の進み（前は 0・後は 1）。
+    def span(a: Float64, b: Float64, p: Float64): Float64 = clamp01((p - a) / Float64.max(0.001, b - a))
+
+    /// 頭の上の横で使っている物（薬・食べ物）。size = 絵の大きさと瓶の傾き（度）と頭の上の隙間（m）。
+    def usesOf(screen: Vec3.Vec3 -> Option[Vec2.Vec2], size: { side = Float64, tilt = Float64, gap = Float64 }, turn: Motion.Turn): List[MarkView.Use] =
+        // WhyNot: 頭の真上に置く — 受けた数が同じ所から積み上がり、瓶や肉に重なって読めない。
+        let head = screen(Vec3.add(FloorMesh.cellPoint(turn#after#hero#at), Vec3.v3(0.0, Motion.heroHeight() + size#gap, 0.0)));
+        let above = head |> Option.map(h -> { x = h#x - size#side * 0.95, y = h#y - size#side * 0.35 });
+        turn#events |> List.filterMap(ie -> match ie {
+            case (i, Run.Event.PotionUsed(_, _)) => above |> Option.flatMap(at -> potionUse(size, at, turn#progress((i, TurnTimeline.Beat.Potion))))
+            case (i, Run.Event.Ate(kind, _))     => above |> Option.flatMap(at -> eatUse(size, at, kind, turn#progress((i, TurnTimeline.Beat.Eat))))
+            case _                               => None
+        })
+
+    /// 薬の進み → (大きさの倍, 傾きの割合, 濃さ)。弾んで出て → 傾いて → 空の瓶に替わって → 小さくなって消える。
+    def potionScaleKeys(): List[(Float64, Float64)] = (0.0, 0.5) :: (0.15, 1.0) :: (0.75, 1.0) :: (1.0, 0.4) :: Nil
+    def potionTiltKeys(): List[(Float64, Float64)] = (0.0, 0.0) :: (0.15, 0.0) :: (0.45, 1.0) :: (1.0, 1.0) :: Nil
+    def potionPourKeys(): List[(Float64, Float64)] = (0.0, 0.0) :: (0.4, 0.0) :: (0.68, 1.0) :: (1.0, 1.0) :: Nil
+    def fadeKeys(holdUntil: Float64): List[(Float64, Float64)] = (0.0, 1.0) :: (holdUntil, 1.0) :: (1.0, 0.0) :: Nil
+    def swapFlashKeys(at: Float64): List[(Float64, Float64)] = (0.0, 0.0) :: (at, 0.0) :: (at + 0.001, 1.0) :: (at + 0.12, 0.0) :: (1.0, 0.0) :: Nil
+
+    /// 薬: 弾んで出て傾き、しずくを落として空の瓶に替わり、小さくなって消える。
+    def potionUse(size: { side = Float64, tilt = Float64, gap = Float64 }, at: Vec2.Vec2, p: Float64): Option[MarkView.Use] =
+        if (p <= 0.0 or p >= 1.0) None
+        else {
+            let swapAt = 0.6;
+            let pour = Curve.pieces(potionPourKeys(), p);
+            let mouth = { x = at#x + size#side * 0.35, y = at#y - size#side * 0.1 };
+            let drop = (k: Int32) -> {
+                let q = clamp01(pour * 1.6 - Int32.toFloat64(k) * 0.3);
+                { at = { x = mouth#x + 4.0 * Int32.toFloat64(k), y = mouth#y + 50.0 * q }, radius = 4.5, color = Color.rgb(0.5, 1.0, 0.55),
+                  alpha = if (q <= 0.0 or q >= 1.0) 0.0 else 1.0 - q }
+            };
+            Some({ at = at, icon = if (p < swapAt) Art.Icon.Herb else Art.Icon.BottleEmpty, side = size#side * Curve.pieces(potionScaleKeys(), p),
+                   tilt = size#tilt / 360.0 * Curve.pieces(potionTiltKeys(), p), alpha = Curve.pieces(fadeKeys(0.75), p),
+                   flash = Curve.pieces(swapFlashKeys(swapAt), p), crumbs = List.range(0, 3) |> List.map(drop) })
+        }
+
+    /// 食べ物の大きさの倍: 弾んで出て、骨・かじった形に替わる瞬間に少し大きく出て戻り、小さくなって消える。
+    def eatScaleKeys(swapAt: Float64): List[(Float64, Float64)] =
+        (0.0, 0.6) :: (0.1, 1.0) :: (swapAt, 1.0) :: (swapAt + 0.001, 1.25) :: (swapAt + 0.12, 1.0) :: (0.86, 1.0) :: (1.0, 0.5) :: Nil
+
+    /// 食べ物: 小刻みに揺れながら 3 回噛まれて粒が飛び、骨（パンはかじった形）に替わって消える。
+    /// 替わる瞬間は白く光らせて少し大きく出す（骨は肉より細く小さく、そのままだと消えたように見える）。
+    def eatUse(size: { side = Float64, tilt = Float64, gap = Float64 }, at: Vec2.Vec2, kind: Item.Kind, p: Float64): Option[MarkView.Use] =
+        if (p <= 0.0 or p >= 1.0) None
+        else {
+            let meat = kind == Item.Kind.Meat;
+            let swapAt = 0.72;
+            let swapped = p >= swapAt;
+            let crumbColor = if (meat) Color.rgb(0.55, 0.3, 0.17) else Color.rgb(0.78, 0.59, 0.24);
+            let shake = if (swapped) 0.0 else Curve.sine(5.0, Num.pi() * 14.0, 0.0, p);
+            let crumb = (bite: Float64, k: Int32) -> {
+                let q = span(bite, bite + 0.25, p);
+                let a = Num.pi() * (1.15 + 0.23 * Int32.toFloat64(k)) + bite;
+                { at = { x = at#x + Num.cos(a) * 40.0 * q, y = at#y + Num.sin(a) * 34.0 * q + 46.0 * q * q }, radius = 4.0,
+                  color = crumbColor, alpha = if (q <= 0.0 or q >= 1.0) 0.0 else 1.0 - q }
+            };
+            let bites = 0.03 :: 0.28 :: 0.53 :: Nil;
+            Some({ at = { x = at#x + shake, y = at#y }, icon = if (swapped) (if (meat) Art.Icon.Bone else Art.Icon.BreadBitten) else Art.iconOfKind(kind),
+                   side = size#side * Curve.pieces(eatScaleKeys(swapAt), p), tilt = 0.0, alpha = Curve.pieces(fadeKeys(0.86), p),
+                   flash = Curve.pieces(swapFlashKeys(swapAt), p),
+                   crumbs = bites |> List.flatMap(b -> List.range(0, 4) |> List.map(k -> crumb(b, k))) })
+        }
 
     /// 回復の輪（薬で HP が戻った時だけ）。
     def ringOf(screen: Vec3.Vec3 -> Option[Vec2.Vec2], e: (Popup.Popup, Float64)): Option[MarkView.Ring] =
@@ -176,7 +247,7 @@ mod View {
             case _ => None
         })
 
-    /// 矢の軌跡: 主人公の矢・小石は白、弓兵の矢は赤。
+    /// 矢の軌跡: 主人公の矢は白、弓兵の矢は赤。小石は線を引かず、山なりに飛ぶ石の板だけで見せる。
     def trailsOf(t: ThemeDoc.Rec, screen: Vec3.Vec3 -> Option[Vec2.Vec2], turn: Motion.Turn): List[MarkView.Trail] =
         let hero = turn#after#hero#at;
         let line = (progress: Float64, start: Cell, end: Cell, color: Color) ->
@@ -186,6 +257,7 @@ mod View {
                 { tail = along(Float64.max(0.0, progress - 0.45)), head = along(progress), color = color }
             }));
         turn#events |> List.filterMap(ie -> match ie {
+            case (_, Run.Event.ArrowShot(_, kind, _)) if Item.familyOf(kind) == Item.Family.Pebble => None
             case (i, Run.Event.ArrowShot(_, _, end)) => line(turn#progress((i, TurnTimeline.Beat.Arrow)), hero, end, t#popDealt)
             case (i, Run.Event.EnemyShot(_, start, end)) => line(turn#progress((i, TurnTimeline.Beat.EnemyArrow)), start, end, t#popTaken)
             case _ => None

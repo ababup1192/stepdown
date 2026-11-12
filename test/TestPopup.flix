@@ -3,7 +3,7 @@
 // 出来事の列は手で組む（Step を通さず、見せ方だけを確かめる）。盤は Fixtures.hall（主人公は (1, 3)）。
 mod TestPopup {
 
-    use fge::Clock
+    use fge::{Clock, Timeline}
     use Run.{Event, Source}
     use Fixtures.{hall, start}
 
@@ -35,11 +35,18 @@ mod TestPopup {
         let made = numbers(Event.HeroHurt(Source.Starve, 1, false) :: Event.PotionUsed(Item.Kind.Herb, 6) :: Nil);
         Assert.assertEq(expected = (Popup.Kind.Starved, (1, 3)) :: (Popup.Kind.Healed, (1, 3)) :: Nil, made |> List.map(pop -> (pop#kind, pop#cell)))
 
-    /// 同じ手で主人公のマスに空腹で減った数と薬の数が出る時、薬の数は減った数の 1 段上に出る。
+    /// 薬の緑の数は、頭の上で瓶を傾けて空にする演出を見せ終えてから出る。
     @Test
-    def testPotionNumberStacksAboveTheStarveNumber(): Unit \ Assert =
-        let made = numbers(Event.HeroHurt(Source.Starve, 1, false) :: Event.PotionUsed(Item.Kind.Herb, 6) :: Nil);
-        Assert.assertEq(expected = 0 :: 1 :: Nil, made |> List.map(pop -> pop#lift))
+    def testPotionNumberWaitsForTheBottle(): Unit \ Assert =
+        let lk = LookDoc.rec(LookDoc.defaults());
+        let made = numbers(Event.PotionUsed(Item.Kind.Herb, 6) :: Nil);
+        Assert.assertEq(expected = lk#potionSeconds :: Nil, made |> List.map(pop -> Clock.secondsOf(pop#startedAt)))
+
+    /// 食べた手の時刻表は、食べる演出の間に「むしゃ」を 3 回鳴らす。
+    @Test
+    def testEatingMunchesThreeTimes(): Unit \ Assert =
+        let tl = TurnTimeline.build(TurnTimeline.paceOf(LookDoc.rec(LookDoc.defaults()), false), Event.Ate(Item.Kind.Meat, 60) :: Nil);
+        Assert.assertEq(expected = "sd_munch" :: "sd_munch" :: "sd_munch" :: Nil, Timeline.soundsBetween(-1.0, 5.0, tl))
 
     /// 前の手の数がまだ出ている間に次の手で受けると、次の数はその上の段に出る。
     @Test

@@ -9,7 +9,7 @@ mod Shots {
     /// 場面の題と一言（Studio のギャラリーに出るラベル）は assets/stepdown.scenes.json 側で、name をここの名前とそろえる。
     /// 場面を足したら、ここと sceneOf と Makefile の SHOTS を一緒に足す。
     pub def names(): List[String] =
-        "title" :: "play" :: "dead" :: "clear" :: "quit" :: "arrow" :: "bomb" :: "dirs" :: "popups" :: "swap" :: "levelup_mid" :: "levelup" :: "chosen" :: Nil
+        "title" :: "play" :: "dead" :: "clear" :: "quit" :: "arrow" :: "bomb" :: "dirs" :: "popups" :: "swap" :: "levelup_mid" :: "levelup" :: "chosen" :: "use_tilt" :: "use_potion" :: "use_meat" :: "smoke_fly" :: "smoke_puff" :: "pebble" :: Nil
 
     /// 名前 → 周回の種を固定した初めの World から組んだ場面の World（1 手を見せ終えた所。途中の場面はその秒の所）。
     pub def worldOf(name: String, res: Res.Res): Option[World.World] =
@@ -30,10 +30,29 @@ mod Shots {
                     staged(res, (7, 15), Run.Held.Held(Item.Kind.WoodArrow, 6) :: Run.Held.Held(Item.Kind.Pebble, 4) :: Nil,
                            (Enemy.Kind.Jelly, (8, 14)) :: Nil, World.begin(res, w0)))))
             // 左右のゼリーに挟まれ、右を殴った手を見せ終える前に待った所。主人公の頭の上に受けた数が段になって積み上がり、
-            // 2 手目で HP が薬の線を割って、一番上に緑の +数が出始めた（右のゼリーの頭の上には与えた数が消えかけている）。
+            // 2 手目で HP が薬の線を割って、頭の横に薬の瓶が出てきた所（右のゼリーの頭の上には与えた数が消えかけている）。
             case "popups" => Some(turnAt(res, Run.Input.Wait, 0.55, World.skipShow(World.seekShow(0.25, World.play(res, Run.Input.Move(Board.Dir8.Right),
                 withRec(res, r -> { hero = { hp = 10 | r#hero } | r },
                     staged(res, (7, 15), Run.Held.Held(Item.Kind.Herb, 1) :: Nil, (Enemy.Kind.Jelly, (8, 15)) :: (Enemy.Kind.Jelly, (6, 15)) :: Nil, World.begin(res, w0))))))))
+            // 右のゼリーに殴られて HP が薬の線を割り、頭の上で薬の瓶を傾けてしずくが落ちている所。
+            case "use_potion" => Some(turnAt(res, Run.Input.Wait, lk#strikeSeconds + lk#potionSeconds * 0.5,
+                withRec(res, r -> { hero = { hp = 6 | r#hero } | r },
+                    staged(res, (7, 15), Run.Held.Held(Item.Kind.Herb, 1) :: Nil, (Enemy.Kind.Jelly, (8, 15)) :: Nil, World.begin(res, w0)))))
+            // 同じ手で、瓶が出てきて傾いている途中。
+            case "use_tilt" => Some(turnAt(res, Run.Input.Wait, lk#strikeSeconds + lk#potionSeconds * 0.3,
+                withRec(res, r -> { hero = { hp = 6 | r#hero } | r },
+                    staged(res, (7, 15), Run.Held.Held(Item.Kind.Herb, 1) :: Nil, (Enemy.Kind.Jelly, (8, 15)) :: Nil, World.begin(res, w0)))))
+            // 右のマスの肉へ歩いて食べ、3 回噛んで骨に替わった瞬間（白い光・食べかすの粒）。
+            case "use_meat" => Some(turnAt(res, Run.Input.Move(Board.Dir8.Right), lk#stepSeconds + lk#eatSeconds * 0.76,
+                withRec(res, r -> { fullness = 40, items = Map#{ (8, 15) => Item.Kind.Meat } | r },
+                    staged(res, (7, 15), Nil, Nil, World.begin(res, w0)))))
+            // HP が半分を割って右に起きたゼリー。待った手で煙玉を投げ、弧の半ばを飛んでいる所。
+            case "smoke_fly" => Some(turnAt(res, Run.Input.Wait, lk#smokeSeconds * 0.25, smokeReady(res, w0)))
+            // 同じ手で煙玉が着いて、灰色の煙が広がって弾けている所。
+            case "smoke_puff" => Some(turnAt(res, Run.Input.Wait, lk#smokeSeconds * 0.7, smokeReady(res, w0)))
+            // 右 2 マスの起きたゼリーへ、待った手で小石を投げ、低い山なりの半ばを飛んでいる所。
+            case "pebble" => Some(turnAt(res, Run.Input.Wait, lk#pebbleSeconds * 0.35,
+                staged(res, (7, 15), Run.Held.Held(Item.Kind.Pebble, 4) :: Nil, (Enemy.Kind.Jelly, (9, 15)) :: Nil, World.begin(res, w0))))
             // 枠が 3 つ埋まった所で、右のマスの煙玉の上に乗った（捨てるカード 4 枚）。
             case "swap"  => Some(cardsAt(res, Run.Input.Move(Board.Dir8.Right), 0.6,
                 withRec(res, r -> { items = Map#{ (8, 15) => Item.Kind.Smoke } | r },
@@ -60,6 +79,11 @@ mod Shots {
     /// input を当て、見せ始めてから seconds 秒の所にする。
     def turnAt(res: Res.Res, input: Run.Input, seconds: Float64, w: World.World): World.World =
         World.play(res, input, w) |> World.seekShow(seconds) |> World.snapCam
+
+    /// HP 8 で煙玉を持ち、右に起きたゼリーがいる所（待つと煙玉を投げる）。
+    def smokeReady(res: Res.Res, w0: World.World): World.World =
+        withRec(res, r -> { hero = { hp = 8 | r#hero } | r },
+            staged(res, (7, 15), Run.Held.Held(Item.Kind.Smoke, 2) :: Nil, (Enemy.Kind.Jelly, (8, 15)) :: Nil, World.begin(res, w0)))
 
     /// input を当てて見せ終え、選ぶ場面のカードを出してから seconds 秒の所にする。
     def cardsAt(res: Res.Res, input: Run.Input, seconds: Float64, w: World.World): World.World =

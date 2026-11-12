@@ -5,7 +5,7 @@
 //   移動はマスの間を弧で跳ね、殴る時は相手へ 0.3 マス踏み込んで戻る。当たると白く光って小さく震え、倒れた敵は縮んで消える。
 //   矢は小さな板が飛び、爆弾は光と煙の円が広がる。拾ったアイテムは主人公へ吸い込まれ、上位を拾うと持ち物の枠が光る。
 mod Motion {
-    use fge::{Color, Num, Vec3}
+    use fge::{Color, Curve, Num, Vec3}
     use Board.{Cell, Dir8}
     use Run.Event
     use TurnTimeline.Beat
@@ -26,9 +26,9 @@ mod Motion {
     pub def poseOf(turn: Turn, time: Float64, fallen: Bool, light: Float64): Pose =
         let moves = movesOf(turn);
         let shaded = (f: SceneView.Figure) -> { let (r, g, b) = Color.channels(f#tint); { tint = Color.rgb(r * light, g * light, b * light), lit = false | f } };
-        { figures = List.flatten(heroFigure(turn, time, fallen) :: enemyFigures(turn, moves, time) :: itemFigures(turn, time) :: arrows(turn) :: Nil)
+        { figures = List.flatten(heroFigure(turn, time, fallen) :: enemyFigures(turn, moves, time) :: itemFigures(turn, time) :: arrows(turn) :: smokeBalls(turn) :: Nil)
               |> List.map(shaded),
-          bursts = bombBursts(turn),
+          bursts = bombBursts(turn) ::: smokeBursts(turn),
           slotGlow = turn#after#pack |> List.map(held -> (Run.familyOfHeld(held), glowOf(turn, Run.familyOfHeld(held)))) |> List.toMap }
 
     // ── 進みの読み方 ──
@@ -112,7 +112,7 @@ mod Motion {
         turn#events |> List.foldLeft((acc, ie) -> match ie {
             case (i, Event.Descended)        => { descend = progressOf(turn, i, Beat.Descend) | acc }
             case (i, Event.HeroDied)         => { fall = progressOf(turn, i, Beat.Fall) | acc }
-            case (i, Event.PotionUsed(_, _)) => { potion = pulse(progressOf(turn, i, Beat.Potion)) | acc }
+            case (i, Event.PotionUsed(_, _)) => { potion = pulse(progressOf(turn, i, Beat.Heal)) | acc }
             case _                           => acc
         }, { descend = 0.0, fall = 0.0, potion = 0.0 })
 
@@ -253,10 +253,22 @@ mod Motion {
         else { picture = Art.icon(Art.Icon.Arrow), at = Vec3.add(lerp(fromCell, to, p), up(0.32)), height = 0.42,
                tint = Color.rgb(1.3, 1.25, 1.15), lit = false, shadow = 0.08 } :: Nil
 
-    /// 飛んでいる矢（主人公の矢と弓兵の矢）。
+    /// 小石: 低い山なりで飛び、着いた所で小さく 1 回跳ねる（進みの 7 割で着く）。
+    def pebbleFigure(fromCell: Vec3.Vec3, to: Vec3.Vec3, p: Float64): List[SceneView.Figure] =
+        if (not isActive(p)) Nil
+        else {
+            let land = 0.7;
+            let travel = Curve.pieces((0.0, 0.0) :: (land, 1.0) :: (1.0, 1.25) :: Nil, p);
+            let hop = if (p < land) 0.45 * Curve.arch01(p / land) else 0.15 * Curve.arch01((p - land) / (1.0 - land));
+            let at = Vec3.add(lerp(fromCell, to, travel), up(0.3 + hop));
+            { picture = Art.icon(Art.Icon.Pebble), at = at, height = 0.55, tint = white(), lit = false, shadow = 0.06 } :: Nil
+        }
+
+    /// 飛んでいる矢と小石（主人公の矢・小石と弓兵の矢）。
     def arrows(turn: Turn): List[SceneView.Figure] =
         let hero = point(turn#after#hero#at);
         turn#events |> List.flatMap(ie -> match ie {
+            case (i, Event.ArrowShot(_, kind, end)) if Item.familyOf(kind) == Item.Family.Pebble => pebbleFigure(hero, point(end), progressOf(turn, i, Beat.Arrow))
             case (i, Event.ArrowShot(_, _, end))  => arrowFigure(hero, point(end), progressOf(turn, i, Beat.Arrow))
             case (i, Event.EnemyShot(_, fromCell, to)) => arrowFigure(point(fromCell), point(to), progressOf(turn, i, Beat.EnemyArrow))
             case _                                 => Nil
@@ -279,12 +291,54 @@ mod Motion {
             case _                                => Nil
         })
 
-    /// 系統 family の持ち物の枠の光（上位を拾った手の間だけ 1 → 0）。
+    /// 煙玉の着く所: この手で眠った敵の真ん中（眠った敵がいなければ主人公の前）。
+    def smokeTarget(turn: Turn, hero: Cell): Vec3.Vec3 =
+        let at = (turn#after#enemies ::: turn#before#enemies) |> List.map(e -> (e#id, e#at)) |> List.toMap;
+        let slept = turn#events |> List.filterMap(ie -> match ie {
+            case (_, Event.EnemySlept(id, _)) => Map.get(id, at)
+            case _                            => None
+        }) |> List.map(point);
+        if (List.isEmpty(slept)) Vec3.add(point(hero), Vec3.v3(0.0, 0.0, 0.5))
+        else Vec3.mul(List.foldLeft(Vec3.add, Vec3.zero(), slept), 1.0 / Int32.toFloat64(List.length(slept)))
+
+    /// 飛んでいる煙玉（主人公から着く所へ山なり）。
+    def smokeBalls(turn: Turn): List[SceneView.Figure] =
+        turn#events |> List.flatMap(ie -> match ie {
+            case (i, Event.SmokeThrown(cell)) =>
+                let p = progressOf(turn, i, Beat.Smoke);
+                if (not isActive(p)) Nil
+                else { picture = Art.icon(Art.Icon.Smoke), at = Vec3.add(lerp(point(cell), smokeTarget(turn, cell), p), up(0.5 + 0.9 * Curve.arch01(p))),
+                       height = 0.85, tint = white(), lit = false, shadow = 0.16 } :: Nil
+            case _ => Nil
+        })
+
+    /// 煙玉が弾けた煙: 濃さの違う灰色の小さな円が 9 つ、もくもくと広がって昇りながら薄れる（光らない）。
+    def smokeBursts(turn: Turn): List[SceneView.Burst] =
+        turn#events |> List.flatMap(ie -> match ie {
+            case (i, Event.SmokeThrown(cell)) =>
+                let p = progressOf(turn, i, Beat.Puff);
+                let at = smokeTarget(turn, cell);
+                if (not isActive(p)) Nil
+                else List.range(0, 9) |> List.map(k -> {
+                    let a = Int32.toFloat64(k) * 2.4;
+                    let ring = 0.25 + 0.12 * Int32.toFloat64(Int32.modulo(k, 3));
+                    let spread = ring * 2.2 * Curve.pieces((0.0, 0.0) :: (0.3, 0.7) :: (1.0, 1.0) :: Nil, p);
+                    let shade = 0.42 + 0.06 * Int32.toFloat64(Int32.modulo(k, 4));
+                    { at = Vec3.add(at, Vec3.v3(spread * Num.cos(a), 0.35 + 0.55 * p * (0.6 + 0.15 * Int32.toFloat64(Int32.modulo(k, 3))), spread * Num.sin(a))),
+                      radius = 0.16 + 0.32 * p, color = Color.rgb(shade, shade, shade + 0.03), alpha = 0.9 * (1.0 - p * p), glow = false }
+                })
+            case _ => Nil
+        })
+
+    /// 系統 family の持ち物の枠の光（上位を拾った・その系統を使った手の間だけ 1 → 0）。
     def glowOf(turn: Turn, family: Item.Family): Float64 =
+        let fading = (acc: Float64, q: Float64) -> if (isActive(q)) Float64.max(acc, 1.0 - q) else acc;
         turn#events |> List.foldLeft((acc, ie) -> match ie {
-            case (i, Event.Picked(kind, Item.Pick.Upgraded)) if Item.familyOf(kind) == family =>
-                let q = progressOf(turn, i, Beat.Upgrade);
-                if (isActive(q)) Float64.max(acc, 1.0 - q) else acc
+            case (i, Event.Picked(kind, Item.Pick.Upgraded)) if Item.familyOf(kind) == family => fading(acc, progressOf(turn, i, Beat.Upgrade))
+            case (i, Event.PotionUsed(kind, _)) if Item.familyOf(kind) == family => fading(acc, progressOf(turn, i, Beat.Potion))
+            case (i, Event.ArrowShot(_, kind, _)) if Item.familyOf(kind) == family => fading(acc, progressOf(turn, i, Beat.Arrow))
+            case (i, Event.BombThrown(kind, _)) if Item.familyOf(kind) == family => fading(acc, progressOf(turn, i, Beat.Bomb))
+            case (i, Event.SmokeThrown(_)) if family == Item.Family.Smoke => fading(acc, progressOf(turn, i, Beat.Smoke))
             case _ => acc
         }, 0.0)
 }

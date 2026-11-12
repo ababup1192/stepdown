@@ -2,7 +2,7 @@
 // 回復の緑の輪と粒・頭の上に一瞬出る物の絵。どれも 3D の点を Camera3d.worldToScreen で画面へ写した所に置く（写すのは View）。
 // 字は数だけ。与えたか受けたかは色と大きさ、何をしたかは形で分ける。
 mod MarkView {
-    use fge::{Color, FontAtlas, Num, RawDraw, Render, TextDraw, Vec2}
+    use fge::{Color, Curve, FontAtlas, Num, RawDraw, Render, TextDraw, Vec2}
     use PartsView.{p, centered, icon, plate, faded, heart, shape, steps, stairs, hourglass, rimmed}
 
     /// 予告のアイコン: 絵・足あと（動く）・階段（降りる）・砂時計（待つ）。
@@ -21,6 +21,13 @@ mod MarkView {
 
     /// 頭の上に一瞬出る物の絵（薬・食べ物・盾）。at = 頭の上・age = 出てからの秒。
     pub type alias Overhead = { at = Vec2.Vec2, icon = Art.Icon, age = Float64 }
+
+    /// 頭の上で使っている物の絵。at = 絵の真ん中・side = 長い辺（px）・tilt = 傾き（回転数。1 周 = 1.0）・alpha = 濃さ・
+    /// flash = 絵が替わった瞬間の白い光（0..1）・crumbs = 飛び散る粒。
+    pub type alias Use = { at = Vec2.Vec2, icon = Art.Icon, side = Float64, tilt = Float64, alpha = Float64, flash = Float64, crumbs = List[Crumb] }
+
+    /// 飛び散る粒 1 つ（食べかす・薬のしずく）。
+    pub type alias Crumb = { at = Vec2.Vec2, radius = Float64, color = Color, alpha = Float64 }
 
     /// 回復の緑の輪と粒。at = 足もと・age = 出てからの秒。
     pub type alias Ring = { at = Vec2.Vec2, age = Float64 }
@@ -46,6 +53,7 @@ mod MarkView {
         sleepers = List[Vec2.Vec2],
         numbers = List[Number],
         overheads = List[Overhead],
+        uses = List[Use],
         rings = List[Ring],
         slashes = List[Slash],
         trails = List[Trail]
@@ -60,6 +68,7 @@ mod MarkView {
             :: (w#slashes |> List.flatMap(slash))
             :: (w#rings |> List.flatMap(ring(w)))
             :: (w#overheads |> List.flatMap(overhead(w)))
+            :: (w#uses |> List.flatMap(useMark))
             :: (w#numbers |> List.flatMap(number(atlas, w))) :: Nil)
 
     // ── 方向の予告 ──
@@ -134,15 +143,15 @@ mod MarkView {
         let tm = w#timing;
         let life = Float64.max(0.01, tm#life);
         let t = Float64.min(n#age, life);
-        let popped = unit(t / Float64.max(0.001, tm#popSeconds));
-        let fading = unit((t - (life - tm#fadeSeconds)) / Float64.max(0.001, tm#fadeSeconds));
+        let fadeFrom = Float64.max(tm#popSeconds, life - tm#fadeSeconds);
         let start = if (style#slow) tm#healPop else tm#popScale;
-        let scale = (start + (1.0 - start) * popped) * (1.0 - 0.45 * fading);
+        let scale = Curve.pieces((0.0, start) :: (tm#popSeconds, 1.0) :: (fadeFrom, 1.0) :: (life, 0.55) :: Nil, t);
+        let alpha = Curve.pieces((0.0, 1.0) :: (fadeFrom, 1.0) :: (life, 0.0) :: Nil, t);
         let side = if (Int32.modulo(n#lift, 2) == 0) 1.0 else -1.0;
         let rise = if (style#slow) tm#healRise * (1.0 - (1.0 - t / life) * (1.0 - t / life)) else arcHeight(tm#rise, tm#fall, life, t);
         let drift = if (style#slow) 0.0 else side * tm#drift * (t / life);
         let at = p(n#at#x + drift, n#at#y - rise);
-        Render.fadeAll(1.0 - fading, heavy(atlas, "${style#sign}${n#amount}", at, style#size * scale, style#color, w#theme#popRim))
+        Render.fadeAll(alpha, heavy(atlas, "${style#sign}${n#amount}", at, style#size * scale, style#color, w#theme#popRim))
 
     /// 太めに見せる字: 濃い影を右下へ細くずらして敷き、字は横に少しずらして重ねる。
     /// WhyNot: 角ばった字形のフォントへ替える — 描き出しの Pass つきの PNG が追加のフォントを受けず、絵の確かめと実機で字が変わる。
@@ -159,6 +168,14 @@ mod MarkView {
         let size = 40.0 * (if (q < 0.2) 0.6 + 2.0 * q else 1.0);
         let alpha = if (q < 0.6) 1.0 else 1.0 - (q - 0.6) / 0.4;
         Render.fadeAll(alpha, icon(Art.icon(o#icon), p(o#at#x, o#at#y - 14.0 * q), size, 9) :: Nil)
+
+    /// 使っている物の絵: 替わった瞬間は白い光を後ろに敷き、粒はその手前に散らす。
+    def useMark(u: Use): List[Render.PlacedItem] =
+        let glow = if (u#flash <= 0.0) Nil else RawDraw.circleAt(u#at, u#side * (0.45 + 0.25 * u#flash), Color.rgb(1.0, 1.0, 0.95), 8) |> faded(0.75 * u#flash) :: Nil;
+        let pic = Art.icon(u#icon);
+        let drawn = { at = u#at, item = Render.sprite(pic#name, 9) |> Render.scaled(u#side / Float64.max(pic#width, pic#height)) |> Render.turned(u#tilt) };
+        let crumbs = u#crumbs |> List.map(c -> RawDraw.circleAt(c#at, c#radius, c#color, 10) |> faded(c#alpha * u#alpha));
+        glow ::: (Render.fadeAll(u#alpha, drawn :: Nil) ::: crumbs)
 
     /// 回復の輪（足もとから広がる平たい輪）と、立ち昇る光の粒。
     def ring(w: In, r: Ring): List[Render.PlacedItem] =

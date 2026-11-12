@@ -18,13 +18,19 @@ mod TurnTimeline {
         case Upgrade       // 上位を拾って持ち物の枠が光る
         case Arrow         // 主人公の矢の板が飛ぶ
         case Bomb          // 爆弾の光と煙が広がる
+        case Smoke         // 煙玉が主人公から敵の方へ弧を描いて飛ぶ
+        case Puff          // 着いた所で灰色の煙が広がって弾ける
         case Flash         // 当たった物が白く光って震える
         case Die           // 敵が縮んで消える
         case EnemyMove     // 敵がマスの間を跳ねる・押される
         case EnemyStrike   // 敵が主人公へ踏み込んで戻る
         case EnemyArrow    // 弓兵の矢の板が飛ぶ
-        case Potion        // 薬を飲む
-        case Eat           // 足もとの食べ物を食べる
+        case Potion        // 頭の上で薬の瓶が傾いて空になる
+        case Heal          // 回復の輪と緑の数
+        case Eat           // 頭の上で食べ物が揺れて噛まれ、骨・かじった形になる（1 回目の「むしゃ」）
+        case Bite2         // 2 回目の「むしゃ」
+        case Bite3         // 3 回目の「むしゃ」
+        case Full          // 食べ終えて満腹度の数が出る
         case Descend       // 階段を降りる
         case Fall          // 主人公が倒れる
     }
@@ -45,7 +51,9 @@ mod TurnTimeline {
         case Upgrade
         case Defeat
         case Potion
-        case Eat
+        case Munch
+        case Puff
+        case Clink
         case Stairs
         case Fall
     }
@@ -63,19 +71,22 @@ mod TurnTimeline {
         case Sound.Upgrade => "sd_upgrade"
         case Sound.Defeat  => "sd_defeat"
         case Sound.Potion  => "sd_potion"
-        case Sound.Eat     => "sd_eat"
+        case Sound.Munch   => "sd_munch"
+        case Sound.Puff    => "sd_puff"
+        case Sound.Clink   => "sd_clink"
         case Sound.Stairs  => "sd_stairs"
         case Sound.Fall    => "sd_fall"
     }
 
     /// 見せる秒（look の Doc から。dash = ダッシュの 1 歩の時は移動を短くする）。
-    pub type alias Pace = { step = Float64, strike = Float64, arrow = Float64 }
+    pub type alias Pace = { step = Float64, strike = Float64, arrow = Float64, potion = Float64, eat = Float64, smoke = Float64, pebble = Float64 }
 
     pub def paceOf(lk: LookDoc.Rec, dash: Bool): Pace =
-        { step = if (dash) lk#dashStepSeconds else lk#stepSeconds, strike = lk#strikeSeconds, arrow = lk#arrowSeconds }
+        { step = if (dash) lk#dashStepSeconds else lk#stepSeconds, strike = lk#strikeSeconds, arrow = lk#arrowSeconds,
+          potion = lk#potionSeconds, eat = lk#eatSeconds, smoke = lk#smokeSeconds, pebble = lk#pebbleSeconds }
 
-    /// 並べている途中: 書いた行（逆順）・敵の移動をもう置いたか・爆弾の行。
-    type alias Draft = { rows = List[Timeline.Step[Tag]], movesPlaced = Bool, bomb = Option[Tag] }
+    /// 並べている途中: 書いた行（逆順）・敵の移動をもう置いたか・爆弾の行・最後に放ったのが小石か。
+    type alias Draft = { rows = List[Timeline.Step[Tag]], movesPlaced = Bool, bomb = Option[Tag], pebble = Bool }
 
     def secs(s: Float64): Duration = Duration.Seconds(s)
 
@@ -85,7 +96,7 @@ mod TurnTimeline {
     pub def build(pace: Pace, events: List[Event]): Timeline.Timeline[Tag] =
         let indexed = List.zipWithIndex(events);
         let moves = indexed |> List.filter(ie -> isEnemyMove(snd(ie))) |> List.map(fst);
-        let start = { rows = Nil, movesPlaced = false, bomb = None };
+        let start = { rows = Nil, movesPlaced = false, bomb = None, pebble = false };
         let draft = indexed |> List.foldLeft((d, ie) -> rowsOf(pace, moves, d, ie), start);
         Timeline.buildOrPanic("turn", Timeline.noTempo(), List.reverse(draft#rows))
 
@@ -107,14 +118,15 @@ mod TurnTimeline {
             case Event.Picked(_, _)        => add(cue(Sound.Pick, after(Beat.Pick, pace#step)) :: Nil, d)
             case Event.HeroStruck(_, _)    =>
                 add(cue(Sound.Strike, after(Beat.HeroStrike, pace#strike)) :: flashOn(pace, (i, Beat.HeroStrike), pace#strike * 0.45, i, Sound.Hit) :: Nil, d)
-            case Event.ArrowShot(_, _, _)  => add(cue(Sound.Arrow, after(Beat.Arrow, pace#arrow)) :: Nil, d)
-            case Event.ArrowHit(_, _)      => add(cue(Sound.Hit, after(Beat.Flash, pace#strike)) :: Nil, d)
+            case Event.ArrowShot(_, kind, _) if Item.familyOf(kind) == Item.Family.Pebble => { pebble = true | add(after(Beat.Arrow, pace#pebble) :: Nil, d) }
+            case Event.ArrowShot(_, _, _)  => { pebble = false | add(cue(Sound.Arrow, after(Beat.Arrow, pace#arrow)) :: Nil, d) }
+            case Event.ArrowHit(_, _)      => add(cue(if (d#pebble) Sound.Clink else Sound.Hit, after(Beat.Flash, pace#strike)) :: Nil, d)
             case Event.BombThrown(_, _)    => { bomb = Some((i, Beat.Bomb)) | add(cue(Sound.Bomb, after(Beat.Bomb, pace#arrow * 2.5)) :: Nil, d) }
             case Event.BombHit(_, _)       =>
                 let row = d#bomb |> Option.map(bomb -> flashOn(pace, bomb, pace#arrow * 0.5, i, Sound.Hit))
                     |> Option.getWithDefault(cue(Sound.Hit, after(Beat.Flash, pace#strike)));
                 add(row :: Nil, d)
-            case Event.SmokeThrown(_)      => add(cue(Sound.Bomb, after(Beat.Bomb, pace#arrow * 1.5)) :: Nil, d)
+            case Event.SmokeThrown(_)      => add(after(Beat.Smoke, pace#smoke * 0.5) :: cue(Sound.Puff, after(Beat.Puff, pace#smoke * 0.5)) :: Nil, d)
             case Event.EnemyBurned(_, _)   => add(cue(Sound.Hit, after(Beat.Flash, pace#strike)) :: Nil, d)
             case Event.EnemyPushed(_, _, _) => add(after(Beat.EnemyMove, pace#step) :: Nil, d)
             case Event.EnemyDied(_, _, _)  => add(cue(Sound.Defeat, after(Beat.Die, pace#strike * 1.6)) :: Nil, d)
@@ -127,8 +139,10 @@ mod TurnTimeline {
                 let sound = if (guarded) Sound.Guard else Sound.Hit;
                 add(cue(Sound.Strike, after(Beat.EnemyStrike, pace#strike)) :: flashOn(pace, (i, Beat.EnemyStrike), pace#strike * 0.45, i, sound) :: Nil, d)
             case Event.HeroHurt(_, _, guarded) => add(cue(if (guarded) Sound.Guard else Sound.Hit, after(Beat.Flash, pace#strike)) :: Nil, d)
-            case Event.PotionUsed(_, _)    => add(cue(Sound.Potion, after(Beat.Potion, pace#strike * 2.5)) :: Nil, d)
-            case Event.Ate(_, _)           => add(cue(Sound.Eat, after(Beat.Eat, pace#strike * 2.0)) :: Nil, d)
+            case Event.PotionUsed(_, _)    => add(cue(Sound.Potion, after(Beat.Potion, pace#potion)) :: after(Beat.Heal, pace#strike * 1.5) :: Nil, d)
+            case Event.Ate(_, _)           =>
+                let bite = (beat: Beat, at: Float64) -> Timeline.atStartOf((i, Beat.Eat), (i, beat), secs(pace#eat * 0.15)) |> Timeline.withDelay(secs(pace#eat * at)) |> cue(Sound.Munch);
+                add(cue(Sound.Munch, after(Beat.Eat, pace#eat)) :: bite(Beat.Bite2, 0.25) :: bite(Beat.Bite3, 0.5) :: after(Beat.Full, pace#strike) :: Nil, d)
             case Event.HeroDied            => add(cue(Sound.Fall, after(Beat.Fall, pace#strike * 4.0)) :: Nil, d)
             case _                         => d
         }

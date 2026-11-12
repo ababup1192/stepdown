@@ -2,7 +2,7 @@
 // 時刻は実時間。始まりは「その出来事の時刻表の始まりの秒」を手を当てた時の実時間に足した所で、
 // 見せ終える前に飛ばされたら今へ早める（時刻表に乗せないのは、飛ばした手の数を消さないため）。
 mod Popup {
-    use fge::{Clock, Timeline}
+    use fge::{Clock, Lifetime, Timeline}
     use Board.Cell
     use Run.Event
     use TurnTimeline.Beat
@@ -43,8 +43,8 @@ mod Popup {
         case Event.BombHit(_, _)     => Some(Beat.Flash)
         case Event.EnemyBurned(_, _) => Some(Beat.Flash)
         case Event.HeroHurt(_, _, _) => Some(Beat.Flash)
-        case Event.PotionUsed(_, _)  => Some(Beat.Potion)
-        case Event.Ate(_, _)         => Some(Beat.Eat)
+        case Event.PotionUsed(_, _)  => Some(Beat.Heal)
+        case Event.Ate(_, _)         => Some(Beat.Full)
         case Event.EnemyDied(_, _, _) => Some(Beat.Die)
         case _                       => None
     }
@@ -100,12 +100,15 @@ mod Popup {
 
     /// cell に at の時刻で出す数の段: その時刻に出ている同じマスの数の一番上の段の 1 つ上（無ければ 0）。
     def stackOn(timing: Timing, cell: Cell, at: Clock.Time[Clock.Real], shown: List[Popup]): Int32 =
-        shown |> List.filter(p -> p#cell == cell and p#startedAt <= at and Clock.since(p#startedAt, at) < timing#life)
+        shown |> List.filter(p -> p#cell == cell and Lifetime.aliveOn(at, spanOf(timing, p)))
             |> List.map(p -> p#lift + 1) |> List.foldLeft(Int32.max, 0)
 
-    /// 消えるまでの長さを過ぎた数を外す。
+    /// 数 1 つの寿命（実時間）。
+    def spanOf(timing: Timing, p: Popup): Lifetime.Span[Clock.Real] = { startedAt = p#startedAt, dur = timing#life }
+
+    /// 消えるまでの長さを過ぎた数を外す（まだ始まっていない数は残す）。
     pub def prune(timing: Timing, now: Clock.Time[Clock.Real], popups: List[Popup]): List[Popup] =
-        popups |> List.filter(p -> Clock.since(p#startedAt, now) < timing#life)
+        popups |> List.filter(p -> Lifetime.remainingOn(now, spanOf(timing, p)) > 0.0)
 
     /// まだ始まっていない数を今へ早める（手を見せ終えたことにした時）。
     pub def hurry(now: Clock.Time[Clock.Real], popups: List[Popup]): List[Popup] =
@@ -160,7 +163,7 @@ mod Popup {
         }, { hp = start, low = start, hit = None, heal = None })
 
     /// 1 手で HP が変わったら棒の動きを作り直す（変わらなければ前のまま）。減り始めは最初に減った出来事の時刻表の始まり、
-    /// 戻り始めは薬の始まり（薬が無ければ減り終えた後・減っていなければすぐ）。
+    /// 戻り始めは回復の輪の始まり（薬が無ければ減り終えた後・減っていなければすぐ）。
     pub def trailOf(timing: Timing, turn: { before = Run.Rec, after = Run.Rec, events = List[Event] }, tl: Timeline.Timeline[TurnTimeline.Tag],
                     now: Clock.Time[Clock.Real], old: Trail): Trail =
         let start = turn#before#hero#hp;
@@ -170,7 +173,7 @@ mod Popup {
         let clipAt = (i: Int32, beat: Beat) -> Timeline.clipOf((i, beat), tl) |> Option.map(c -> c#start);
         let hitAt = path#hit |> Option.flatMap(i -> clipAt(i, Beat.Flash)) |> Option.getWithDefault(0.0);
         let healAt = if (hp <= low) None
-            else Some(path#heal |> Option.flatMap(i -> clipAt(i, Beat.Potion))
+            else Some(path#heal |> Option.flatMap(i -> clipAt(i, Beat.Heal))
                 |> Option.getWithDefault(if (low < start) hitAt + timing#hold + timing#shrink else 0.0));
         if (hp == start and low == start) old
         else {

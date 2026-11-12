@@ -1,4 +1,4 @@
-# 石のダンジョンの効果音 17 個（1 手の時刻表の Cue で鳴らす。名前は TurnTimeline.Sound と同じ sd_*）。
+# 石のダンジョンの効果音 20 個（1 手の時刻表の Cue で鳴らす。名前は TurnTimeline.Sound と同じ sd_*）。
 # bin/fge snd build art/stepdown.snd.star で art/sfx/*.sndsrc.json を書き、検査を通った物を atelier/sfx/<名前>.wav へ書く
 # （採用した物を assets/sfx へ移し、project.json の sounds に載せる）。
 # 石の部屋なので短い響きを少し足す。1 手は 0.1〜0.2 秒で回るので、どれも 0.25 秒以内に収め、続けて鳴っても濁らない長さにする。
@@ -76,4 +76,13 @@ def main():
                          tone(1047, 330, at = 300, amp = 0.24, decay = 220, duty = 0.25), tone(659, 300, at = 300, amp = 0.12, decay = 200, duty = 0.5),
                          tone(784, 300, at = 300, amp = 0.12, decay = 200, duty = 0.5), hiss(260, at = 300, amp = 0.05, hz = 7000, decay = 140)],
           room = 0.45, wet = 0.2, lufs = -20)
+    # 1 回噛む: 短い「むしゃ」（低い擦れと、湿った小さな粒）。食べる間に 2〜3 回続けて鳴らすので 0.1 秒で切る。
+    sound("sd_munch", [hiss(55, amp = 0.32, hz = 1100, decay = 16, attack = 3), tone(170, 45, amp = 0.18, decay = 14, to_hz = 120),
+                       hiss(25, at = 30, amp = 0.12, hz = 3200, decay = 8, attack = 2)], room = 0.15, wet = 0.05, lufs = -24)
+    # 煙玉が弾ける: 柔らかい「ぽふっ」（低い膨らみと、こもった息の雑音。爆弾の破裂のような芯は入れない）。
+    sound("sd_puff", [tone(130, 90, amp = 0.25, decay = 40, to_hz = 90, attack = 8), sweep(260, amp = 0.32, hz = 500, to_hz = 1400, attack = 12, decay = 110, mode = "low")],
+          room = 0.35, wet = 0.15, lufs = -24)
+    # 小石が当たる: 軽い「コツン」（高めの硬い短音と、小さな跳ね返り）。
+    sound("sd_clink", [tone(1250, 40, amp = 0.22, decay = 12, duty = 0.25, cut = 3.0), hiss(18, amp = 0.15, hz = 4000, decay = 5, attack = 2),
+                       tone(1500, 25, at = 70, amp = 0.1, decay = 8, duty = 0.25, cut = 3.0)], room = 0.25, wet = 0.08, lufs = -24)
 main()
