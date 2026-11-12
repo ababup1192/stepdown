@@ -1,4 +1,4 @@
-// ダッシュ: 敵が見えたら止まる・分かれ道で止まる・一本道の角は曲がる・敵が見えている時は 1 歩・捨てるカードが立ったら止まる。
+// ダッシュ: 敵が見えたら止まる・分かれ道で止まる・一本道の角は曲がる・敵が見えている時は 1 歩・捨てるカードが立ったら止まる・赤の手前で止まる。
 // どれも部屋から通路へ 1 歩出てから始める（部屋の番号が変わる歩では止まるため）。
 mod TestDash {
 
@@ -69,4 +69,34 @@ mod TestDash {
     def testDoesNotStopAtTheOpeningItStartsBeside(): Unit \ Assert =
         let c = ctx("#######" :: "#.....#" :: "#.....#" :: ",@....#" :: "#....>#" :: "#######" :: Nil);
         Assert.assertEq(expected = Some((1, 1)), lastCell(Dash.dash(c, start(c, Nil, Nil), Dir.Up)))
+
+    // ══════════════════════════════════════════════════════
+    // 赤で止まる
+    // ══════════════════════════════════════════════════════
+
+    /// 気付かれない遠さの起きた弓兵の射線が通路を横切っていれば、射線の手前のマスで止まり、撃たれない（見える距離 1 の rules）。
+    @Test
+    def testStopsBeforeTheRed(): Unit \ Assert =
+        let c = Fixtures.ctxWith(Fixtures.rulesWith("{\"wakeSteps\": 1}"),
+            "#########" :: "#@,,,,,>#" :: "####.####" :: "####.####" :: "####.####" :: "####.####" :: "#########" :: Nil);
+        let steps = dashFromCorridor(c, Fixtures.awake(start(c, (Enemy.Kind.Archer, (4, 5)) :: Nil, Nil)));
+        Assert.assertEq(expected = (Some((3, 1)), false), (lastCell(steps), List.exists(e -> List.exists(Run.hurtsHero, snd(e)), steps)))
+
+    /// 乱数の局面 seed で 4 方向へダッシュし、2 歩目から後の歩で敵の攻撃を受けたのに、その歩の前の赤に立ったマスが入っていなかった歩。
+    def hitsOutsideTheRedWhileDashing(seed: Int64): List[String] =
+        let (c, first) = Fixtures.randomCase(seed);
+        Board.dirs() |> List.flatMap(dir -> {
+            let steps = Dash.dash(c, first, dir);
+            List.zip(steps, List.drop(1, steps)) |> List.filterMap(match ((before, _), (after, events)) -> {
+                let at = Run.heroOf(after)#at;
+                if (not List.exists(Run.hurtsHero, events) or Set.memberOf(at, Preview.dangerCells(c, before))) None
+                else Some("種 ${seed}・${dir} で ${at}: ${Run.fingerprint(before)}")
+            })
+        })
+
+    /// 乱数の局面 300 個 × 4 方向のダッシュで、途中の歩（2 歩目から）の被ダメージは、その歩の前の赤の中だけ。
+    @Test
+    def testDashIsHurtOnlyInsideTheRed(): Unit \ Assert =
+        Assert.assertEq(expected = Nil, List.range(1, 301) |> List.flatMap(seed -> hitsOutsideTheRedWhileDashing(Int32.toInt64(seed))))
 }
+

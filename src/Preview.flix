@@ -119,11 +119,19 @@ mod Preview {
         if (not List.isEmpty(Run.pendingOf(runState))) Set.empty()
         else Run.enemiesOf(runState) |> List.foldLeft((acc, e) -> Set.union(acc, threatOf(ctx, e)), Set.empty())
 
-    def threatOf(ctx: Ctx, e: Enemy.Enemy): Set[Cell] = match e#rest {
-        case Enemy.Rest.Awake     => reachOf(ctx, e)
-        case Enemy.Rest.Dormant   => reachOf(ctx, e) |> Set.filter(c -> Run.notices(ctx, Board.walkDistances(c, ctx#board), c, e))
-        case Enemy.Rest.Dozing(_) => Set.empty()
+    def threatOf(ctx: Ctx, e: Enemy.Enemy): Set[Cell] = reachOf(ctx, e) |> Set.filter(c -> wakesThere(ctx, e, c))
+
+    /// 主人公が cell に立った時に e が起きていて攻撃に来られるか（起きた敵はいつも・眠りの始めの敵は気付く所だけ・Dozing はこの手で動かない）。
+    def wakesThere(ctx: Ctx, e: Enemy.Enemy, cell: Cell): Bool = match e#rest {
+        case Enemy.Rest.Awake     => true
+        case Enemy.Rest.Dormant   => Run.notices(ctx, Board.walkDistances(cell, ctx#board), cell, e)
+        case Enemy.Rest.Dozing(_) => false
     }
+
+    /// cell が敵の予告（dangerCells）に入るか（盤の全部を作らずに 1 マスだけ見る）。
+    pub def isDangerous(ctx: Ctx, runState: Run.State, cell: Cell): Bool =
+        List.isEmpty(Run.pendingOf(runState)) and Run.enemiesOf(runState) |> List.exists(e ->
+            not Set.memberOf(cell, Enemy.cellsOf(e)) and Option.nonEmpty(Run.attackOn(ctx, Set.empty(), e, cell)) and wakesThere(ctx, e, cell))
 
     /// e が今の位置から攻撃を届かせるマス（Run.attackOn が届くと言うマス。矢は敵では止めない）。
     def reachOf(ctx: Ctx, e: Enemy.Enemy): Set[Cell] =

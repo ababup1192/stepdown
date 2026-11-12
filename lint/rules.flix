@@ -62,6 +62,8 @@ mod GameLint {
                 |> allowIn(Fn.TestPopup_testStarveAndPotionShowOnTheHero, "浮かぶ数のレコードは実時間の始まりの欄を持つので、比べる欄（種類・マス・量・ずれ）だけを取り出して並べる")
                 |> allowIn(Fn.TestPreview_hitsOutsideTheRed, "性質テストの決まり（どの乱数の局面・どの入力でも崩れない式）。崩れた入力だけ説明を返す")
                 |> allowIn(Fn.TestPreview_testNoDamageOutsideTheRedOnRandomCases, "性質テストの決まり（どの種でも崩れない）。崩れた種の説明だけを集める")
+                |> allowIn(Fn.TestDash_hitsOutsideTheRedWhileDashing, "性質テストの決まり（どの乱数の局面・どの向きのダッシュでも崩れない式）。崩れた歩だけ説明を返す")
+                |> allowIn(Fn.TestDash_testDashIsHurtOnlyInsideTheRed, "性質テストの決まり（どの種でも崩れない）。崩れた種の説明だけを集める")
                 ,
             customRule({ id = "test-branch", check = testBranch })
                 |> allowIn(Fn.Fixtures_board, "テストの地図の書き誤りは bug! で止める（値で分けない）")
@@ -74,6 +76,7 @@ mod GameLint {
                 |> allowIn(Fn.Fixtures_withEnemy, "テストの局面を組む（id の 1 体だけ替える。期待は分けない）")
                 |> allowIn(Fn.Fixtures_randomCase, "性質テストの生成器（種から局面を組む。乱数で選んだ番号を種類・眠り方へ写すだけで、期待は分けない）")
                 |> allowIn(Fn.TestPreview_hitsOutsideTheRed, "性質テストの決まり（どの乱数の局面・どの入力でも崩れない式）。崩れた入力だけ説明を返す")
+                |> allowIn(Fn.TestDash_hitsOutsideTheRedWhileDashing, "性質テストの決まり（どの乱数の局面・どの向きのダッシュでも崩れない式）。崩れた歩だけ説明を返す")
                 |> allowIn(Fn.TestPreview_safeOutsideDanger, "性質テストの決まり（遊んでいる画面の手ならどの拍でも崩れない式）。崩れた拍だけ説明を返す")
         })
     })

@@ -1,6 +1,7 @@
 // Dash — ダッシュ: 始めた時に最後まで計算する（1 歩ずつ同じ Step.step を通す）。見せる側は列を 1 歩ずつ流す。
 // 止まる（その歩で止まる）: 敵が見えた・拾った・食べた・階段に乗った・次が歩けない・分かれ道・部屋の番号が変わった・HP が減った・
-// 殴った・矢か小石か爆弾か煙玉を使った・満腹度が 0 になった・選ぶ場面が立った・部屋の中で通路の口の横に来た・次のマスが見えている罠（見えていない罠は踏んで止まる）。
+// 殴った・矢か小石か爆弾か煙玉を使った・満腹度が 0 になった・選ぶ場面が立った・部屋の中で通路の口の横に来た・次のマスが見えている罠（見えていない罠は踏んで止まる）・
+// 主人公のマスか次のマスが敵の予告（赤）に入った・どれかの敵が溜めている。
 // 一本道の通路の角は自動で曲がる（斜めにも曲がる）。始めた時に敵が見えていれば 1 歩だけ。始める向きは上下左右。
 mod Dash {
 
@@ -14,7 +15,7 @@ mod Dash {
 
     def stride(ctx: Ctx, runState: Run.State, dir: Dir8, budget: Int32): List[(Run.State, List[Event])] =
         let (next, events) = Step.step(ctx, runState, Input.Move(dir));
-        let turn = if (budget <= 1 or stopsAfter(ctx, runState, next, events)) None else nextDir(ctx, next, dir);
+        let turn = if (budget <= 1 or stopsAfter(ctx, runState, next, events)) None else nextDir(ctx, next, dir) |> Option.filter(d -> isSafeAhead(ctx, next, d));
         match turn {
             case Some(d) => (next, events) :: stride(ctx, next, d, budget - 1)
             case None    => (next, events) :: Nil
@@ -32,6 +33,13 @@ mod Dash {
             or Board.roomAt(now#at, ctx#board) != Board.roomAt(was#at, ctx#board)
             or Run.seesAwakeEnemy(ctx, after)
             or reachesOpening(ctx#board, was#at, now#at)
+
+    /// 次の歩へ進んでよいか: どの敵も溜めておらず、主人公のマスも次のマスも敵の予告（赤）に入っていない。
+    /// WhyNot: 赤に入る歩だけを止める — 主人公のマスが赤なら待つか戻るかを人が選ぶ所で、ダッシュが代わりに選んでしまう。
+    def isSafeAhead(ctx: Ctx, runState: Run.State, dir: Dir8): Bool =
+        let at = Run.heroOf(runState)#at;
+        not List.exists(e -> e#intent != Enemy.Intent.Idle, Run.enemiesOf(runState))
+            and not Preview.isDangerous(ctx, runState, at) and not Preview.isDangerous(ctx, runState, Board.step8(dir, at))
 
     /// 部屋の中で、上下左右の隣に前の歩には無かった通路の口が来たか（壁際を歩いていて横の通路を通り過ぎない）。
     def reachesOpening(b: Board.Board, was: Cell, now: Cell): Bool =
