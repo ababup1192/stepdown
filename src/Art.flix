@@ -27,6 +27,7 @@ mod Art {
         case BottleEmpty
         case Bone
         case BreadBitten
+        case PebbleOne
     }
 
     /// 画面に重ねる演出の絵（assets/fx/）。
@@ -56,6 +57,7 @@ mod Art {
             case Icon.BottleEmpty => square("bottle_empty")
             case Icon.Bone        => square("bone")
             case Icon.BreadBitten => square("bread_bitten")
+            case Icon.PebbleOne   => square("pebble_one")
         }
 
     pub def fx(f: Fx): Picture = match f {
@@ -63,7 +65,7 @@ mod Art {
     }
 
     def icons(): List[Icon] =
-        Icon.Sword :: Icon.Shield :: Icon.Arrow :: Icon.Bomb :: Icon.Herb :: Icon.Bread :: Icon.Meat :: Icon.Pebble :: Icon.Smoke :: Icon.BottleEmpty :: Icon.Bone :: Icon.BreadBitten :: Nil
+        Icon.Sword :: Icon.Shield :: Icon.Arrow :: Icon.Bomb :: Icon.Herb :: Icon.Bread :: Icon.Meat :: Icon.Pebble :: Icon.Smoke :: Icon.BottleEmpty :: Icon.Bone :: Icon.BreadBitten :: Icon.PebbleOne :: Nil
 
     /// 全部の絵（描き出しが読む）。
     pub def all(): List[Picture] =

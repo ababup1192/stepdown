@@ -199,7 +199,8 @@ mod View {
         (0.0, 0.6) :: (0.1, 1.0) :: (swapAt, 1.0) :: (swapAt + 0.001, 1.25) :: (swapAt + 0.12, 1.0) :: (0.86, 1.0) :: (1.0, 0.5) :: Nil
 
     /// 食べ物: 小刻みに揺れながら 3 回噛まれて粒が飛び、骨（パンはかじった形）に替わって消える。
-    /// 替わる瞬間は白く光らせて少し大きく出す（骨は肉より細く小さく、そのままだと消えたように見える）。
+    /// 替わる瞬間は少し大きく出す（骨は肉より細く小さく、そのままだと消えたように見える）。
+    /// WhyNot: 替わる瞬間を白く光らせる — 光の玉が骨より目立ち、食べ終えた絵が読めない。
     def eatUse(size: { side = Float64, tilt = Float64, gap = Float64 }, at: Vec2.Vec2, kind: Item.Kind, p: Float64): Option[MarkView.Use] =
         if (p <= 0.0 or p >= 1.0) None
         else {
@@ -217,7 +218,7 @@ mod View {
             let bites = 0.03 :: 0.28 :: 0.53 :: Nil;
             Some({ at = { x = at#x + shake, y = at#y }, icon = if (swapped) (if (meat) Art.Icon.Bone else Art.Icon.BreadBitten) else Art.iconOfKind(kind),
                    side = size#side * Curve.pieces(eatScaleKeys(swapAt), p), tilt = 0.0, alpha = Curve.pieces(fadeKeys(0.86), p),
-                   flash = Curve.pieces(swapFlashKeys(swapAt), p),
+                   flash = 0.0,
                    crumbs = bites |> List.flatMap(b -> List.range(0, 4) |> List.map(k -> crumb(b, k))) })
         }
 

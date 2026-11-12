@@ -94,6 +94,11 @@
       "hasAlpha": true
     },
     {
+      "name": "icon_pebble_one",
+      "path": "assets/icons/pebble_one.png",
+      "hasAlpha": true
+    },
+    {
       "name": "fx_levelup",
       "path": "assets/fx/levelup.png",
       "hasAlpha": true
