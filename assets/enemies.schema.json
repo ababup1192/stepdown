@@ -65,6 +65,18 @@
           },
           "label": "落とす物（並べるほど出やすい）",
           "order": 7
+        },
+        "chargeMin": {
+          "type": "int",
+          "label": "突進が溜める一番近い距離",
+          "order": 8,
+          "min": 0
+        },
+        "chargeMax": {
+          "type": "int",
+          "label": "突進が溜める一番遠い距離（走るのはこれ +1 マスまで）",
+          "order": 9,
+          "min": 0
         }
       }
     }

@@ -26,6 +26,7 @@ mod TurnTimeline {
         case EnemyMove     // 敵がマスの間を跳ねる・押される
         case EnemyStrike   // 敵が主人公へ踏み込んで戻る
         case EnemyArrow    // 弓兵の矢の板が飛ぶ
+        case Windup        // 敵が身をかがめて技を溜める
         case Trap          // 罠の床が光り、毒矢が主人公へ跳ね上がる
         case Alarm         // 起きかけた敵の頭に「!」が跳ねて出る
         case Potion        // 頭の上で薬の瓶が傾いて空になる
@@ -59,6 +60,8 @@ mod TurnTimeline {
         case Clink
         case Stairs
         case Fall
+        case Windup
+        case Charge
     }
 
     /// 音の論理名（project.json の sounds の name）。
@@ -79,6 +82,8 @@ mod TurnTimeline {
         case Sound.Clink   => "sd_clink"
         case Sound.Stairs  => "sd_stairs"
         case Sound.Fall    => "sd_fall"
+        case Sound.Windup  => "sd_windup"
+        case Sound.Charge  => "sd_charge"
     }
 
     /// 見せる秒（look の Doc から。dash = ダッシュの 1 歩の時は移動を短くする）。
@@ -88,8 +93,8 @@ mod TurnTimeline {
         { step = if (dash) lk#dashStepSeconds else lk#stepSeconds, strike = lk#strikeSeconds, arrow = lk#arrowSeconds,
           potion = lk#potionSeconds, eat = lk#eatSeconds, smoke = lk#smokeSeconds, pebble = lk#pebbleSeconds }
 
-    /// 並べている途中: 書いた行（逆順）・敵の移動をもう置いたか・爆弾の行・最後に放ったのが小石か。
-    type alias Draft = { rows = List[Timeline.Step[Tag]], movesPlaced = Bool, bomb = Option[Tag], pebble = Bool }
+    /// 並べている途中: 書いた行（逆順）・敵の移動をもう置いたか・爆弾の行・最後に放ったのが小石か・最後に走った突進の行。
+    type alias Draft = { rows = List[Timeline.Step[Tag]], movesPlaced = Bool, bomb = Option[Tag], pebble = Bool, charge = Option[Tag] }
 
     def secs(s: Float64): Duration = Duration.Seconds(s)
 
@@ -99,7 +104,7 @@ mod TurnTimeline {
     pub def build(pace: Pace, events: List[Event]): Timeline.Timeline[Tag] =
         let indexed = List.zipWithIndex(events);
         let moves = indexed |> List.filter(ie -> isEnemyMove(snd(ie))) |> List.map(fst);
-        let start = { rows = Nil, movesPlaced = false, bomb = None, pebble = false };
+        let start = { rows = Nil, movesPlaced = false, bomb = None, pebble = false, charge = None };
         let draft = indexed |> List.foldLeft((d, ie) -> rowsOf(pace, moves, d, ie), start);
         Timeline.buildOrPanic("turn", Timeline.noTempo(), List.reverse(draft#rows))
 
@@ -148,6 +153,12 @@ mod TurnTimeline {
                     if (k == 0) Timeline.append((j, Beat.EnemyMove), secs(pace#step)) else Timeline.join((j, Beat.EnemyMove), secs(pace#step)));
                 { movesPlaced = true | add(together, d) }
             case Event.EnemyShot(_, _, _)  => add(cue(Sound.Arrow, after(Beat.EnemyArrow, pace#arrow)) :: Nil, d)
+            case Event.EnemyWindup(_, _)   => add(cue(Sound.Windup, after(Beat.Windup, pace#strike * 1.5)) :: Nil, d)
+            case Event.EnemyCharged(_, _, _) => { charge = Some((i, Beat.EnemyMove)) | add(cue(Sound.Charge, after(Beat.EnemyMove, pace#step * 1.4)) :: Nil, d) }
+            case Event.HeroHurt(Run.Source.Charge(_), _, guarded) =>
+                let sound = if (guarded) Sound.Guard else Sound.Hit;
+                let row = d#charge |> Option.map(rush -> flashOn(pace, rush, pace#step * 1.2, i, sound)) |> Option.getWithDefault(cue(sound, after(Beat.Flash, pace#strike)));
+                add(row :: Nil, d)
             case Event.HeroHurt(Run.Source.Melee(_), _, guarded) =>
                 let sound = if (guarded) Sound.Guard else Sound.Hit;
                 add(cue(Sound.Strike, after(Beat.EnemyStrike, pace#strike)) :: flashOn(pace, (i, Beat.EnemyStrike), pace#strike * 0.45, i, sound) :: Nil, d)

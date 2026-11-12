@@ -183,6 +183,10 @@ mod Run {
         case AlarmRang(List[Int32])
         /// 盾持ちが正面からの殴る・矢・石を盾で防いだ（敵の id）。前の HeroStruck・ArrowHit のダメージは 0。
         case Guarded(Int32)
+        /// 敵が次の手番の技を溜めた（敵の id・溜め）。その手は動かず、当てない。
+        case EnemyWindup(Int32, Enemy.Intent)
+        /// 突進がまっすぐ走った（敵の id・走る前のマス・止まったマス）。主人公に当たれば続く HeroHurt。
+        case EnemyCharged(Int32, Cell, Cell)
         /// 押し出しの先が壁・柱・岩で、押せずにダメージが増えた（敵の id・足したダメージ）。続く出来事で HP が減る。
         case PushedIntoWall(Int32, Int32)
         /// カードを取った。
@@ -194,11 +198,13 @@ mod Run {
     /// 主人公が受けたダメージの出所。
     ///   Melee(id) … 隣の敵に殴られた
     ///   Arrow(id) … 弓兵の矢が当たった
+    ///   Charge(id) … 突進に当たった
     ///   Starve    … 満腹度が 0 で減った
     ///   Trap(kind) … 罠を踏んだ
     pub enum Source with Eq, ToString {
         case Melee(Int32)
         case Arrow(Int32)
+        case Charge(Int32)
         case Starve
         case Trap(Trap.Kind)
     }
@@ -207,6 +213,7 @@ mod Run {
     pub def attackerOf(source: Source): Option[Int32] = match source {
         case Source.Melee(id) => Some(id)
         case Source.Arrow(id) => Some(id)
+        case Source.Charge(id) => Some(id)
         case Source.Starve    => None
         case Source.Trap(_)   => None
     }
@@ -318,23 +325,42 @@ mod Run {
                 or Map.get(c, dist) |> Option.exists(steps -> steps <= near))
 
     /// 敵の攻撃の種類。
-    ///   Melee … 隣を殴る
-    ///   Shot  … 弓兵の矢
+    ///   Melee  … 隣を殴る
+    ///   Shot   … 弓兵の矢
+    ///   Charge … 溜めた突進が走って当たる
     pub enum Attack with Eq, ToString {
         case Melee
         case Shot
+        case Charge
     }
 
     /// e が今の位置から cell へ当てる攻撃（届かなければ None）。敵の手番（Step）と敵の予告（Preview）はどちらもこれだけを見る。
     ///   殴る … e のどれかのマスの 8 近傍の隣で、間の角が抜けている
     ///   矢   … 弓兵で、上下左右の列がそろい距離 arrowMin..arrowMax、間に矢を止めるマスも blockers も無い
-    /// blockers は矢を止める敵のマス。予告は敵が動いた後も当たる側に倒すので空で渡す。
+    ///   突進 … 溜めた向きの走る道（chargeLane）の上。溜めている手は隣でも殴らない
+    /// blockers は矢と突進を止める敵のマス。予告は敵が動いた後も当たる側に倒すので空で渡す。
     pub def attackOn(ctx: Ctx, blockers: Set[Cell], e: Enemy.Enemy, cell: Cell): Option[Attack] = match e#intent {
         case Enemy.Intent.Idle =>
             if (isBeside(ctx, e, cell)) Some(Attack.Melee)
             else if (Enemy.behaviourOf(e#kind) == Enemy.Behaviour.Shoot and isInLine(ctx, blockers, e#at, cell)) Some(Attack.Shot)
             else None
+        case Enemy.Intent.Charge(dir) => if (List.memberOf(cell, chargeLane(ctx, blockers, e, dir))) Some(Attack.Charge) else None
     }
+
+    /// 突進が dir へ走る道（e の隣から近い順）。歩けないマスか blockers の手前で止まり、長さは chargeMax + 1 まで。
+    /// 走る長さ（Step）と赤い線（Preview）はどちらもこれだけを見る。主人公は道を止めない（道の上にいれば手前で止まって当たる）。
+    pub def chargeLane(ctx: Ctx, blockers: Set[Cell], e: Enemy.Enemy, dir: Dir): List[Cell] =
+        let longest = EnemiesDoc.statsOf(e#kind, ctx#enemies)#chargeMax + 1;
+        List.range(1, longest + 1) |> List.map(k -> Board.ahead(dir, k, e#at))
+            |> List.takeWhile(c -> Board.isWalkable(c, ctx#board) and not Set.memberOf(c, blockers))
+
+    /// 突進が溜める向き: 主人公と上下左右の列がそろい、距離 chargeMin..chargeMax で、間が歩けて blockers も無い（隣は殴るので溜めない）。
+    pub def chargeAim(ctx: Ctx, blockers: Set[Cell], e: Enemy.Enemy, cell: Cell): Option[Dir] =
+        let stats = EnemiesDoc.statsOf(e#kind, ctx#enemies);
+        Board.lineTo(e#at, cell) |> Option.filter(match (dir, k) ->
+            k >= Int32.max(2, stats#chargeMin) and k <= stats#chargeMax
+                and List.range(1, k) |> List.forAll(i -> { let between = Board.ahead(dir, i, e#at); Board.isWalkable(between, ctx#board) and not Set.memberOf(between, blockers) }))
+            |> Option.map(fst)
 
     /// origin から cell へ上下左右の列がそろい、距離 arrowMin..arrowMax で、間に矢を止めるマスも blockers も無いか。
     def isInLine(ctx: Ctx, blockers: Set[Cell], origin: Cell, cell: Cell): Bool =

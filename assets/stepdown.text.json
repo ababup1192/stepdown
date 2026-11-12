@@ -34,5 +34,6 @@
   "thundered": "かみなりが おちた！",
   "shieldBlocked": "{enemy}が 盾で ふせいだ",
   "alarmed": "警報が ひびいた！",
+  "braced": "{enemy}が 身がまえた！",
   "floorLabel": "{n}F"
 }

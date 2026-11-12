@@ -249,6 +249,7 @@ mod View {
         turn#events |> List.filterMap(ie -> match ie {
             case (i, Run.Event.HeroStruck(id, _)) => Map.get(id, foes) |> Option.flatMap(foe -> arc(i, foe, hero, t#popDealt))
             case (i, Run.Event.HeroHurt(Run.Source.Melee(id), _, _)) => Map.get(id, foes) |> Option.flatMap(foe -> arc(i, hero, foe, t#popTaken))
+            case (i, Run.Event.HeroHurt(Run.Source.Charge(id), _, _)) => Map.get(id, foes) |> Option.flatMap(foe -> arc(i, hero, foe, t#popTaken))
             case _ => None
         })
 
@@ -570,6 +571,7 @@ mod View {
             case Run.Event.AlarmRang(_)         => say(TextDoc.Line.Alarmed, Nil)
             case Run.Event.ThunderCast(_)       => say(TextDoc.Line.Thundered, Nil)
             case Run.Event.Guarded(id)          => say(TextDoc.Line.ShieldBlocked, enemy(id) :: Nil)
+            case Run.Event.EnemyWindup(id, _)   => say(TextDoc.Line.Braced, enemy(id) :: Nil)
             case Run.Event.HeroHurt(_, 0, _)    => say(TextDoc.Line.Guarded, Nil)
             case Run.Event.HeroHurt(source, n, _) => Run.attackerOf(source) |> Option.flatMap(id -> say(TextDoc.Line.Hurt, enemy(id) :: ("n", "${n}") :: Nil))
             case Run.Event.Ate(kind, n)         => say(TextDoc.Line.Ate, item(kind) :: ("n", "${n}") :: Nil)

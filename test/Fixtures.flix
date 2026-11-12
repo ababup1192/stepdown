@@ -105,7 +105,7 @@ mod Fixtures {
          "#.P.^...r..>#" ::
          "#############" :: Nil) :: Nil
 
-    /// seed から乱数で組んだ局面: 盤・主人公の位置と HP・持ち物・1〜5 体の敵（種類・位置・眠り方・HP・燃える手・向き・溜め）・0〜3 個の毒矢か警報の罠を足す。
+    /// seed から乱数で組んだ局面: 盤・主人公の位置と HP・持ち物・1〜5 体の敵（種類・位置・眠り方・HP・燃える手・向き・起きた敵の半分ほどは溜め）・0〜3 個の毒矢か警報の罠を足す。
     /// 地図の字の罠もそのまま残し、罠は乱数で半分ほどを見えている罠にする。
     pub def randomCase(seed: Int64): (Run.Ctx, Run.State) =
         let boards = randomBoards();
@@ -134,8 +134,9 @@ mod Fixtures {
                 case _ => Enemy.Rest.Awake
             };
             let facing = List.nth(facingAt, Board.dirs8()) |> Option.getWithDefault(Board.Dir8.Down);
+            let intent = if (rest == Enemy.Rest.Awake and Int32.modulo(facingAt, 2) == 0) intentOf(kind, facingAt / 2) else Enemy.Intent.Idle;
             let made2 = List.head(cells) |> Option.map(cell ->
-                { rest = rest, hp = 1 + hp, burn = burn, facing = facing, turns = facingAt | Enemy.make(List.length(made), kind, cell, 1) } :: made)
+                { rest = rest, hp = 1 + hp, burn = burn, facing = facing, turns = facingAt, intent = intent | Enemy.make(List.length(made), kind, cell, 1) } :: made)
                 |> Option.getWithDefault(made);
             (made2, s6)
         }, (Nil, r3));
@@ -153,6 +154,12 @@ mod Fixtures {
         let enemies = List.reverse(foes);
         (c, Run.of({ hero = { at = heroAt, hp = 1 + hpLeft | r#hero }, pack = List.nth(packAt, packs) |> Option.getWithDefault(Nil),
                      enemies = enemies, nextId = List.length(enemies), revealed = List.toSet(shown), seen = Board.viewFrom(heroAt, b) | r }))
+
+    /// 生成器の溜め: 突進は k 番目の上下左右へ溜める。溜めない種類は Idle。
+    def intentOf(kind: Enemy.Kind, k: Int32): Enemy.Intent = match kind {
+        case Enemy.Kind.Charger => Enemy.Intent.Charge(List.nth(k, Board.dirs()) |> Option.getWithDefault(Board.Dir.Up))
+        case _                  => Enemy.Intent.Idle
+    }
 
     /// 先頭の選ぶ場面のカード（レベルアップでなければ空）。
     def levelCards(runState: Run.State): List[Run.Perk] = match Run.pendingOf(runState) {

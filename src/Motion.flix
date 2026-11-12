@@ -142,6 +142,7 @@ mod Motion {
         turn#events |> List.foldRight((ie, acc) -> match ie {
             case (i, Event.EnemyMoved(id, fromCell, to))  => Map.insertWith((a, b) -> a ::: b, id, (i, fromCell, to) :: Nil, acc)
             case (i, Event.EnemyPushed(id, fromCell, to)) => Map.insertWith((a, b) -> a ::: b, id, (i, fromCell, to) :: Nil, acc)
+            case (i, Event.EnemyCharged(id, fromCell, to)) if fromCell != to => Map.insertWith((a, b) -> a ::: b, id, (i, fromCell, to) :: Nil, acc)
             case _                                    => acc
         }, Map.empty())
 
@@ -154,20 +155,29 @@ mod Motion {
             let h = Map.getWithDefault(id, none, acc);
             Map.insert(id, { flash = mixFlash(h#flash, flashOf(progressOf(turn, i, Beat.Flash))) | h }, acc)
         };
+        let lunged = (id: Int32, i: Int32, acc: Map[Int32, Hit]) -> {
+            let h = Map.getWithDefault(id, none, acc);
+            Map.insert(id, { lunge = Float64.max(h#lunge, pulse(progressOf(turn, i, Beat.EnemyStrike))) | h }, acc)
+        };
+        let dies = (id: Int32, i: Int32, beat: Beat, acc: Map[Int32, Hit]) -> {
+            let h = Map.getWithDefault(id, none, acc);
+            Map.insert(id, { dying = Some(progressOf(turn, i, beat)) | h }, acc)
+        };
         turn#events |> List.foldLeft((acc, ie) -> match ie {
             case (i, Event.HeroStruck(id, _))  => flashed(id, i, acc)
             case (i, Event.ArrowHit(id, _))    => flashed(id, i, acc)
             case (i, Event.BombHit(id, _))     => flashed(id, i, acc)
             case (i, Event.ThunderHit(id, _))  => flashed(id, i, acc)
             case (i, Event.EnemyBurned(id, _)) => flashed(id, i, acc)
-            case (i, Event.EnemyDied(id, _, _)) =>
-                let h = Map.getWithDefault(id, none, acc);
-                Map.insert(id, { dying = Some(progressOf(turn, i, Beat.Die)) | h }, acc)
-            case (i, Event.HeroHurt(Run.Source.Melee(id), _, _)) =>
-                let h = Map.getWithDefault(id, none, acc);
-                Map.insert(id, { lunge = Float64.max(h#lunge, pulse(progressOf(turn, i, Beat.EnemyStrike))) | h }, acc)
+            case (i, Event.EnemyDied(id, _, _)) => dies(id, i, Beat.Die, acc)
+            case (i, Event.HeroHurt(Run.Source.Melee(id), _, _)) => lunged(id, i, acc)
             case _ => acc
         }, Map.empty())
+
+    /// 溜めている敵の色: 赤く脈打つ（溜めた技が次の手に来ると読ませる）。
+    def windupTint(e: Enemy.Enemy, t: Float64, base: Color): Color =
+        if (e#intent == Enemy.Intent.Idle) base
+        else Color.mix(base, Color.rgb(1.0, 0.25, 0.15), 0.35 + 0.25 * Num.sin(t * 9.0))
 
     def figureOf(kind: Enemy.Kind): Art.Figure = match kind {
         case Enemy.Kind.Jelly  => Art.Figure.Jelly
@@ -175,6 +185,7 @@ mod Motion {
         case Enemy.Kind.Bat    => Art.Figure.Bat
         case Enemy.Kind.Archer => Art.Figure.Archer
         case Enemy.Kind.Shield => Art.Figure.Shield
+        case Enemy.Kind.Charger => Art.Figure.Charger
     }
 
     /// 板の高さ（m）。
@@ -184,6 +195,7 @@ mod Motion {
         case Enemy.Kind.Bat    => 0.95
         case Enemy.Kind.Archer => 1.0
         case Enemy.Kind.Shield => 1.05
+        case Enemy.Kind.Charger => 0.95
     }
 
     /// 床から浮かせる高さ（飛ぶ敵だけ）。
@@ -226,13 +238,13 @@ mod Motion {
         else {
             let base = walkingPoint(turn, moves) |> Option.getWithDefault(settledPoint(moves, e));
             let lunge = Vec3.mul(toward(base, heroAt), 0.3 * h#lunge);
-            let kindTint = white();
+            let kindTint = windupTint(e, t, white());
             let tint = if (Enemy.isAwake(e)) kindTint else Color.mix(kindTint, Color.rgb(0.2, 0.22, 0.35), 0.45);
             let bob = if (Enemy.isFlying(e#kind)) 0.08 * Num.sin(t * 3.3 + Int32.toFloat64(e#id)) else 0.0;
             let scale = 1.0 - dying;
             Some({ picture = Art.figure(figureOf(e#kind)),
                    at = Vec3.add(Vec3.add(base, lunge), Vec3.v3(h#flash#shake, (liftOf(e#kind) + bob) * scale, 0.0)),
-                   height = heightOf(e#kind) * scale, tint = flashTint(tint, Float64.max(h#flash#glow, dying * 0.6)), lit = h#flash#glow <= 0.0 and dying <= 0.0,
+                   height = heightOf(e#kind) * scale * (if (e#intent == Enemy.Intent.Idle) 1.0 else 0.88), tint = flashTint(tint, Float64.max(h#flash#glow, dying * 0.6)), lit = h#flash#glow <= 0.0 and dying <= 0.0,
                    shadow = (if (e#kind == Enemy.Kind.Swarm) 0.2 else 0.3) * scale })
         }
 

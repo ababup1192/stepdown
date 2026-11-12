@@ -39,6 +39,7 @@ mod TextDoc {
         case Thundered
         case ShieldBlocked
         case Alarmed
+        case Braced
         case FloorLabel
     }
 
@@ -55,7 +56,7 @@ mod TextDoc {
         Line.Upgraded :: Line.Stacked :: Line.Discarded :: Line.Struck :: Line.Shot :: Line.Bombed ::
         Line.Defeated :: Line.Woke :: Line.Approached :: Line.Hurt :: Line.Deflected :: Line.Drank ::
         Line.Descended :: Line.Blocked ::
-        Line.Ate :: Line.Starved :: Line.Guarded :: Line.Swapped :: Line.LevelUp :: Line.Dropped :: Line.Burning :: Line.Slammed :: Line.Darted :: Line.EnemyDarted :: Line.Thundered :: Line.ShieldBlocked :: Line.Alarmed ::
+        Line.Ate :: Line.Starved :: Line.Guarded :: Line.Swapped :: Line.LevelUp :: Line.Dropped :: Line.Burning :: Line.Slammed :: Line.Darted :: Line.EnemyDarted :: Line.Thundered :: Line.ShieldBlocked :: Line.Alarmed :: Line.Braced ::
         Line.FloorLabel :: Nil
 
     /// Doc のキー。
@@ -93,6 +94,7 @@ mod TextDoc {
         case Line.Thundered => "thundered"
         case Line.ShieldBlocked => "shieldBlocked"
         case Line.Alarmed => "alarmed"
+        case Line.Braced => "braced"
         case Line.FloorLabel => "floorLabel"
     }
 
@@ -131,6 +133,7 @@ mod TextDoc {
         case Line.Thundered => "かみなりが おちた！"
         case Line.ShieldBlocked => "{enemy}が 盾で ふせいだ"
         case Line.Alarmed => "警報が ひびいた！"
+        case Line.Braced => "{enemy}が 身がまえた！"
         case Line.FloorLabel => "{n}F"
     }
 

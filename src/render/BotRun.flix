@@ -197,6 +197,7 @@ mod BotRun {
     def sourceName(source: Run.Source): String = match source {
         case Run.Source.Melee(_) => "殴る"
         case Run.Source.Arrow(_) => "矢"
+        case Run.Source.Charge(_) => "突進"
         case Run.Source.Starve   => "空腹"
         case Run.Source.Trap(_)  => "罠"
     }

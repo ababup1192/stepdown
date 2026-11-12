@@ -135,7 +135,7 @@ mod Preview {
 
     /// e が今の位置から攻撃を届かせるマス（Run.attackOn が届くと言うマス。矢は敵では止めない）。
     def reachOf(ctx: Ctx, e: Enemy.Enemy): Set[Cell] =
-        let far = Int32.max(1, RulesDoc.rec(ctx#rules)#arrowMax);
+        let far = Int32.max(1, Int32.max(RulesDoc.rec(ctx#rules)#arrowMax, EnemiesDoc.statsOf(e#kind, ctx#enemies)#chargeMax + 1));
         let (x, y) = e#at;
         List.range(x - far, x + e#size + far) |> List.flatMap(cx -> List.range(y - far, y + e#size + far) |> List.map(cy -> (cx, cy)))
             |> List.filter(c -> not Set.memberOf(c, Enemy.cellsOf(e)) and Option.nonEmpty(Run.attackOn(ctx, Set.empty(), e, c)))
@@ -143,9 +143,17 @@ mod Preview {
 
     def laneOf(ctx: Ctx, dir: Board.Dir, origin: Cell): List[Cell] = Board.lane(RulesDoc.reachOf(ctx#rules), dir, origin, ctx#board)
 
-    /// 起きている弓兵の射線: (弓兵のマス, 射線の一番遠いマス) の列（見せる側が床に破線を引く）。
+    /// 起きている弓兵の射線と、溜めた突進の走る道: (敵のマス, 一番遠いマス) の列（見せる側が床に線を引く）。
     pub def firingLanes(ctx: Ctx, runState: Run.State): List[(Cell, Cell)] =
-        Run.enemiesOf(runState)
+        let archers = Run.enemiesOf(runState)
             |> List.filter(e -> Enemy.isAwake(e) and Enemy.behaviourOf(e#kind) == Enemy.Behaviour.Shoot)
-            |> List.flatMap(e -> Board.dirs() |> List.filterMap(dir -> List.last(laneOf(ctx, dir, e#at)) |> Option.map(far -> (e#at, far))))
+            |> List.flatMap(e -> Board.dirs() |> List.filterMap(dir -> List.last(laneOf(ctx, dir, e#at)) |> Option.map(far -> (e#at, far))));
+        let chargers = Run.enemiesOf(runState) |> List.filterMap(e -> chargeDir(e) |> Option.flatMap(dir -> List.last(Run.chargeLane(ctx, Set.empty(), e, dir))) |> Option.map(far -> (e#at, far)));
+        archers ::: chargers
+
+    /// 突進を溜めている向き（溜めていなければ None）。
+    def chargeDir(e: Enemy.Enemy): Option[Board.Dir] = match e#intent {
+        case Enemy.Intent.Charge(dir) => Some(dir)
+        case _                        => None
+    }
 }

@@ -10,16 +10,19 @@ mod Enemy {
         case Archer
         case Swarm
         case Shield
+        case Charger
     }
 
     /// 動き方。
     ///   Chase   … 歩ける道で主人公へ 1 マス寄る
     ///   Flutter … 2 手に 1 回、飛べるマスへでたらめに 1 マス
     ///   Shoot   … 列がそろえば矢を撃ち、そろわなければ列をそろえる方へ寄る
+    ///   Charge  … 上下左右で列がそろい、間が空いていれば溜めて（動かない）、次の手番にその向きへまっすぐ走る。そろわなければ寄る
     pub enum Behaviour with Eq, ToString {
         case Chase
         case Flutter
         case Shoot
+        case Charge
     }
 
     /// 起きているか。
@@ -32,10 +35,12 @@ mod Enemy {
         case Dozing(Int32)
     }
 
-    /// 次の手番に当てる技の溜め（溜めている間は、隣でも殴らずにこれだけを実行する）。
-    ///   Idle … 溜めていない
+    /// 次の手番に当てる技の溜め（溜めている間は、隣でも殴らずにこれだけを実行する）。押された・眠った・倒れたら消える。
+    ///   Idle        … 溜めていない
+    ///   Charge(dir) … 突進の溜め（次の手番に dir へまっすぐ走る）
     pub enum Intent with Eq, ToString {
         case Idle
+        case Charge(Board.Dir)
     }
 
     /// 敵 1 体。id は作った順の番号（同点の時に先に動く）。turns は起きて手番を迎えた数、burn は燃える残りの手の数。
@@ -58,7 +63,7 @@ mod Enemy {
         { id = id, kind = kind, at = at, size = 1, hp = hp, rest = Rest.Dormant, turns = 0, burn = 0, facing = Board.Dir8.Down, intent = Intent.Idle }
 
     /// 全部の種類。
-    pub def all(): List[Kind] = Kind.Jelly :: Kind.Bat :: Kind.Archer :: Kind.Swarm :: Kind.Shield :: Nil
+    pub def all(): List[Kind] = Kind.Jelly :: Kind.Bat :: Kind.Archer :: Kind.Swarm :: Kind.Shield :: Kind.Charger :: Nil
 
     pub def behaviourOf(kind: Kind): Behaviour = match kind {
         case Kind.Jelly  => Behaviour.Chase
@@ -66,6 +71,7 @@ mod Enemy {
         case Kind.Shield => Behaviour.Chase
         case Kind.Bat    => Behaviour.Flutter
         case Kind.Archer => Behaviour.Shoot
+        case Kind.Charger => Behaviour.Charge
     }
 
     /// 飛ぶ敵か（飛べるマスを通る）。

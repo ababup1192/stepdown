@@ -134,12 +134,12 @@ mod Step {
     /// 盾で防いだ: ダメージは 0 だが当たったので、眠っていれば Dozing(1) にする（押さない・燃えない）。
     def guarded(ctx: Ctx, id: Int32, t: Turn): Turn = t |> emit(Event.Guarded(id)) |> hurt(ctx, id, 0)
 
-    /// 殴った敵を dir へ 1 マス押す。押し先が壁・柱・岩なら動かさずに wallDamage を足す。水・ほかの敵・角では押さない。
+    /// 殴った敵を dir へ 1 マス押す（押されて動いた敵の溜めは消える）。押し先が壁・柱・岩なら動かさずに wallDamage を足す。水・ほかの敵・角では押さない。
     def push(ctx: Ctx, dir: Dir8, id: Int32, t: Turn): Turn =
         enemyOf(id, t) |> Option.map(e -> {
             let dest = Board.step8(dir, e#at);
             let extra = CardsDoc.rec(ctx#cards)#wallDamage;
-            if (canStand(ctx, e, dest, t#runState)) t |> setEnemy({ at = dest | e }) |> emit(Event.EnemyPushed(id, e#at, dest)) |> trapEnemy(ctx, id, dest)
+            if (canStand(ctx, e, dest, t#runState)) t |> setEnemy({ at = dest, intent = Enemy.Intent.Idle | e }) |> emit(Event.EnemyPushed(id, e#at, dest)) |> trapEnemy(ctx, id, dest)
             else if (Board.isSolid(dest, ctx#board) and extra > 0) t |> emit(Event.PushedIntoWall(id, extra)) |> hurt(ctx, id, extra)
             else t
         }) |> Option.getWithDefault(t)
@@ -381,9 +381,10 @@ mod Step {
     def setBurn(id: Int32, turns: Int32, t: Turn): Turn =
         if (turns <= 0) t else enemyOf(id, t) |> Option.map(e -> t |> setEnemy({ burn = turns | e }) |> emit(Event.Burned(id, turns))) |> Option.getWithDefault(t)
 
+    /// 生きている敵を turns 手のあいだ眠らせる（溜めは消える）。
     def setSleep(id: Int32, turns: Int32, t: Turn): Turn =
         if (turns <= 0) t
-        else enemyOf(id, t) |> Option.map(e -> t |> setEnemy({ rest = Enemy.Rest.Dozing(turns) | e }) |> emit(Event.EnemySlept(id, turns)))
+        else enemyOf(id, t) |> Option.map(e -> t |> setEnemy({ rest = Enemy.Rest.Dozing(turns), intent = Enemy.Intent.Idle | e }) |> emit(Event.EnemySlept(id, turns)))
             |> Option.getWithDefault(t)
 
     // ══════════════════════════════════════════════════════
@@ -487,15 +488,57 @@ mod Step {
             act(ctx, dist, counted, setEnemy(counted, t))
     }
 
-    /// 主人公へ攻撃が届けば当て（届くかは Run.attackOn だけで決める）、届かなければ動く。
+    /// 溜めていれば溜めた技だけを実行する。溜めていなければ、主人公へ攻撃が届けば当て（届くかは Run.attackOn だけで決める）、
+    /// 届かなければ溜められる技を溜め、それも無ければ動く。
     def act(ctx: Ctx, dist: Map[Cell, Int32], e: Enemy.Enemy, t: Turn): Turn =
-        let blockers = Run.occupancy(t#runState#enemies) |> Map.filter(other -> other#id != e#id) |> Map.keysOf;
-        Run.attackOn(ctx, blockers, e, t#runState#hero#at)
-            |> Option.map(attack -> attackHero(ctx, e, attack, t))
-            |> Option.getWithDefault(moveBy(ctx, dist, e, t))
+        let blockers = blockersFor(e, t);
+        match e#intent {
+            case Enemy.Intent.Charge(dir) => charge(ctx, blockers, e, dir, t)
+            case Enemy.Intent.Idle        =>
+                Run.attackOn(ctx, blockers, e, t#runState#hero#at)
+                    |> Option.map(attack -> attackHero(ctx, e, attack, t))
+                    |> Option.withDefault(default = windupOf(ctx, blockers, e, t#runState#hero#at) |> Option.map(intent -> windup(e, intent, t)))
+                    |> Option.getWithDefault(moveBy(ctx, dist, e, t))
+        }
+
+    /// e のほかの敵の占めるマス（矢と突進を止める）。
+    def blockersFor(e: Enemy.Enemy, t: Turn): Set[Cell] =
+        Run.occupancy(t#runState#enemies) |> Map.filter(other -> other#id != e#id) |> Map.keysOf
+
+    /// 今溜められる技（突進は主人公と列がそろい間が空いた時）。
+    def windupOf(ctx: Ctx, blockers: Set[Cell], e: Enemy.Enemy, heroAt: Cell): Option[Enemy.Intent] = match Enemy.behaviourOf(e#kind) {
+        case Enemy.Behaviour.Charge => Run.chargeAim(ctx, blockers, e, heroAt) |> Option.map(Enemy.Intent.Charge)
+        case _                      => None
+    }
+
+    /// 技を溜める（動かず、当てない）。
+    def windup(e: Enemy.Enemy, intent: Enemy.Intent, t: Turn): Turn =
+        t |> setEnemy({ intent = intent | e }) |> emit(Event.EnemyWindup(e#id, intent))
+
+    /// 溜めた突進: dir の走る道を、主人公の手前か道の終わりまで走る。主人公が道にいれば当たり、歩けないマスで止まったら Dozing(1)。
+    /// 入ったマスの罠は止まったマスだけで踏む。
+    /// WhyNot: 通り過ぎたマスの罠も踏ませる — 1 手で罠が何個も動き、どこで何が起きたか見せきれない。
+    def charge(ctx: Ctx, blockers: Set[Cell], e: Enemy.Enemy, dir: Dir, t: Turn): Turn =
+        let heroAt = t#runState#hero#at;
+        let lane = Run.chargeLane(ctx, blockers, e, dir);
+        let path = lane |> List.takeWhile(c -> c != heroAt);
+        let hits = List.memberOf(heroAt, lane);
+        let dest = List.last(path) |> Option.getWithDefault(e#at);
+        let ran = { at = dest, facing = Board.toDir8(dir), intent = Enemy.Intent.Idle | e };
+        let stopped = not hits and not Board.isWalkable(Board.ahead(dir, 1, dest), ctx#board);
+        let landed = t |> setEnemy(ran) |> emit(Event.EnemyCharged(e#id, e#at, dest))
+            |> (acc -> if (dest == e#at) acc else trapEnemy(ctx, e#id, dest, acc));
+        landed |> whileAlive(e#id, acc ->
+            if (hits) attackHero(ctx, ran, Run.Attack.Charge, acc)
+            else if (stopped) enemyOf(e#id, acc) |> Option.map(now -> setEnemy({ rest = Enemy.Rest.Dozing(1) | now }, acc)) |> Option.getWithDefault(acc)
+            else acc)
+
+    /// id の敵がまだ生きていれば残りを進める。
+    def whileAlive(id: Int32, rest: Turn -> Turn, t: Turn): Turn = if (Option.isEmpty(enemyOf(id, t))) t else rest(t)
 
     def moveBy(ctx: Ctx, dist: Map[Cell, Int32], e: Enemy.Enemy, t: Turn): Turn = match Enemy.behaviourOf(e#kind) {
         case Enemy.Behaviour.Chase   => chase(ctx, dist, e, t)
+        case Enemy.Behaviour.Charge  => chase(ctx, dist, e, t)
         case Enemy.Behaviour.Flutter => flutter(ctx, e, t)
         case Enemy.Behaviour.Shoot   => align(ctx, dist, e, t)
     }
@@ -549,12 +592,18 @@ mod Step {
         let taken = if (deflected) 0 else amount;
         let shot = attack == Run.Attack.Shot;
         let aimed = if (shot) emit(Event.EnemyShot(e#id, e#at, r#hero#at), t) else t;
-        let source = if (shot) Source.Arrow(e#id) else Source.Melee(e#id);
         aimed
             |> withRun({ hero = { hp = r#hero#hp - taken | r#hero }, rng = rng | r })
-            |> emit(Event.HeroHurt(source, amount, deflected))
+            |> emit(Event.HeroHurt(sourceOf(e#id, attack), amount, deflected))
             |> drinkIfLow(ctx)
             |> fallIfDown
+
+    /// 敵の攻撃の種類 → 主人公が受けたダメージの出所。
+    def sourceOf(id: Int32, attack: Run.Attack): Source = match attack {
+        case Run.Attack.Melee  => Source.Melee(id)
+        case Run.Attack.Shot   => Source.Arrow(id)
+        case Run.Attack.Charge => Source.Charge(id)
+    }
 
     /// HP が薬の閾値以下で薬があれば 1 つ使う（倒れる判定の前）。
     def drinkIfLow(ctx: Ctx, t: Turn): Turn =
