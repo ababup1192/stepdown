@@ -171,16 +171,6 @@
       "max": 120.0,
       "default": 32.0
     },
-    "tapSlop": {
-      "kind": "field",
-      "type": "float",
-      "label": "押してから動いてもタップとみなす距離（px）",
-      "order": 17,
-      "group": "タップ",
-      "min": 0.0,
-      "max": 80.0,
-      "default": 12.0
-    },
     "lastFloor": {
       "kind": "field",
       "type": "int",

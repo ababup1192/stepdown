@@ -34,6 +34,31 @@
       "hasAlpha": true
     },
     {
+      "name": "chr_swarm",
+      "path": "assets/chars/swarm.png",
+      "hasAlpha": true
+    },
+    {
+      "name": "chr_shieldbearer",
+      "path": "assets/chars/shieldbearer.png",
+      "hasAlpha": true
+    },
+    {
+      "name": "chr_charger",
+      "path": "assets/chars/charger.png",
+      "hasAlpha": true
+    },
+    {
+      "name": "chr_bomber",
+      "path": "assets/chars/bomber.png",
+      "hasAlpha": true
+    },
+    {
+      "name": "chr_boss",
+      "path": "assets/chars/boss.png",
+      "hasAlpha": true
+    },
+    {
       "name": "icon_sword",
       "path": "assets/icons/sword.png",
       "hasAlpha": true
@@ -96,6 +121,51 @@
     {
       "name": "icon_pebble_one",
       "path": "assets/icons/pebble_one.png",
+      "hasAlpha": true
+    },
+    {
+      "name": "icon_trap_arrow",
+      "path": "assets/icons/trap_arrow.png",
+      "hasAlpha": true
+    },
+    {
+      "name": "icon_trap_alarm",
+      "path": "assets/icons/trap_alarm.png",
+      "hasAlpha": true
+    },
+    {
+      "name": "icon_trap_pit",
+      "path": "assets/icons/trap_pit.png",
+      "hasAlpha": true
+    },
+    {
+      "name": "icon_ironball",
+      "path": "assets/icons/ironball.png",
+      "hasAlpha": true
+    },
+    {
+      "name": "icon_scroll_thunder",
+      "path": "assets/icons/scroll_thunder.png",
+      "hasAlpha": true
+    },
+    {
+      "name": "icon_doll",
+      "path": "assets/icons/doll.png",
+      "hasAlpha": true
+    },
+    {
+      "name": "icon_shield_wood",
+      "path": "assets/icons/shield_wood.png",
+      "hasAlpha": true
+    },
+    {
+      "name": "icon_shield_iron",
+      "path": "assets/icons/shield_iron.png",
+      "hasAlpha": true
+    },
+    {
+      "name": "icon_coin",
+      "path": "assets/icons/coin.png",
       "hasAlpha": true
     },
     {
