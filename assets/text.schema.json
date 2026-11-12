@@ -8,7 +8,7 @@
       "label": "題名",
       "order": 1,
       "group": "画面",
-      "default": "ひとあし迷宮"
+      "default": "片手間迷宮"
     },
     "startPrompt": {
       "kind": "field",

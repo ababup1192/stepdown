@@ -88,7 +88,7 @@ mod TextDoc {
 
     /// コード側の既定（assets/stepdown.text.json と同じ文言から出発する）。
     def defaultLine(line: Line): String = match line {
-        case Line.Title       => "ひとあし迷宮"
+        case Line.Title       => "片手間迷宮"
         case Line.StartPrompt => "タップか Enter で はじめる"
         case Line.Dead        => "たおれてしまった…"
         case Line.Cleared     => "1F を ぬけた！"
