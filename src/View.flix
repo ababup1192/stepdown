@@ -45,7 +45,7 @@ mod View {
             :: (Layer.Marks, ZStack.leaf(MarkView.marks(ctx#atlas, w#marks)))
             :: (Layer.Hud, ZStack.of(ZStack.leaf(HudView.edge(w#bars)) :: ZStack.leaf(HudView.bars(ctx#atlas, w#bars)) :: ZStack.leaf(HudView.card(ctx#atlas, w#bars)) :: Nil))
             :: (Layer.Cards, ZStack.leaf(CardView.cards(ctx#atlas, w#cards)))
-            :: (Layer.Prompt, ZStack.leaf(HudView.quit(ctx#atlas, w#bars))) :: Nil
+            :: (Layer.Prompt, ZStack.of(ZStack.leaf(HudView.veil(ctx#atlas, w#bars)) :: ZStack.leaf(HudView.quit(ctx#atlas, w#bars)) :: Nil)) :: Nil
 
     // ── World から描く値へ ──
 
@@ -90,7 +90,7 @@ mod View {
         let hero = screen(Vec3.add(FloorMesh.cellPoint(r#hero#at), Vec3.v3(0.0, 0.7, 0.0))) |> Option.getWithDefault({ x = World.width() / 2.0, y = World.height() / 2.0 });
         let rules = RulesDoc.rec(res#rules);
         let bars = { theme = theme, time = time,
-          floorLabel = TextDoc.fill(("n", "${r#floor}") :: Nil, TextDoc.lineOf(TextDoc.Line.FloorLabel, res#text)),
+          floorLabel = TextDoc.fill(("n", "${if (r#status == Run.Status.Descended) r#floor + 1 else r#floor}") :: Nil, TextDoc.lineOf(TextDoc.Line.FloorLabel, res#text)),
           hp = { now = r#hero#hp, max = r#hero#maxHp, front = hpBar#front, extra = hpBar#extra, healing = hpBar#healing },
           fullness = { now = r#fullness, max = rules#fullnessMax, glow = fade(lk#popupSeconds, Popup.Kind.Fed, aged), alarm = fade(lk#popupSeconds, Popup.Kind.Starved, aged) },
           exp = { level = r#level, now = r#exp, need = RulesDoc.expToNext(r#level, res#rules) },
@@ -100,7 +100,8 @@ mod View {
           card = if (busy) None else cardOf(res, w#screen),
           quitPrompt = if (World.isAskingQuit(w)) Some(TextDoc.lineOf(TextDoc.Line.QuitPrompt, res#text)) else None,
           showBars = w#screen != World.Screen.Title,
-          edge = fade(lk#edgeSeconds, Popup.Kind.Taken, aged) };
+          edge = fade(lk#edgeSeconds, Popup.Kind.Taken, aged),
+          veil = World.veilOf(res, w) };
         let marks = { theme = theme, time = time,
           timing = { life = lk#popupSeconds, popScale = lk#popupPopScale, popSeconds = lk#popupPopSeconds, rise = lk#popupRise, fall = lk#popupFall,
                      drift = lk#popupDrift, fadeSeconds = lk#popupFadeSeconds, healRise = lk#healRise, healPop = lk#healPopScale },

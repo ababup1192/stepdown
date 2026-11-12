@@ -1,4 +1,4 @@
-// BotRun — 自動で遊ぶ 4 人（でたらめ・避ける人・戦う人・先を読む人）に 1F を種ごとに遊ばせ、クリア率・死亡率などの数を出す（画面なし）。
+// BotRun — 自動で遊ぶ 4 人（でたらめ・避ける人・戦う人・先を読む人）に 1F から最後の階までを種ごとに遊ばせ、クリア率・死亡率・着いた階などの数を出す（画面なし）。
 // 回すのは決まりの関数（Step.step と、その要約の Preview.summarize）だけ。見せる側（World・時刻表）は通さない。
 // 実行: make bots（SEEDS=<種の数・既定 200、先を読む人だけは 50>・LIMIT=<1 回の手の上限・既定 2000>・ONLY=Random,Avoider,Fighter,Lookahead のどれかで絞る
 //                  ・DEPTH=<先を読む手数・既定 3>・MODE=peek（Run の乱数のまま読む・既定）か sample（乱数を 3 通りに替えて平均））
@@ -35,7 +35,7 @@ mod BotRun {
     type alias Tally = { hands = Int32, stuck = Int32, judged = Int32, strikes = Int32, rng = Int64 }
 
     /// 1 回の遊びの終わり。
-    type alias Outcome = { status = Run.Status, hands = Int32, turns = Int32, fullness = Int32, level = Int32, stuck = Int32, judged = Int32, strikes = Int32 }
+    type alias Outcome = { status = Run.Status, floor = Int32, hands = Int32, turns = Int32, fullness = Int32, level = Int32, stuck = Int32, judged = Int32, strikes = Int32 }
 
     /// 遊ぶ盤（判定の束と、階段からの歩く距離）。
     type alias Field = { ctx = Ctx, toStairs = Map[Cell, Int32], look = Look }
@@ -193,16 +193,21 @@ mod BotRun {
         let stairs = Board.cells(ctx#board) |> List.filter(c -> Board.tileAt(c, ctx#board) == Board.Tile.Stairs);
         { ctx = ctx, toStairs = Board.walkDistancesFrom(stairs, ctx#board), look = look }
 
-    /// 種 seed の 1F を bot が limit 手まで遊んだ (最後の Run, 数え)。
+    /// 種 seed で 1F から bot が limit 手まで遊んだ (最後の Run, 数え)。階段で降りたら次の階を作って続ける。
     def playSeed(setup: Setup, bot: Bot, limit: Int32, seed: Int64): (Run.State, Tally) =
-        let start = Floor.begin(setup#docs, setup#layouts, seed);
-        play(bot, fieldOf(setup#look, Floor.ctxOf(setup#docs, setup#layouts, start)), limit, start,
-             { hands = 0, stuck = 0, judged = 0, strikes = 0, rng = Rng.mix(seed, salt(bot)) })
+        playFloors(setup, bot, limit, Floor.begin(setup#docs, setup#layouts, seed),
+                   { hands = 0, stuck = 0, judged = 0, strikes = 0, rng = Rng.mix(seed, salt(bot)) })
+
+    def playFloors(setup: Setup, bot: Bot, limit: Int32, runState: Run.State, tally: Tally): (Run.State, Tally) =
+        let (after, counted) = play(bot, fieldOf(setup#look, Floor.ctxOf(setup#docs, setup#layouts, runState)), limit, runState, tally);
+        if (Run.statusOf(after) == Run.Status.Descended and counted#hands < limit)
+            playFloors(setup, bot, limit, Floor.enter(setup#docs, setup#layouts, after, Run.rec(after)#floor + 1), counted)
+        else (after, counted)
 
     def outcomeOf(result: (Run.State, Tally)): Outcome =
         let (runState, tally) = result;
         let r = Run.rec(runState);
-        { status = r#status, hands = tally#hands, turns = r#turns, fullness = r#fullness, level = r#level, stuck = tally#stuck, judged = tally#judged, strikes = tally#strikes }
+        { status = r#status, floor = r#floor, hands = tally#hands, turns = r#turns, fullness = r#fullness, level = r#level, stuck = tally#stuck, judged = tally#judged, strikes = tally#strikes }
 
     def median(xs: List[Int32]): String =
         let sorted = Sort.sortStable(xs);
@@ -223,11 +228,14 @@ mod BotRun {
         let cut = n - List.length(cleared) - List.length(dead);
         let top = outcomes |> List.map(o -> o#level) |> List.maximum |> Option.getWithDefault(1);
         let levels = List.range(1, top + 1) |> List.map(lv -> "Lv${lv} ${List.count(o -> o#level == lv, outcomes)}") |> List.join(" / ");
+        let deepest = outcomes |> List.map(o -> o#floor) |> List.maximum |> Option.getWithDefault(1);
+        let floors = List.range(1, deepest + 1) |> List.map(f -> "${f}F ${List.count(o -> o#floor == f, outcomes)}（死亡 ${List.count(o -> o#floor == f and o#status == Run.Status.Dead, outcomes)}）") |> List.join(" / ");
         let hands = outcomes |> List.map(o -> o#hands) |> List.sum;
         "[bots] ${bot}（${n} 回）\n" +
         "  クリア ${percent(List.length(cleared), n)}・死亡 ${percent(List.length(dead), n)}・打ち切り ${cut}\n" +
+        "  最後にいた階 ${floors}\n" +
         "  赤に囲まれて動けなかった手 ${outcomes |> List.map(o -> o#stuck) |> List.sum}（${List.count(o -> o#stuck > 0, outcomes)} 回の遊びで）\n" +
-        "  1 階の手数（クリアの中央値）${median(cleared |> List.map(o -> o#turns))}・生き延びた手数（死亡の中央値）${median(dead |> List.map(o -> o#turns))}・全部の中央値 ${median(outcomes |> List.map(o -> o#turns))}\n" +
+        "  手数（クリアの中央値）${median(cleared |> List.map(o -> o#turns))}・生き延びた手数（死亡の中央値）${median(dead |> List.map(o -> o#turns))}・全部の中央値 ${median(outcomes |> List.map(o -> o#turns))}\n" +
         "  満腹度の残り（クリアの中央値）${median(cleared |> List.map(o -> o#fullness * 100 / fullnessMax))}%\n" +
         "  到達レベル ${levels}（Lv2 以上 ${percent(List.count(o -> o#level >= 2, outcomes), n)}）\n" +
         "  自分から殴った手 ${outcomes |> List.map(o -> o#strikes) |> List.sum}（1 回の遊びの中央値 ${median(outcomes |> List.map(o -> o#strikes))}）\n" +

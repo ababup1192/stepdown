@@ -3,7 +3,7 @@
 //
 // ── 画面の移り変わり ──
 //   Title ──決定──▶ Play ──倒れた──▶ Dead ──決定──▶ Title
-//                   Play ──階段で待つ──▶ Clear ──決定──▶ Title   （試作は 1F だけ）
+//                   Play ──階段で待つ──▶ 暗転して次の階の Play（最後の階なら Clear ──決定──▶ Title）
 //   Play ──選ぶ場面が立ち、その手を見せ終えた──▶ Cards ──選ぶ（pending が空になる）──▶ Play
 //
 // ── 1 手の見せ方 ──
@@ -76,6 +76,7 @@ mod World {
     ///   trail     … HP の棒の減った分・増えた分
     ///   cardsAt   … 今のカードを出し始めた実時間（レベルアップの演出もここから）
     ///   chosen    … 最後に選んだカード
+    ///   veilAt    … 階を降りる暗転を始めた実時間（降りていなければ遠い過去）
     pub type alias World = {
         runState = Run.State,
         screen = Screen,
@@ -91,7 +92,8 @@ mod World {
         popups = List[Popup.Popup],
         trail = Popup.Trail,
         cardsAt = Clock.Time[Clock.Real],
-        chosen = Option[Chosen]
+        chosen = Option[Chosen],
+        veilAt = Clock.Time[Clock.Real]
     }
 
     pub def width(): Float64 = 540.0
@@ -106,7 +108,7 @@ mod World {
         { runState = runState, screen = Screen.Title, shown = shownOf(runState), queued = None,
           cam = camOf(runState), clock = Clock.start(), press = None, foresight = foresightOf(res, runState),
           quit = Quit.Playing, seed = seed, realNow = Clock.zero(),
-          popups = Nil, trail = Popup.still(Run.heroOf(runState)#hp), cardsAt = Clock.never(), chosen = None }
+          popups = Nil, trail = Popup.still(Run.heroOf(runState)#hp), cardsAt = Clock.never(), chosen = None, veilAt = Clock.never() }
 
     /// 何も見せていない 1 手（見せ終えた過去に置く）。
     def shownOf(runState: Run.State): Shown =
@@ -167,8 +169,16 @@ mod World {
     /// 今の 1 手の時刻表がまだ流れているか。
     def isShowing(res: Res.Res, w: World): Bool = TurnTimeline.isPlaying(w#clock, w#shown#startedAt, timelineOf(res, w))
 
-    /// 見せ終えていない（時刻表が流れている・ダッシュの残りがある）か。
-    pub def isBusy(res: Res.Res, w: World): Bool = isShowing(res, w) or not List.isEmpty(w#shown#rest)
+    /// 見せ終えていない（時刻表が流れている・ダッシュの残りがある・階を降りている）か。
+    pub def isBusy(res: Res.Res, w: World): Bool =
+        isShowing(res, w) or not List.isEmpty(w#shown#rest) or Run.statusOf(w#runState) == Run.Status.Descended or veilOf(res, w) > 0.0
+
+    /// 階を降りる暗転の濃さ（0..1。暗転の半分の秒で 1 になり、次の階に替わってから同じ秒で 0 へ戻る）。
+    pub def veilOf(res: Res.Res, w: World): Float64 =
+        let half = LookDoc.rec(res#look)#descendSeconds / 2.0;
+        let since = Clock.since(w#veilAt, w#realNow);
+        if (Run.statusOf(w#runState) == Run.Status.Descended) Float64.min(1.0, Float64.max(0.0, since / half))
+        else Float64.max(0.0, 1.0 - (since - half) / half) |> Float64.min(1.0)
 
     /// 今の 1 手を見せ終えたことにする（描き出しの場面は見せ終えた所を撮る）。
     pub def skipShow(w: World): World = { shown = { startedAt = Clock.never() | w#shown }, popups = Popup.hurry(w#realNow, w#popups) | w }
@@ -191,7 +201,7 @@ mod World {
 
     /// 盤への手。見せている間は 1 つだけ溜めて今の時刻表を飛ばし、ダッシュ中は次の歩で止める（溜めない）。選ぶ場面がある間は受けない。
     pub def command(res: Res.Res, act: Act, w: World): World =
-        if (w#screen != Screen.Play or isChoosing(w)) w
+        if (w#screen != Screen.Play or isChoosing(w) or Run.statusOf(w#runState) != Run.Status.Playing) w
         else if (not List.isEmpty(w#shown#rest)) { shown = { rest = Nil | w#shown } | w }
         else if (isShowing(res, w)) skipShow({ queued = Some(act) | w })
         else apply(res, act, w)
@@ -204,10 +214,11 @@ mod World {
     /// 選ぶ場面が立っているか（Screen.Cards は見せ終えてからこれを写す）。
     def isChoosing(w: World): Bool = not List.isEmpty(Run.pendingOf(w#runState))
 
-    /// 毎コマ: 見せ終えたら、選ぶ場面なら Cards へ、そうでなければダッシュの次の歩か溜めた手を始める。
+    /// 毎コマ: 見せ終えたら、選ぶ場面なら Cards へ、降りた手なら暗転して次の階へ、そうでなければダッシュの次の歩か溜めた手を始める。
     pub def advance(res: Res.Res, w: World): World =
         if (isShowing(res, w)) w
         else if (w#screen == Screen.Play and isChoosing(w)) { screen = Screen.Cards, cardsAt = w#realNow | w }
+        else if (Run.statusOf(w#runState) == Run.Status.Descended) descend(res, w)
         else match (w#shown#rest, w#queued) {
             case ((next, events) :: tail, _) => settleScreen(withRun(res, next, events, { dash = true, rest = tail }, w))
             case (Nil, Some(act))            => apply(res, act, { queued = None | w })
@@ -246,10 +257,22 @@ mod World {
             case Nil                     => w
         }
 
-    /// 倒れたら Dead・降りたら Clear。選ぶ場面が立ったら溜めた手とダッシュの残りを捨てる（Cards へは見せ終えてから advance が移す）。
+    /// 見せ終えた降りた手: 暗転を始め、暗くなりきったら次の階を作って何も見せていない所から始める
+    /// （溜めた手・浮かぶ数・HP の棒の動きは前の階の物なので捨て、カメラは主人公へ飛ばす）。
+    def descend(res: Res.Res, w: World): World =
+        let half = LookDoc.rec(res#look)#descendSeconds / 2.0;
+        if (Clock.since(w#veilAt, w#realNow) > LookDoc.rec(res#look)#descendSeconds) { veilAt = w#realNow | w }
+        else if (Clock.since(w#veilAt, w#realNow) < half) w
+        else {
+            let runState = Floor.enter(Res.floorDocs(res), res#layouts, w#runState, Run.rec(w#runState)#floor + 1);
+            { runState = runState, shown = shownOf(runState), queued = None, cam = camOf(runState), foresight = foresightOf(res, runState),
+              popups = Nil, trail = Popup.still(Run.heroOf(runState)#hp) | w }
+        }
+
+    /// 倒れたら Dead・最後の階を抜けたら Clear・降りたらダッシュの残りを捨てる。選ぶ場面が立ったら溜めた手とダッシュの残りを捨てる（Cards へは見せ終えてから advance が移す）。
     def settleScreen(w: World): World = match Run.statusOf(w#runState) {
         case Run.Status.Dead      => { screen = Screen.Dead, shown = { rest = Nil | w#shown } | w }
-        case Run.Status.Descended => { screen = Screen.Clear, shown = { rest = Nil | w#shown } | w }
+        case Run.Status.Descended => { queued = None, shown = { rest = Nil | w#shown } | w }
         case Run.Status.Cleared   => { screen = Screen.Clear, shown = { rest = Nil | w#shown } | w }
         case Run.Status.Playing if isChoosing(w) => { queued = None, shown = { rest = Nil | w#shown } | w }
         case Run.Status.Playing   => w

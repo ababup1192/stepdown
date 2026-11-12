@@ -91,7 +91,7 @@ mod TextDoc {
         case Line.Title       => "片手間迷宮"
         case Line.StartPrompt => "タップか Enter で はじめる"
         case Line.Dead        => "たおれてしまった…"
-        case Line.Cleared     => "1F を ぬけた！"
+        case Line.Cleared     => "迷宮を ぬけた！"
         case Line.Retry       => "タップか Enter で もう一度"
         case Line.QuitPrompt  => "やめますか?  Enter: はい  /  Esc: いいえ"
         case Line.Upgraded    => "{item}を ひろった！ 手持ちが {item}に なった"

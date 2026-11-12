@@ -231,9 +231,9 @@ tap dashLeft
 until !busy max 5
 wait 0.8
 expect col=2&row=27
-# 階段の上で待って降りる
+# 階段の上で待って降りる（暗転して 2F の始まりへ）
 tap wait
 until !busy max 3
-expect screen=Clear
+expect screen=Play&floor=2
 wait 3.5
 mark out_all

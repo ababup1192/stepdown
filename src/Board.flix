@@ -285,8 +285,11 @@ mod Board {
         if (List.isEmpty(more)) grown else spread(next, more, depth + 1, grown)
 
     /// 歩けるマスを 8 方向（角は抜けない）に通った、origins のどれかからの歩数（origins は 0）。
-    pub def walkDistancesFrom(origins: List[Cell], b: Board): Map[Cell, Int32] =
-        let walkNext = (cell: Cell) -> neighbors8(cell) |> List.filter(c -> isWalkable(c, b) and isCornerOpen(cell, c, b));
+    pub def walkDistancesFrom(origins: List[Cell], b: Board): Map[Cell, Int32] = walkDistancesAvoiding(Set.empty(), origins, b)
+
+    /// walkDistancesFrom と同じで、avoid のマスには入らない。
+    pub def walkDistancesAvoiding(avoid: Set[Cell], origins: List[Cell], b: Board): Map[Cell, Int32] =
+        let walkNext = (cell: Cell) -> neighbors8(cell) |> List.filter(c -> isWalkable(c, b) and isCornerOpen(cell, c, b) and not Set.memberOf(c, avoid));
         spread(walkNext, origins, 0, origins |> List.map(c -> (c, 0)) |> List.toMap)
 
     /// from から歩けるマスを 8 方向（角は抜けない）に通った歩数。

@@ -53,6 +53,8 @@ mod GameLint {
                 |> allowIn(Fn.TestFloor_testNoEnemyNearTheStart, "性質テストの決まり（どの地図・どの種でも崩れない）。崩れた種だけを集める")
                 |> allowIn(Fn.TestFloor_testItemsLieOnTheFloor, "性質テストの決まり（どの地図・どの種でも崩れない）。崩れた種だけを集める")
                 |> allowIn(Fn.TestFloor_testEveryMapReachesTheStairs, "地図ごとに同じ問いを当てる（地図の数は Doc が決める）")
+                |> allowIn(Fn.TestFloor_testEveryWalkableCellIsReachable, "地図ごとに同じ問いを当てる（地図の数は Doc が決める）")
+                |> allowIn(Fn.TestFloor_testSecondFloorItemsSitOnTheirSpots, "置いた物から食べ物を除いた種類を、floors の items の種類と並べる（食べ物の数は乱数）")
                 |> allowIn(Fn.TestPreview_testPreviewIsTheSummaryOfStep, "5 つの入力に本物の step を当てた要約と並べる（予告の作りそのものを確かめる）")
                 |> allowIn(Fn.TestPreview_testPropertyRunsOnBothMapsAndSeesDamage, "性質テストの空振りの見張り（種の列に攻撃を受けた拍があるか）")
                 |> allowIn(Fn.TestPopup_testExpSitsAboveTheDealtNumberOnTheEnemyCell, "浮かぶ数のレコードは実時間の始まりの欄を持つので、比べる欄（種類・マス・量・ずれ）だけを取り出して並べる")

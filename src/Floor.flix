@@ -33,6 +33,10 @@ mod Floor {
             case Err(why) => bug!("floors の既定の地図が組めない: ${why}")
         }
 
+    /// 盤のある全部の地図の (階, 地図の番号)（階の順 → 地図の順）。
+    pub def mapIds(layouts: Layouts): List[(Int32, Int32)] =
+        Map.toList(layouts) |> List.flatMap(match (floor, boards) -> List.range(0, Vector.length(boards)) |> List.map(layout -> (floor, layout)))
+
     /// floor 階で選べる地図の数（盤が無い階は fallbackBoard の 1 枚）。
     pub def layoutCount(floor: Int32, layouts: Layouts): Int32 =
         Map.get(floor, layouts) |> Option.map(Vector.length) |> Option.getWithDefault(1)
@@ -85,7 +89,7 @@ mod Floor {
         let (food, afterFood) = plan |> Option.map(f -> foodOf(f, afterEnemies)) |> Option.getWithDefault((Nil, afterEnemies));
         let fixed = plan |> Option.map(f -> f#items) |> Option.getWithDefault(Nil);
         let (items, afterItems) =
-            if (Board.hasSpots(board)) itemsOnSpots(board, food, fixed, afterFood)
+            if (Board.hasSpots(board)) placeOnSpots(board, food, fixed, afterFood)
             else scatter(open |> List.filter(c -> not List.memberOf(c, enemyCells)), fixed ::: food, afterFood);
         ({ enemies = List.zip(kinds, enemyCells), items = items, traps = board#traps }, afterItems)
 
@@ -95,7 +99,7 @@ mod Floor {
         (List.zip(items, cells), rest)
 
     /// 物を字の候補へ置く: 食べ物は食べ物の候補から、items は物の候補の数まで重複なしで引き、銀の候補には銀の剣か銀の盾。
-    def itemsOnSpots(board: Board.Board, food: List[Item.Kind], fixed: List[Item.Kind], rng: Int64): (List[(Item.Kind, Cell)], Int64) =
+    def placeOnSpots(board: Board.Board, food: List[Item.Kind], fixed: List[Item.Kind], rng: Int64): (List[(Item.Kind, Cell)], Int64) =
         let (foodCells, afterFood) = Rng.pick(List.length(food), Board.spotsOf(Board.Spot.Food, board), rng);
         let itemSpots = Board.spotsOf(Board.Spot.Item, board);
         let count = Int32.min(List.length(itemSpots), List.length(fixed));
@@ -119,15 +123,24 @@ mod Floor {
         let dist = Board.walkDistances(board#start, board);
         Run.enemiesOf(runState) |> List.filterMap(e -> Map.get(e#at, dist)) |> List.minimum
 
-    /// 始まりから階段まで歩いて着けるか。
+    /// 始まりから階段まで、罠を踏まずに歩いて着けるか。
     pub def reachesStairs(board: Board.Board): Bool =
-        let dist = Board.walkDistances(board#start, board);
+        let dist = Board.walkDistancesAvoiding(Map.keysOf(board#traps), board#start :: Nil, board);
         Board.cells(board) |> List.exists(c -> Board.tileAt(c, board) == Board.Tile.Stairs and Map.memberOf(c, dist))
 
     /// 歩けるのに、始まりから角を抜けずに歩いて着けないマス（読む順）。
     pub def unreachableCells(board: Board.Board): List[Cell] =
         let dist = Board.walkDistances(board#start, board);
         Board.cells(board) |> List.filter(c -> Board.isWalkable(c, board) and not Map.memberOf(c, dist))
+
+    /// 字の候補のある盤で、床のアイテムが全部、種類に合う候補のマスにあるか（食べ物は %・銀の剣と銀の盾は &・ほかは $）。
+    pub def itemsOnSpots(board: Board.Board, runState: Run.State): Bool =
+        Run.rec(runState)#items |> Map.forAll((cell, kind) -> Map.get(cell, board#spots) == Some(spotOf(kind)))
+
+    def spotOf(kind: Item.Kind): Board.Spot =
+        if (Item.familyOf(kind) == Item.Family.Food) Board.Spot.Food
+        else if (kind == Item.Kind.SilverSword or kind == Item.Kind.SilverShield) Board.Spot.Silver
+        else Board.Spot.Item
 
     /// 床のアイテムが全部、床（階段でも始まりでもない）のマスにあるか。
     pub def itemsOnFloor(board: Board.Board, runState: Run.State): Bool =

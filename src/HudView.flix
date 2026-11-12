@@ -27,7 +27,8 @@ mod HudView {
     /// 経験値の棒: レベル・今のレベルで貯めた数・次までに要る数。
     pub type alias Exp = { level = Int32, now = Int32, need = Int32 }
 
-    /// 描くのに要る値。log = 記録の 1 行（無ければ空）・slots = 3 枠（None は空き枠）・edge = 画面の周りの赤（0..1）。
+    /// 描くのに要る値。log = 記録の 1 行（無ければ空）・slots = 3 枠（None は空き枠）・edge = 画面の周りの赤（0..1）・
+    /// veil = 階を降りる暗転の濃さ（0..1）。
     pub type alias In = {
         theme = ThemeDoc.Rec,
         time = Float64,
@@ -42,7 +43,8 @@ mod HudView {
         card = Option[Card],
         quitPrompt = Option[String],
         showBars = Bool,
-        edge = Float64
+        edge = Float64,
+        veil = Float64
     }
 
     def width(): Float64 = 540.0
@@ -183,6 +185,12 @@ mod HudView {
                 :: (centered(atlas, c#title, p(width() / 2.0, at#y + 72.0), 40.0, t#ink, 4)
                     :: faded(0.8, centered(atlas, c#prompt, p(width() / 2.0, at#y + 134.0), 17.0, t#ink, 4)) :: Nil) :: Nil)
     }
+
+    /// 階を降りる暗転（画面を黒く覆い、真ん中に大きく階の数）。
+    pub def veil(atlas: FontAtlas, w: In): List[Render.PlacedItem] =
+        if (w#veil <= 0.0) Nil
+        else { at = Vec2.zero(), item = RawDraw.box(p(width(), height()), Color.rgb(0.0, 0.0, 0.0), 0) |> Render.fade(w#veil) }
+            :: faded(w#veil, centered(atlas, w#floorLabel, p(width() / 2.0, height() / 2.0), 64.0, w#theme#ink, 1)) :: Nil
 
     /// 終了の確認の窓。
     pub def quit(atlas: FontAtlas, w: In): List[Render.PlacedItem] = match w#quitPrompt {
