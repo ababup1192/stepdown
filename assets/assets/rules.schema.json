@@ -179,7 +179,7 @@
       "order": 30,
       "min": 1,
       "max": 9,
-      "default": 3
+      "default": 4
     },
     "trapDamage": {
       "kind": "field",
@@ -190,6 +190,16 @@
       "min": 0,
       "max": 20,
       "default": 2
+    },
+    "pitDamage": {
+      "kind": "field",
+      "type": "int",
+      "label": "落とし穴に落ちた時のダメージ（盾は効かない。落ちたら次の階へ）",
+      "group": "階",
+      "order": 31,
+      "min": 0,
+      "max": 20,
+      "default": 3
     },
     "thunderNeeds": {
       "kind": "field",

@@ -283,6 +283,36 @@
       "name": "sd_clink",
       "path": "assets/sfx/sd_clink.wav",
       "looping": false
+    },
+    {
+      "name": "sd_windup",
+      "path": "assets/sfx/sd_windup.wav",
+      "looping": false
+    },
+    {
+      "name": "sd_charge",
+      "path": "assets/sfx/sd_charge.wav",
+      "looping": false
+    },
+    {
+      "name": "sd_doll",
+      "path": "assets/sfx/sd_doll.wav",
+      "looping": false
+    },
+    {
+      "name": "sd_pit",
+      "path": "assets/sfx/sd_pit.wav",
+      "looping": false
+    },
+    {
+      "name": "sd_coin",
+      "path": "assets/sfx/sd_coin.wav",
+      "looping": false
+    },
+    {
+      "name": "bgm_harp",
+      "path": "assets/sfx/bgm_harp.wav",
+      "looping": true
     }
   ],
   "editor": {

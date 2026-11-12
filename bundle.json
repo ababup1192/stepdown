@@ -220,6 +220,43 @@
    "path": "assets/sfx/sd_clink.wav",
    "looping": false,
    "seconds": 0.09496598639455782
+  },
+  {
+   "name": "sd_windup",
+   "path": "assets/sfx/sd_windup.wav",
+   "looping": false,
+   "seconds": 0.18
+  },
+  {
+   "name": "sd_charge",
+   "path": "assets/sfx/sd_charge.wav",
+   "looping": false,
+   "seconds": 0.2
+  },
+  {
+   "name": "sd_doll",
+   "path": "assets/sfx/sd_doll.wav",
+   "looping": false,
+   "seconds": 0.32
+  },
+  {
+   "name": "sd_pit",
+   "path": "assets/sfx/sd_pit.wav",
+   "looping": false,
+   "seconds": 0.44
+  },
+  {
+   "name": "sd_coin",
+   "path": "assets/sfx/sd_coin.wav",
+   "looping": false,
+   "seconds": 0.24997732426303854
+  },
+  {
+   "name": "bgm_harp",
+   "path": "assets/sfx/bgm_harp.wav",
+   "looping": true,
+   "seconds": 48,
+   "loopEnd": 48
   }
  ],
  "design": {
@@ -266,13 +303,17 @@
   "assets/icons/trap_alarm.png": "assets/icons/trap_alarm.webp",
   "assets/icons/trap_arrow.png": "assets/icons/trap_arrow.webp",
   "assets/icons/trap_pit.png": "assets/icons/trap_pit.webp",
+  "assets/sfx/bgm_harp.wav": "assets/sfx/bgm_harp.webm",
   "assets/sfx/sd_arrow.wav": "assets/sfx/sd_arrow.webm",
   "assets/sfx/sd_bomb.wav": "assets/sfx/sd_bomb.webm",
   "assets/sfx/sd_bump.wav": "assets/sfx/sd_bump.webm",
   "assets/sfx/sd_card.wav": "assets/sfx/sd_card.webm",
+  "assets/sfx/sd_charge.wav": "assets/sfx/sd_charge.webm",
   "assets/sfx/sd_clink.wav": "assets/sfx/sd_clink.webm",
+  "assets/sfx/sd_coin.wav": "assets/sfx/sd_coin.webm",
   "assets/sfx/sd_defeat.wav": "assets/sfx/sd_defeat.webm",
   "assets/sfx/sd_discard.wav": "assets/sfx/sd_discard.webm",
+  "assets/sfx/sd_doll.wav": "assets/sfx/sd_doll.webm",
   "assets/sfx/sd_eat.wav": "assets/sfx/sd_eat.webm",
   "assets/sfx/sd_fall.wav": "assets/sfx/sd_fall.webm",
   "assets/sfx/sd_fanfare.wav": "assets/sfx/sd_fanfare.webm",
@@ -280,12 +321,14 @@
   "assets/sfx/sd_hit.wav": "assets/sfx/sd_hit.webm",
   "assets/sfx/sd_munch.wav": "assets/sfx/sd_munch.webm",
   "assets/sfx/sd_pick.wav": "assets/sfx/sd_pick.webm",
+  "assets/sfx/sd_pit.wav": "assets/sfx/sd_pit.webm",
   "assets/sfx/sd_potion.wav": "assets/sfx/sd_potion.webm",
   "assets/sfx/sd_puff.wav": "assets/sfx/sd_puff.webm",
   "assets/sfx/sd_stairs.wav": "assets/sfx/sd_stairs.webm",
   "assets/sfx/sd_step.wav": "assets/sfx/sd_step.webm",
   "assets/sfx/sd_strike.wav": "assets/sfx/sd_strike.webm",
   "assets/sfx/sd_upgrade.wav": "assets/sfx/sd_upgrade.webm",
+  "assets/sfx/sd_windup.wav": "assets/sfx/sd_windup.webm",
   "font-atlas/default.fontatlas": "font-atlas/default.fontatlas-webp"
  },
  "splash": {

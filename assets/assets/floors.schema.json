@@ -14,7 +14,7 @@
         },
         "rows": {
           "type": "grid",
-          "label": "文字の地図（# 壁 t 松明 . 部屋 , 通路 @ 始まり P 柱 r 岩 ~ 水 > 階段 ^ 毒矢 ! 警報 o 落とし穴 % 食べ物の候補 $ 物の候補 & 銀の剣か盾）",
+          "label": "文字の地図（# 壁 t 松明 . 部屋 , 通路 @ 始まり P 柱 r 岩 ~ 水 > 階段 ^ 毒矢 ! 警報 o 落とし穴 % 食べ物の候補 $ 物の候補 & 銀の剣か盾 * コインの候補）",
           "order": 2,
           "required": true
         }
@@ -44,7 +44,9 @@
               "Bat": { "type": "int", "label": "コウモリ", "order": 2, "min": 0 },
               "Archer": { "type": "int", "label": "弓兵", "order": 3, "min": 0 },
               "Swarm": { "type": "int", "label": "群れ（小ゼリー 3 体の組の数）", "order": 4, "min": 0 },
-              "Shield": { "type": "int", "label": "盾持ち", "order": 5, "min": 0 }
+              "Shield": { "type": "int", "label": "盾持ち", "order": 5, "min": 0 },
+              "Charger": { "type": "int", "label": "突進", "order": 6, "min": 0 },
+              "Bomber": { "type": "int", "label": "自爆虫", "order": 7, "min": 0 }
             }
           },
           "label": "敵の数",
@@ -75,7 +77,9 @@
                 "Pebble",
                 "Smoke",
                 "IronBall",
-                "Thunder"
+                "Thunder",
+                "Doll",
+                "Coin"
               ]
             }
           },
@@ -95,6 +99,13 @@
           "order": 9,
           "min": 0.0,
           "max": 1.0
+        },
+        "coinOdds": {
+          "type": {
+            "list": "float"
+          },
+          "label": "ちいさなコインを 0 枚・1 枚・2 枚…置く重み",
+          "order": 10
         }
       }
     }
