@@ -46,7 +46,7 @@ mod TestFloor {
     /// 階には floors の Doc の数だけ敵を置く。
     @Test
     def testFloorPlacesTheEnemyCountsFromTheDoc(): Unit \ Assert + Fs.FileRead =
-        let made = Floor.create(docs(), layouts(), 1i64, 1);
+        let made = Floor.begin(docs(), layouts(), 1i64);
         Assert.assertEq(expected = FloorsDoc.floorOf(1, docs()#floors) |> Option.map(f -> f#jelly + f#bat + f#archer + f#swarm),
             Some(List.length(Run.enemiesOf(made))))
 
@@ -54,13 +54,13 @@ mod TestFloor {
     @Test
     def testFoodIsAddedToTheFixedItems(): Unit \ Assert + Fs.FileRead =
         let floors = Fixtures.floorsWith("{\"floors\": [{\"floor\": 1, \"maps\": [\"1a\"], \"items\": [\"Herb\"], \"breadOdds\": [0.0, 0.0, 1.0], \"meatChance\": 1.0}]}");
-        let made = Floor.create({ floors = floors | docs() }, Floor.layoutsOf(floors)#layouts, 1i64, 1);
+        let made = Floor.begin({ floors = floors | docs() }, Floor.layoutsOf(floors)#layouts, 1i64);
         Assert.assertEq(expected = (4, Set#{Item.Kind.Herb, Item.Kind.Bread, Item.Kind.Meat}),
             (Map.size(Run.rec(made)#items), Run.rec(made)#items |> Map.valuesOf |> List.toSet))
 
     /// 同じ種からは同じ階（地図・敵・アイテム）。
     @Test
     def testSameSeedMakesTheSameFloor(): Unit \ Assert + Fs.FileRead =
-        Assert.assertEq(expected = Run.fingerprint(Floor.create(docs(), layouts(), 42i64, 1)),
-            Run.fingerprint(Floor.create(docs(), layouts(), 42i64, 1)))
+        Assert.assertEq(expected = Run.fingerprint(Floor.begin(docs(), layouts(), 42i64)),
+            Run.fingerprint(Floor.begin(docs(), layouts(), 42i64)))
 }

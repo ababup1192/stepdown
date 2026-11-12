@@ -1,6 +1,6 @@
 // Step — 1 手を Run に当てる（純粋）。
 //   1. 主人公の手（8 方向。角は抜けない）: 敵がいれば殴る（移動しない）・歩けないか角なら何も起きない（手は進まない）・それ以外は動いて拾う。
-//      待つは「その場に動いた」とみなし、階段の上なら降りる（その手はそこで終わる）。
+//      待つは「その場に動いた」とみなし、階段の上なら降りる（その手はそこで終わる。最後の階なら Cleared）。
 //   2. 動いたか待った後、その位置で 1 つだけ判定する: 爆弾（攻撃できる隣の起きた敵が bombNeeds 以上）→ 矢 → 小石（直線の射程の起きた敵）
 //      → 煙玉（隣の起きた敵が bombNeeds 以上か、1 体以上で HP が smokeAt 以下）。
 //   拾う: 枠は slotCount まで。埋まっていて 4 種類目なら床に残して捨てるカード（pending）を積む。手は最後まで進め、Choose で答える。
@@ -59,7 +59,7 @@ mod Step {
 
     def waitHere(ctx: Ctx, r: Run.Rec): (Run.State, List[Event]) =
         if (Board.tileAt(r#hero#at, ctx#board) == Board.Tile.Stairs)
-            finish(ctx, begin({ status = Status.Descended | r }) |> emit(Event.Descended))
+            finish(ctx, begin({ status = if (r#floor >= RulesDoc.rec(ctx#rules)#lastFloor) Status.Cleared else Status.Descended | r }) |> emit(Event.Descended))
         else begin({ declined = None | r }) |> emit(Event.HeroWaited) |> pickUp(ctx) |> judge(ctx) |> enemyPhase(ctx) |> hunger(ctx) |> finish(ctx)
 
     def moveTo(ctx: Ctx, dir: Dir8, r: Run.Rec): (Run.State, List[Event]) =
@@ -357,8 +357,10 @@ mod Step {
         Board.isCornerOpen(e#at, dest, ctx#board) and Enemy.cellsAt(dest, e#size) |> Set.forAll(c ->
             passable(c) and c != r#hero#at and Map.get(c, occupied) |> Option.forAll(other -> other#id == e#id))
 
+    /// 敵が自分で歩く（向きを歩いた向きにする）。
     def moveEnemy(e: Enemy.Enemy, dest: Cell, t: Turn): Turn =
-        t |> setEnemy({ at = dest | e }) |> emit(Event.EnemyMoved(e#id, e#at, dest))
+        let facing = Board.dirTo(e#at, dest) |> Option.getWithDefault(e#facing);
+        t |> setEnemy({ at = dest, facing = facing | e }) |> emit(Event.EnemyMoved(e#id, e#at, dest))
 
     // ══════════════════════════════════════════════════════
     // 敵が起きる・敵の手番
@@ -402,16 +404,21 @@ mod Step {
             act(ctx, dist, counted, setEnemy(counted, t))
     }
 
+    /// 主人公へ攻撃が届けば当て（届くかは Run.attackOn だけで決める）、届かなければ動く。
     def act(ctx: Ctx, dist: Map[Cell, Int32], e: Enemy.Enemy, t: Turn): Turn =
-        if (isBeside(ctx, e, t#runState#hero#at)) attackHero(ctx, e, false, t)
-        else match Enemy.behaviourOf(e#kind) {
-            case Enemy.Behaviour.Chase   => chase(ctx, dist, e, t)
-            case Enemy.Behaviour.Flutter => flutter(ctx, e, t)
-            case Enemy.Behaviour.Shoot   => archer(ctx, dist, e, t)
-        }
+        let blockers = Run.occupancy(t#runState#enemies) |> Map.filter(other -> other#id != e#id) |> Map.keysOf;
+        Run.attackOn(ctx, blockers, e, t#runState#hero#at)
+            |> Option.map(attack -> attackHero(ctx, e, attack, t))
+            |> Option.getWithDefault(moveBy(ctx, dist, e, t))
 
-    /// 主人公が e の 8 近傍の隣にいて、間の角が抜けている（e が攻撃できる隣）。
-    def isBeside(ctx: Ctx, e: Enemy.Enemy, heroAt: Cell): Bool = Run.canReach(ctx, e, heroAt)
+    def moveBy(ctx: Ctx, dist: Map[Cell, Int32], e: Enemy.Enemy, t: Turn): Turn = match Enemy.behaviourOf(e#kind) {
+        case Enemy.Behaviour.Chase   => chase(ctx, dist, e, t)
+        case Enemy.Behaviour.Flutter => flutter(ctx, e, t)
+        case Enemy.Behaviour.Shoot   => align(ctx, dist, e, t)
+    }
+
+    /// 主人公が e の殴れる隣にいるか。
+    def isBeside(ctx: Ctx, e: Enemy.Enemy, heroAt: Cell): Bool = Run.isBeside(ctx, e, heroAt)
 
     /// 歩く距離 toward が 1 少ない隣へ 1 マス寄る。同点は 上・右上・右・右下・下・左下・左・左上、塞がっていれば次の同点、無ければ fallback。
     def stepDown(ctx: Ctx, toward: Map[Cell, Int32], e: Enemy.Enemy, fallback: Turn, t: Turn): Turn =
@@ -435,24 +442,6 @@ mod Step {
             List.drop(i, options) |> List.head |> Option.map(next -> moveEnemy(e, next, moved)) |> Option.getWithDefault(moved)
         }
 
-    /// 列がそろい、距離 arrowMin..arrowMax で間が空いていれば撃つ。撃てなければ、主人公を射線に入れるマス（8 方向の道）へ寄る。
-    def archer(ctx: Ctx, dist: Map[Cell, Int32], e: Enemy.Enemy, t: Turn): Turn =
-        let rules = RulesDoc.rec(ctx#rules);
-        let heroAt = t#runState#hero#at;
-        match Board.lineTo(e#at, heroAt) {
-            case Some((dir, k)) if k >= rules#arrowMin and k <= rules#arrowMax and isLineClear(ctx, t#runState, dir, e#at, k) =>
-                attackHero(ctx, e, true, t)
-            case _ => align(ctx, dist, e, t)
-        }
-
-    /// from から dir へ 1..k-1 マスに、矢を止めるマスも敵も無い。
-    def isLineClear(ctx: Ctx, r: Run.Rec, dir: Dir, origin: Cell, k: Int32): Bool =
-        let occupied = Run.occupancy(r#enemies);
-        List.range(1, k) |> List.forAll(i -> {
-            let cell = Board.ahead(dir, i, origin);
-            not Board.stopsArrow(cell, ctx#board) and not Map.memberOf(cell, occupied)
-        })
-
     /// 主人公を射線に入れる歩けるマス（主人公から 4 方向・距離 arrowMin..arrowMax・矢を止めるマスの手前まで）への歩く距離で 1 マス寄る。
     /// もう射線のマスにいる（間を敵が塞いでいる）・寄れない時は主人公へ寄る。
     def align(ctx: Ctx, dist: Map[Cell, Int32], e: Enemy.Enemy, t: Turn): Turn =
@@ -466,8 +455,8 @@ mod Step {
     // 主人公が受ける・薬・倒れる・自然回復
     // ══════════════════════════════════════════════════════
 
-    /// e の攻撃を受ける（shot は弓兵の矢）。盾の守りと補正を引き、銀の盾はたまに弾く。
-    def attackHero(ctx: Ctx, e: Enemy.Enemy, shot: Bool, t: Turn): Turn =
+    /// e の攻撃を受ける。盾の守りと補正を引き、銀の盾はたまに弾く。
+    def attackHero(ctx: Ctx, e: Enemy.Enemy, attack: Run.Attack, t: Turn): Turn =
         let r = t#runState;
         let guard = r#hero#shield |> Option.map(kind -> ItemsDoc.statsOf(kind, ctx#items)#guard) |> Option.getWithDefault(0);
         let amount = Int32.max(0, EnemiesDoc.statsOf(e#kind, ctx#enemies)#attack - guard);
@@ -475,6 +464,7 @@ mod Step {
             |> Option.map(kind -> ItemsDoc.statsOf(kind, ctx#items)#deflect) |> Option.getWithDefault(0.0);
         let (deflected, rng) = if (chance > 0.0) Rng.chance(chance, r#rng) else (false, r#rng);
         let taken = if (deflected) 0 else amount;
+        let shot = attack == Run.Attack.Shot;
         let aimed = if (shot) emit(Event.EnemyShot(e#id, e#at, r#hero#at), t) else t;
         let source = if (shot) Source.Arrow(e#id) else Source.Melee(e#id);
         aimed

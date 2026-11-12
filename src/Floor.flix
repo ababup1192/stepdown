@@ -1,6 +1,7 @@
 // Floor — 階を作る: floors の Doc の地図から盤を組み（地図ごとに 1 回）、種から地図と敵・アイテムの置き場を選んで Run にする（純粋）。
 // 乱数は地図の選び・食べ物の数・置き場だけ。種は Rng.mix(周回の種, 階)。敵は始まりから歩いて enemyMinSteps 以上、アイテムは床だけ（階段と始まりには置かない）。
-// 食べ物（パンの数は breadOdds の重み・肉は meatChance）は floors の Doc の items の後ろに足して、ほかのアイテムと同じく置く。
+// 食べ物（パンの数は breadOdds の重み・肉は meatChance）は、字の候補が無い盤では floors の Doc の items の後ろに足してほかのアイテムと同じく置き、
+// 字の候補がある盤では食べ物の候補（%）から選ぶ。罠は地図の字のまま。
 mod Floor {
 
     use Board.Cell
@@ -45,35 +46,67 @@ mod Floor {
         let r = Run.rec(runState);
         { rules = docs#rules, items = docs#items, enemies = docs#enemies, cards = docs#cards, board = boardOf(layouts, r#floor, r#layout) }
 
-    /// 周回の種 seed で floor 階を作る（同じ種と Doc からは同じ階）。
-    pub def create(docs: Docs, layouts: Layouts, seed: Int64, floor: Int32): Run.State =
-        let (layout, rng) = Rng.below(layoutCount(floor, layouts), Rng.mix(seed, Int32.toInt64(floor)));
-        createOn(docs, layouts, { seed = seed, floor = floor, layout = layout }, rng)
+    /// 周回の種 seed で 1F から潜り始める（同じ種と Doc からは同じ階）。
+    pub def begin(docs: Docs, layouts: Layouts, seed: Int64): Run.State = arrive(docs, layouts, seed, 1, None)
 
-    /// 地図の番号を決めて階を作る（rng はその後の置き場に使う乱数の状態）。
+    /// prev を持ち越して floor 階に入る（地図と置き場は周回の種と階の番号だけで決まる。Doc を保存した時は今の階で呼ぶ）。
+    pub def enter(docs: Docs, layouts: Layouts, prev: Run.State, floor: Int32): Run.State =
+        arrive(docs, layouts, Run.rec(prev)#seed, floor, Some(prev))
+
+    def arrive(docs: Docs, layouts: Layouts, seed: Int64, floor: Int32, prev: Option[Run.State]): Run.State =
+        let (layout, rng) = Rng.below(layoutCount(floor, layouts), Rng.mix(seed, Int32.toInt64(floor)));
+        arriveOn(docs, layouts, { seed = seed, floor = floor, layout = layout }, rng, prev)
+
+    /// 地図の番号を決めて、潜りの始めとしてその階を作る（rng はその後の置き場に使う乱数の状態）。
     pub def createOn(docs: Docs, layouts: Layouts, at: { seed = Int64, floor = Int32, layout = Int32 }, rng: Int64): Run.State =
+        arriveOn(docs, layouts, at, rng, None)
+
+    def arriveOn(docs: Docs, layouts: Layouts, at: { seed = Int64, floor = Int32, layout = Int32 }, rng: Int64, prev: Option[Run.State]): Run.State =
         let (floor, layout, seed) = (at#floor, at#layout, at#seed);
         let board = boardOf(layouts, floor, layout);
         let ctx = { rules = docs#rules, items = docs#items, enemies = docs#enemies, cards = docs#cards, board = board };
         let (placement, rest) = placementOf(docs, floor, board, rng);
-        Run.start(ctx, { floor = floor, layout = layout, seed = seed, rng = rest }, placement)
+        let arrival = { floor = floor, layout = layout, seed = seed, rng = rest };
+        match prev {
+            case Some(before) => Run.enter(before, ctx, arrival, placement)
+            case None         => Run.start(ctx, arrival, placement)
+        }
 
-    /// 敵とアイテムの置き場を選ぶ。
+    /// 敵とアイテムの置き場を選ぶ。罠と物の候補を字で置いた盤は字のとおりに、そうでない盤は物を乱数で床に置く。
     def placementOf(docs: Docs, floor: Int32, board: Board.Board, rng: Int64): (Run.Placement, Int64) =
         let plan = FloorsDoc.floorOf(floor, docs#floors);
         let kinds = Enemy.all()
-            |> List.filter(kind -> EnemiesDoc.statsOf(kind, docs#enemies)#firstFloor <= floor)
             |> List.flatMap(kind -> List.repeat(plan |> Option.map(FloorsDoc.enemyCount(kind)) |> Option.getWithDefault(0), kind));
-        let fixed = plan |> Option.map(f -> f#items) |> Option.getWithDefault(Nil);
         let dist = Board.walkDistances(board#start, board);
-        let open = Board.cells(board) |> List.filter(c -> Board.tileAt(c, board) == Board.Tile.Floor and c != board#start and Map.memberOf(c, dist));
+        let marked = Set.union(Map.keysOf(board#traps), Map.keysOf(board#spots));
+        let open = Board.cells(board) |> List.filter(c -> Board.tileAt(c, board) == Board.Tile.Floor and c != board#start and Map.memberOf(c, dist) and not Set.memberOf(c, marked));
         let far = open |> List.filter(c -> Map.getWithDefault(c, 0, dist) >= RulesDoc.rec(docs#rules)#enemyMinSteps);
         let (enemyCells, afterEnemies) = Rng.pick(List.length(kinds), far, rng);
         let (food, afterFood) = plan |> Option.map(f -> foodOf(f, afterEnemies)) |> Option.getWithDefault((Nil, afterEnemies));
-        let items = fixed ::: food;
-        let taken = List.toSet(enemyCells);
-        let (itemCells, afterItems) = Rng.pick(List.length(items), open |> List.filter(c -> not Set.memberOf(c, taken)), afterFood);
-        ({ enemies = List.zip(kinds, enemyCells), items = List.zip(items, itemCells) }, afterItems)
+        let fixed = plan |> Option.map(f -> f#items) |> Option.getWithDefault(Nil);
+        let (items, afterItems) =
+            if (Board.hasSpots(board)) itemsOnSpots(board, food, fixed, afterFood)
+            else scatter(open |> List.filter(c -> not List.memberOf(c, enemyCells)), fixed ::: food, afterFood);
+        ({ enemies = List.zip(kinds, enemyCells), items = items, traps = board#traps }, afterItems)
+
+    /// 物を床の空いたマスへ乱数で置く。
+    def scatter(free: List[Cell], items: List[Item.Kind], rng: Int64): (List[(Item.Kind, Cell)], Int64) =
+        let (cells, rest) = Rng.pick(List.length(items), free, rng);
+        (List.zip(items, cells), rest)
+
+    /// 物を字の候補へ置く: 食べ物は食べ物の候補から、items は物の候補の数まで重複なしで引き、銀の候補には銀の剣か銀の盾。
+    def itemsOnSpots(board: Board.Board, food: List[Item.Kind], fixed: List[Item.Kind], rng: Int64): (List[(Item.Kind, Cell)], Int64) =
+        let (foodCells, afterFood) = Rng.pick(List.length(food), Board.spotsOf(Board.Spot.Food, board), rng);
+        let itemSpots = Board.spotsOf(Board.Spot.Item, board);
+        let count = Int32.min(List.length(itemSpots), List.length(fixed));
+        let (itemCells, afterCells) = Rng.pick(count, itemSpots, afterFood);
+        let (drawn, afterDrawn) = Rng.pick(count, fixed, afterCells);
+        let (silvers, afterSilver) = Board.spotsOf(Board.Spot.Silver, board) |> List.foldLeft((acc, cell) -> {
+            let (placed, state) = acc;
+            let (i, next) = Rng.below(2, state);
+            ((if (i == 0) Item.Kind.SilverSword else Item.Kind.SilverShield, cell) :: placed, next)
+        }, (Nil, afterDrawn));
+        (List.zip(food, foodCells) ::: List.zip(drawn, itemCells) ::: List.reverse(silvers), afterSilver)
 
     /// 階に置く食べ物: パン（breadOdds の重みで 0, 1, 2… 個）と、meatChance で肉 1 つ。
     def foodOf(plan: FloorsDoc.FloorDef, rng: Int64): (List[Item.Kind], Int64) =

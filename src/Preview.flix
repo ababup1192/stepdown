@@ -1,5 +1,5 @@
 // Preview — 1 手の出来事の要約（summarize）と、方向の予告（preview = 本物の step を回して要約するだけ）と、敵の予告（dangerCells）。
-// 予告専用の判定は書かない。敵の予告は「主人公の手の後にここにいたら当たるマス」で、当たる側に倒す（敵を倒した場合だけ外れる）。
+// 予告専用の判定は書かない（敵の攻撃が届くかは Run.attackOn）。敵の予告は「主人公の手の後にここにいたら当たるマス」で、当たる側に倒す（敵を倒した場合だけ外れる）。
 mod Preview {
 
     use Board.Cell
@@ -99,15 +99,13 @@ mod Preview {
         case Enemy.Rest.Dozing(_) => Set.empty()
     }
 
-    /// e が今の位置から攻撃を届かせるマス。
+    /// e が今の位置から攻撃を届かせるマス（Run.attackOn が届くと言うマス。矢は敵では止めない）。
     def reachOf(ctx: Ctx, e: Enemy.Enemy): Set[Cell] =
-        let own = Enemy.cellsOf(e);
-        let beside = own |> Set.toList |> List.flatMap(Board.neighbors8) |> List.toSet
-            |> Set.filter(c -> not Set.memberOf(c, own) and Run.canReach(ctx, e, c));
-        if (Enemy.behaviourOf(e#kind) == Enemy.Behaviour.Shoot) Set.union(beside, lineOfFire(ctx, e#at)) else beside
-
-    def lineOfFire(ctx: Ctx, origin: Cell): Set[Cell] =
-        Board.dirs() |> List.flatMap(dir -> laneOf(ctx, dir, origin)) |> List.toSet
+        let far = Int32.max(1, RulesDoc.rec(ctx#rules)#arrowMax);
+        let (x, y) = e#at;
+        List.range(x - far, x + e#size + far) |> List.flatMap(cx -> List.range(y - far, y + e#size + far) |> List.map(cy -> (cx, cy)))
+            |> List.filter(c -> not Set.memberOf(c, Enemy.cellsOf(e)) and Option.nonEmpty(Run.attackOn(ctx, Set.empty(), e, c)))
+            |> List.toSet
 
     def laneOf(ctx: Ctx, dir: Board.Dir, origin: Cell): List[Cell] = Board.lane(RulesDoc.reachOf(ctx#rules), dir, origin, ctx#board)
 

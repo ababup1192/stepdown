@@ -31,8 +31,14 @@ mod Enemy {
         case Dozing(Int32)
     }
 
+    /// 次の手番に当てる技の溜め（溜めている間は、隣でも殴らずにこれだけを実行する）。
+    ///   Idle … 溜めていない
+    pub enum Intent with Eq, ToString {
+        case Idle
+    }
+
     /// 敵 1 体。id は作った順の番号（同点の時に先に動く）。turns は起きて手番を迎えた数、burn は燃える残りの手の数。
-    /// size はマスの幅（ボスの 2×2 に備える。at は左上）。
+    /// size はマスの幅（ボスの 2×2 に備える。at は左上）。facing は最後に歩いた向き（殴る時は変えない）。
     pub type alias Enemy = {
         id = Int32,
         kind = Kind,
@@ -41,8 +47,14 @@ mod Enemy {
         hp = Int32,
         rest = Rest,
         turns = Int32,
-        burn = Int32
+        burn = Int32,
+        facing = Board.Dir8,
+        intent = Intent
     }
+
+    /// 階の始めの敵（眠っていて、下を向き、溜めていない）。hp は enemies の Doc の強さ。
+    pub def make(id: Int32, kind: Kind, at: Cell, hp: Int32): Enemy =
+        { id = id, kind = kind, at = at, size = 1, hp = hp, rest = Rest.Dormant, turns = 0, burn = 0, facing = Board.Dir8.Down, intent = Intent.Idle }
 
     /// 全部の種類。
     pub def all(): List[Kind] = Kind.Jelly :: Kind.Bat :: Kind.Archer :: Kind.Swarm :: Nil

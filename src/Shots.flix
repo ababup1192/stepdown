@@ -97,8 +97,7 @@ mod Shots {
     def staged(res: Res.Res, hero: Cell, pack: Run.Pack, foes: List[(Enemy.Kind, Cell)], w: World.World): World.World =
         let r = Run.rec(w#runState);
         let enemies = foes |> List.zipWithIndex |> List.map(match (i, (kind, cell)) ->
-            { id = i, kind = kind, at = cell, size = 1, hp = EnemiesDoc.statsOf(kind, res#enemies)#hp,
-              rest = Enemy.Rest.Awake, turns = 0, burn = 0 });
+            { rest = Enemy.Rest.Awake | Enemy.make(i, kind, cell, EnemiesDoc.statsOf(kind, res#enemies)#hp) });
         World.withState(res, Run.of({ hero = { at = hero | r#hero }, pack = pack, enemies = enemies, items = Map.empty(), nextId = List.length(enemies) | r }), w)
 
     /// 名前 → その場面の World。names と対で保つ。

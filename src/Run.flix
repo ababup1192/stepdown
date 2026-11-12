@@ -50,11 +50,14 @@ mod Run {
     /// 予告を作る 9 つの入力（8 方向＋待つ）。
     pub def inputs(): List[Input] = (Board.dirs8() |> List.map(Input.Move)) ::: (Input.Wait :: Nil)
 
-    /// 潜りの状態。Dead と Descended では手を受けない。
+    /// 潜りの状態。Playing の外では手を受けない。
+    ///   Descended … 階段で降りた（次の階は Floor.enter で作る）
+    ///   Cleared   … 最後の階（rules の lastFloor）の階段で降りた
     pub enum Status with Eq, ToString {
         case Playing
         case Dead
         case Descended
+        case Cleared
     }
 
     /// 主人公。sword・shield は持っている段（無ければ None）。
@@ -79,6 +82,7 @@ mod Run {
     ///   layout  … その階の地図の番号（floors の Doc の maps の何番目か）
     ///   enemies … 生きている敵（作った順）
     ///   items   … 床のアイテム
+    ///   traps   … 罠のマス
     ///   seen    … 見たマス（霧）
     ///   rng     … 乱数の状態
     ///   seed    … 周回の種（階の種はここと階の番号から作る）
@@ -96,6 +100,7 @@ mod Run {
         pack = Pack,
         enemies = List[Enemy.Enemy],
         items = Map[Cell, Item.Kind],
+        traps = Map[Cell, Trap.Kind],
         seen = Set[Cell],
         rng = Int64,
         seed = Int64,
@@ -197,22 +202,38 @@ mod Run {
     }
 
     /// 階の始めの置き場。
-    pub type alias Placement = { enemies = List[(Enemy.Kind, Cell)], items = List[(Item.Kind, Cell)] }
+    pub type alias Placement = { enemies = List[(Enemy.Kind, Cell)], items = List[(Item.Kind, Cell)], traps = Map[Cell, Trap.Kind] }
 
-    /// 階の始めの決まりの状態（主人公は始まりの印に全快で立ち、敵は全員眠っている）。
-    pub def start(ctx: Ctx, at: { floor = Int32, layout = Int32, seed = Int64, rng = Int64 }, placement: Placement): State =
-        let maxHp = RulesDoc.rec(ctx#rules)#maxHp;
+    /// 階の番号と、その階を作った乱数。
+    pub type alias Arrival = { floor = Int32, layout = Int32, seed = Int64, rng = Int64 }
+
+    /// 潜りの始め（1F）: 主人公は全快・満腹で何も持たない。
+    pub def start(ctx: Ctx, at: Arrival, placement: Placement): State =
+        let rules = RulesDoc.rec(ctx#rules);
+        let fresh = { floor = at#floor, layout = at#layout,
+                      hero = { at = ctx#board#start, hp = rules#maxHp, maxHp = rules#maxHp, sword = None, shield = None },
+                      pack = Nil, enemies = Nil, items = Map.empty(), traps = Map.empty(), seen = Set.empty(), rng = at#rng, seed = at#seed,
+                      perks = Nil, level = 1, exp = 0, walked = 0, turns = 0, fullness = rules#fullnessMax,
+                      pending = Nil, declined = None, nextId = 0, status = Status.Playing };
+        enter(of(fresh), ctx, at, placement)
+
+    /// 次の階へ（Doc を保存した時は同じ階を作り直す）: 主人公の HP・満腹度・経験値とレベル・カード・枠・剣と盾・レベルアップの選ぶ場面・数えた手は持ち越す。
+    /// 主人公は始まりの印に立ち、敵は全員眠っている。床の物・罠・霧・捨てるカード・拾わなかった物のマスは前の階の物なので捨てる。
+    pub def enter(prev: State, ctx: Ctx, at: Arrival, placement: Placement): State =
+        let r = rec(prev);
         let enemies = placement#enemies |> List.zipWithIndex |> List.map(match (i, (kind, cell)) ->
-            { id = i, kind = kind, at = cell, size = 1, hp = EnemiesDoc.statsOf(kind, ctx#enemies)#hp,
-              rest = Enemy.Rest.Dormant, turns = 0, burn = 0 });
+            Enemy.make(i, kind, cell, EnemiesDoc.statsOf(kind, ctx#enemies)#hp));
         let start = ctx#board#start;
-        of({ floor = at#floor, layout = at#layout,
-                  hero = { at = start, hp = maxHp, maxHp = maxHp, sword = None, shield = None },
-                  pack = Nil,
-                  enemies = enemies, items = List.toMap(placement#items |> List.map(match (kind, cell) -> (cell, kind))),
-                  seen = Board.viewFrom(start, ctx#board), rng = at#rng, seed = at#seed,
-                  perks = Nil, level = 1, exp = 0, walked = 0, turns = 0, fullness = RulesDoc.rec(ctx#rules)#fullnessMax,
-                  pending = Nil, declined = None, nextId = List.length(enemies), status = Status.Playing })
+        of({ floor = at#floor, layout = at#layout, hero = { at = start | r#hero },
+             enemies = enemies, items = List.toMap(placement#items |> List.map(match (kind, cell) -> (cell, kind))), traps = placement#traps,
+             seen = Board.viewFrom(start, ctx#board), rng = at#rng, seed = at#seed,
+             pending = r#pending |> List.filter(isLevelUp), declined = None, nextId = List.length(enemies), status = Status.Playing | r })
+
+    /// レベルアップの選ぶ場面か。
+    pub def isLevelUp(choice: Choice): Bool = match choice {
+        case Choice.LevelUp(_) => true
+        case Choice.Swap(_)    => false
+    }
 
     // ── 読む口 ──
 
@@ -274,8 +295,39 @@ mod Run {
             (room != 0 and Board.roomAt(c, ctx#board) == room)
                 or Map.get(c, dist) |> Option.exists(steps -> steps <= near))
 
-    /// e が今の位置から cell を攻撃できるか: e のどれかのマスの 8 近傍の隣で、間の角が抜けている。
-    pub def canReach(ctx: Ctx, e: Enemy.Enemy, cell: Cell): Bool =
+    /// 敵の攻撃の種類。
+    ///   Melee … 隣を殴る
+    ///   Shot  … 弓兵の矢
+    pub enum Attack with Eq, ToString {
+        case Melee
+        case Shot
+    }
+
+    /// e が今の位置から cell へ当てる攻撃（届かなければ None）。敵の手番（Step）と敵の予告（Preview）はどちらもこれだけを見る。
+    ///   殴る … e のどれかのマスの 8 近傍の隣で、間の角が抜けている
+    ///   矢   … 弓兵で、上下左右の列がそろい距離 arrowMin..arrowMax、間に矢を止めるマスも blockers も無い
+    /// blockers は矢を止める敵のマス。予告は敵が動いた後も当たる側に倒すので空で渡す。
+    pub def attackOn(ctx: Ctx, blockers: Set[Cell], e: Enemy.Enemy, cell: Cell): Option[Attack] = match e#intent {
+        case Enemy.Intent.Idle =>
+            if (isBeside(ctx, e, cell)) Some(Attack.Melee)
+            else if (Enemy.behaviourOf(e#kind) == Enemy.Behaviour.Shoot and isInLine(ctx, blockers, e#at, cell)) Some(Attack.Shot)
+            else None
+    }
+
+    /// origin から cell へ上下左右の列がそろい、距離 arrowMin..arrowMax で、間に矢を止めるマスも blockers も無いか。
+    def isInLine(ctx: Ctx, blockers: Set[Cell], origin: Cell, cell: Cell): Bool =
+        let rules = RulesDoc.rec(ctx#rules);
+        match Board.lineTo(origin, cell) {
+            case Some((dir, k)) if k >= rules#arrowMin and k <= rules#arrowMax =>
+                List.range(1, k) |> List.forAll(i -> {
+                    let between = Board.ahead(dir, i, origin);
+                    not Board.stopsArrow(between, ctx#board) and not Set.memberOf(between, blockers)
+                })
+            case _ => false
+        }
+
+    /// cell が e のどれかのマスの 8 近傍の隣で、間の角が抜けているか（e が殴れる隣）。
+    pub def isBeside(ctx: Ctx, e: Enemy.Enemy, cell: Cell): Bool =
         Enemy.cellsOf(e) |> Set.exists(c -> c != cell and Board.isStepOpen(c, cell, ctx#board))
 
     /// 起きていて主人公に気付ける敵がいるか（ダッシュが止まる・1 歩だけになる）。
@@ -287,6 +339,6 @@ mod Run {
     /// 進行に効く欄の指紋（記録の再生・flow が比べる）。
     pub def fingerprint(runState: State): String =
         let r = rec(runState);
-        let enemies = r#enemies |> List.map(e -> "${e#id}:${e#kind}@${e#at}/${e#hp}/${e#rest}") |> List.join(",");
-        "F${r#floor}.${r#layout}|${r#status}|hero=${r#hero#at}/${r#hero#hp}|sword=${r#hero#sword}|shield=${r#hero#shield}|pack=${r#pack}|enemies=${enemies}|items=${r#items}|walked=${r#walked}|turns=${r#turns}|fullness=${r#fullness}|pending=${r#pending}|declined=${r#declined}|level=${r#level}/${r#exp}|perks=${r#perks}"
+        let enemies = r#enemies |> List.map(e -> "${e#id}:${e#kind}@${e#at}/${e#hp}/${e#rest}/t${e#turns}/b${e#burn}/${e#facing}/${e#intent}") |> List.join(",");
+        "F${r#floor}.${r#layout}|${r#status}|hero=${r#hero#at}/${r#hero#hp}|sword=${r#hero#sword}|shield=${r#hero#shield}|pack=${r#pack}|enemies=${enemies}|items=${r#items}|traps=${r#traps}|walked=${r#walked}|turns=${r#turns}|fullness=${r#fullness}|pending=${r#pending}|declined=${r#declined}|level=${r#level}/${r#exp}|perks=${r#perks}"
 }

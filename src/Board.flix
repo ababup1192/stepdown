@@ -58,6 +58,8 @@ mod Board {
     ///   views   … 部屋の番号 → 入った時に見たことにするマス（部屋と、それを囲む壁）
     ///   start   … 主人公の始まり
     ///   torches … 松明の印（壁のマス）
+    ///   traps   … 罠のマス（部屋の床）
+    ///   spots   … 物を置いてよいマスの候補（部屋の床）
     pub type alias Board = {
         cols = Int32,
         rows = Int32,
@@ -65,26 +67,42 @@ mod Board {
         rooms = Map[Cell, Int32],
         views = Map[Int32, Set[Cell]],
         start = Cell,
-        torches = Set[Cell]
+        torches = Set[Cell],
+        traps = Map[Cell, Trap.Kind],
+        spots = Map[Cell, Spot]
+    }
+
+    /// 物を置いてよいマスの候補の種類（何を置くかは Floor が乱数で決める）。
+    ///   Food   … パン・肉の候補（floors の breadOdds・meatChance で引いた数だけ選ぶ）
+    ///   Item   … floors の items から重複なしで引いた物の候補
+    ///   Silver … 銀の剣か銀の盾のどちらか
+    pub enum Spot with Eq, Order, ToString {
+        case Food
+        case Item
+        case Silver
     }
 
     /// 地図の 1 字の読み。corridor は通路の床（部屋の番号 0）。
-    type alias Glyph = { tile = Tile, corridor = Bool, start = Bool, torch = Bool }
+    type alias Glyph = { tile = Tile, corridor = Bool, start = Bool, torch = Bool, trap = Option[Trap.Kind], spot = Option[Spot] }
 
     /// 地図の字 → マス。字の一覧は floors の Doc の note にも書く。
     def glyphOf(ch: Char): Option[Glyph] =
-        let plain = tile -> Some({ tile = tile, corridor = false, start = false, torch = false });
+        let plain = tile -> { tile = tile, corridor = false, start = false, torch = false, trap = None, spot = None };
+        let spotted = spot -> Some({ spot = Some(spot) | plain(Tile.Floor) });
         match ch {
-            case '#' => plain(Tile.Wall)
-            case 't' => Some({ tile = Tile.Wall, corridor = false, start = false, torch = true })
-            case '.' => plain(Tile.Floor)
-            case ',' => Some({ tile = Tile.Floor, corridor = true, start = false, torch = false })
-            case '@' => Some({ tile = Tile.Floor, corridor = false, start = true, torch = false })
-            case 'P' => plain(Tile.Pillar)
-            case 'r' => plain(Tile.Rock)
-            case '~' => plain(Tile.Water)
-            case '>' => plain(Tile.Stairs)
-            case _   => None
+            case '#' => Some(plain(Tile.Wall))
+            case 't' => Some({ torch = true | plain(Tile.Wall) })
+            case '.' => Some(plain(Tile.Floor))
+            case ',' => Some({ corridor = true | plain(Tile.Floor) })
+            case '@' => Some({ start = true | plain(Tile.Floor) })
+            case 'P' => Some(plain(Tile.Pillar))
+            case 'r' => Some(plain(Tile.Rock))
+            case '~' => Some(plain(Tile.Water))
+            case '>' => Some(plain(Tile.Stairs))
+            case '%' => spotted(Spot.Food)
+            case '$' => spotted(Spot.Item)
+            case '&' => spotted(Spot.Silver)
+            case _   => Trap.fromGlyph(ch) |> Option.map(kind -> { trap = Some(kind) | plain(Tile.Floor) })
         }
 
     /// 文字の地図から盤を組む。長方形でない・知らない字・始まりが 1 つでない・階段が無いときは理由を返す。
@@ -113,7 +131,9 @@ mod Board {
         let views = rooms |> Map.foldLeftWithKey((acc, cell, room) ->
             Map.insertWith(Set.union, room, List.toSet(cell :: neighbors8(cell)), acc), Map.empty());
         { cols = width, rows = height, tiles = tiles, rooms = rooms, views = views, start = start,
-          torches = read |> List.filter(e -> snd(e)#torch) |> List.map(fst) |> List.toSet }
+          torches = read |> List.filter(e -> snd(e)#torch) |> List.map(fst) |> List.toSet,
+          traps = read |> List.filterMap(e -> snd(e)#trap |> Option.map(kind -> (fst(e), kind))) |> List.toMap,
+          spots = read |> List.filterMap(e -> snd(e)#spot |> Option.map(spot -> (fst(e), spot))) |> List.toMap }
 
     /// 部屋のマス（壁でも通路でもないマス）を上下左右でつながる塊に分け、読む順に 1, 2, … と番号を振る。
     def roomsOf(order: List[Cell], roomable: Set[Cell]): Map[Cell, Int32] =
@@ -159,6 +179,13 @@ mod Board {
     /// cell に立った時に見たことにするマス: 部屋の中なら部屋全体とそれを囲む壁、通路なら 8 近傍。
     pub def viewFrom(cell: Cell, b: Board): Set[Cell] =
         Map.get(roomAt(cell, b), b#views) |> Option.getWithDefault(List.toSet(cell :: neighbors8(cell)))
+
+    /// spot の候補のマス（読む順）。
+    pub def spotsOf(spot: Spot, b: Board): List[Cell] =
+        cells(b) |> List.filter(c -> Map.get(c, b#spots) == Some(spot))
+
+    /// 罠か物の候補を字で置いた盤か（置いていない盤は、物を乱数で床に置く）。
+    pub def hasSpots(b: Board): Bool = not Map.isEmpty(b#traps) or not Map.isEmpty(b#spots)
 
     /// 盤の全マス（読む順）。
     pub def cells(b: Board): List[Cell] =

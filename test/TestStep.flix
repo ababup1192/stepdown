@@ -68,12 +68,16 @@ mod TestStep {
         let (after, events) = Step.step(c, start(c, (Enemy.Kind.Jelly, (5, 1)) :: Nil, (Item.Kind.WoodArrow, (2, 1)) :: Nil), right());
         Assert.assertEq(expected = (Mark.Move :: Nil, (0, Enemy.Rest.Dormant) :: Nil), (Preview.summarize(events), Fixtures.enemyRests(after)))
 
-    /// 階段の上で待つと降りる（敵は動かない）。
+    /// 階段の上で待つと降りる（敵は動かない）。最後の階（lastFloor）の階段ならクリア。1F で lastFloor が 2 なら降りるだけ、1 ならクリア。
     @Test
-    def testWaitingOnStairsDescends(): Unit \ Assert =
-        let c = ctx("#####" :: "#@>.#" :: "#####" :: Nil);
-        let (after, events) = Step.steps(c, start(c, Nil, Nil), right() :: Input.Wait :: Nil);
-        Assert.assertEq(expected = (Run.Status.Descended, Some(Event.Descended)), (Run.statusOf(after), List.last(events)))
+    def testWaitingOnStairsDescendsOrClearsOnTheLastFloor(): Unit \ Assert =
+        let rows = "#####" :: "#@>.#" :: "#####" :: Nil;
+        let descendOn = (c: Run.Ctx) -> {
+            let (after, events) = Step.steps(c, start(c, Nil, Nil), right() :: Input.Wait :: Nil);
+            (Run.statusOf(after), List.last(events))
+        };
+        Assert.assertEq(expected = ((Run.Status.Descended, Some(Event.Descended)), (Run.Status.Cleared, Some(Event.Descended))),
+            (descendOn(Fixtures.ctxWith(Fixtures.rulesWith("{\"lastFloor\": 2}"), rows)), descendOn(Fixtures.ctxWith(Fixtures.rulesWith("{\"lastFloor\": 1}"), rows))))
 
     // ══════════════════════════════════════════════════════
     // 立ち位置の判定

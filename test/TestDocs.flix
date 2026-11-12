@@ -108,21 +108,21 @@ mod TestDocs {
     // 保存即反映の一覧表（Controls.docTable）
     // ══════════════════════════════════════════════════════
 
-    /// 1 歩進めた 1F に、docId の行の読み直しを当てた後の移動の数（行が無ければ None）。
-    def walkedAfterReload(docId: String): Option[Int32] \ IO =
+    /// 1 歩進めた 1F に、docId の行の読み直しを当てた後の (主人公が始まりの印にいるか, 移動の数)（行が無ければ None）。
+    def walkedAfterReload(docId: String): Option[(Bool, Int32)] \ IO =
         let res = Fixtures.res();
         let played = World.begin(res, World.initial(res, World.fixedSeed())) |> World.play(res, Run.Input.Move(Board.Dir8.Right));
         Controls.docTable() |> List.find(row -> row#docId == Some(docId))
             |> Option.map(row -> run { row#reload(Resources.of(res, played)) } with Fs.FileRead.runWithIO)
-            |> Option.map(h -> Run.rec(h#world#runState)#walked)
+            |> Option.map(h -> (Run.heroOf(h#world#runState)#at == World.ctx(h#resources, h#world)#board#start, Run.rec(h#world#runState)#walked))
 
-    /// 階の Doc を保存し直すと、今の階を同じ種で初めから作り直す。
+    /// 階の Doc を保存し直すと、今の階を同じ種で作り直して主人公は始まりに戻る（数えた手は持ち越す）。
     @Test
     def testFloorsReloadRebuildsTheFloor(): Unit \ {Assert, IO} =
-        Assert.assertEq(expected = Some(0), walkedAfterReload("floors"))
+        Assert.assertEq(expected = Some((true, 1)), walkedAfterReload("floors"))
 
-    /// キーの Doc を保存し直しても、今の階はそのまま。
+    /// キーの Doc を保存し直しても、今の階はそのまま（主人公は 1 歩動いた所）。
     @Test
     def testKeysReloadKeepsTheFloor(): Unit \ {Assert, IO} =
-        Assert.assertEq(expected = Some(1), walkedAfterReload("keys"))
+        Assert.assertEq(expected = Some((false, 1)), walkedAfterReload("keys"))
 }

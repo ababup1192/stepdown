@@ -22,11 +22,6 @@
           "label": "攻撃",
           "order": 3
         },
-        "firstFloor": {
-          "type": "int",
-          "label": "初出の階",
-          "order": 4
-        },
         "exp": {
           "type": "int",
           "label": "経験値",

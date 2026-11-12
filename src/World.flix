@@ -102,7 +102,7 @@ mod World {
 
     /// ゲーム開始時の状態（題名の画面。後ろに 1F の始まりを持つ）。
     pub def initial(res: Res.Res, seed: Int64): World =
-        let runState = Floor.create(Res.floorDocs(res), res#layouts, seed, 1);
+        let runState = Floor.begin(Res.floorDocs(res), res#layouts, seed);
         { runState = runState, screen = Screen.Title, shown = shownOf(runState), queued = None,
           cam = camOf(runState), clock = Clock.start(), press = None, foresight = foresightOf(res, runState),
           quit = Quit.Playing, seed = seed, realNow = Clock.zero(),
@@ -154,7 +154,7 @@ mod World {
 
     /// 周回の種で 1F を作り直して遊び始める。
     pub def begin(res: Res.Res, w: World): World =
-        let runState = Floor.create(Res.floorDocs(res), res#layouts, w#seed, 1);
+        let runState = Floor.begin(Res.floorDocs(res), res#layouts, w#seed);
         { runState = runState, screen = Screen.Play, shown = shownOf(runState), queued = None,
           foresight = foresightOf(res, runState), popups = Nil, trail = Popup.still(Run.heroOf(runState)#hp), chosen = None | w }
 
@@ -250,6 +250,7 @@ mod World {
     def settleScreen(w: World): World = match Run.statusOf(w#runState) {
         case Run.Status.Dead      => { screen = Screen.Dead, shown = { rest = Nil | w#shown } | w }
         case Run.Status.Descended => { screen = Screen.Clear, shown = { rest = Nil | w#shown } | w }
+        case Run.Status.Cleared   => { screen = Screen.Clear, shown = { rest = Nil | w#shown } | w }
         case Run.Status.Playing if isChoosing(w) => { queued = None, shown = { rest = Nil | w#shown } | w }
         case Run.Status.Playing   => w
     }
@@ -303,16 +304,11 @@ mod World {
     /// レベルアップのカードが出たらファンファーレ、選んだらカードを選ぶ音・捨てる音。
     pub def cardSounds(before: World, after: World): List[String] =
         let opened = if (after#cardsAt != before#cardsAt and after#screen == Screen.Cards) Run.pendingOf(after#runState) |> List.head else None;
-        let fanfare = opened |> Option.filter(isLevelUp) |> Option.map(_ -> "sd_fanfare") |> Option.toList;
+        let fanfare = opened |> Option.filter(Run.isLevelUp) |> Option.map(_ -> "sd_fanfare") |> Option.toList;
         let stamp = (w: World) -> w#chosen |> Option.map(c -> c#startedAt);
         let picked = if (stamp(after) != stamp(before)) after#chosen else None;
-        let pick = picked |> Option.map(c -> if (isLevelUp(c#choice)) "sd_card" else "sd_discard") |> Option.toList;
+        let pick = picked |> Option.map(c -> if (Run.isLevelUp(c#choice)) "sd_card" else "sd_discard") |> Option.toList;
         pick ::: fanfare
-
-    def isLevelUp(choice: Run.Choice): Bool = match choice {
-        case Run.Choice.LevelUp(_) => true
-        case _                     => false
-    }
 
     // ── 終了の確認 ──
 
@@ -332,10 +328,9 @@ mod World {
 
     // ── Doc の差し替え（保存即反映） ──
 
-    /// 決まり・アイテム・敵・階の Doc を保存した後: 今の階を同じ種で作り直す（予告も作り直す）。
+    /// 決まり・アイテム・敵・階の Doc を保存した後: 今の階を同じ種で作り直す（持ち越した物はそのまま・予告も作り直す）。
     pub def settle(res: Res.Res, w: World): World =
-        let floor = Run.rec(w#runState)#floor;
-        let runState = Floor.create(Res.floorDocs(res), res#layouts, Run.rec(w#runState)#seed, floor);
+        let runState = Floor.enter(Res.floorDocs(res), res#layouts, w#runState, Run.rec(w#runState)#floor);
         { runState = runState, shown = shownOf(runState), queued = None, cam = camOf(runState),
           foresight = foresightOf(res, runState), popups = Nil, trail = Popup.still(Run.heroOf(runState)#hp) | w }
 }

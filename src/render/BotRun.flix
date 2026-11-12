@@ -121,6 +121,7 @@ mod BotRun {
         match r#status {
             case Run.Status.Dead      => deadScore() - left
             case Run.Status.Descended => clearScore() + left
+            case Run.Status.Cleared   => clearScore() + left
             case Run.Status.Playing   =>
                 hpScore(r#hero) - dist * stairsWeight() + r#level * levelWeight() + r#exp * expWeight()
                 + r#fullness * fullnessWeight() + items * itemWeight()
@@ -194,7 +195,7 @@ mod BotRun {
 
     /// 種 seed の 1F を bot が limit 手まで遊んだ (最後の Run, 数え)。
     def playSeed(setup: Setup, bot: Bot, limit: Int32, seed: Int64): (Run.State, Tally) =
-        let start = Floor.create(setup#docs, setup#layouts, seed, 1);
+        let start = Floor.begin(setup#docs, setup#layouts, seed);
         play(bot, fieldOf(setup#look, Floor.ctxOf(setup#docs, setup#layouts, start)), limit, start,
              { hands = 0, stuck = 0, judged = 0, strikes = 0, rng = Rng.mix(seed, salt(bot)) })
 
@@ -218,7 +219,7 @@ mod BotRun {
     def report(bot: Bot, fullnessMax: Int32, outcomes: List[Outcome]): String =
         let n = List.length(outcomes);
         let has = status -> outcomes |> List.filter(o -> o#status == status);
-        let (cleared, dead) = (has(Run.Status.Descended), has(Run.Status.Dead));
+        let (cleared, dead) = (has(Run.Status.Cleared), has(Run.Status.Dead));
         let cut = n - List.length(cleared) - List.length(dead);
         let top = outcomes |> List.map(o -> o#level) |> List.maximum |> Option.getWithDefault(1);
         let levels = List.range(1, top + 1) |> List.map(lv -> "Lv${lv} ${List.count(o -> o#level == lv, outcomes)}") |> List.join(" / ");
