@@ -9,7 +9,7 @@ mod Shots {
     /// 場面の題と一言（Studio のギャラリーに出るラベル）は assets/stepdown.scenes.json 側で、name をここの名前とそろえる。
     /// 場面を足したら、ここと sceneOf と Makefile の SHOTS を一緒に足す。
     pub def names(): List[String] =
-        "title" :: "play" :: "dead" :: "clear" :: "quit" :: "arrow" :: "bomb" :: "dirs" :: "popups" :: "swap" :: "levelup_mid" :: "levelup" :: "chosen" :: "use_tilt" :: "use_potion" :: "use_meat" :: "smoke_fly" :: "smoke_puff" :: "pebble" :: "floor2" :: "floor3" :: "thunder" :: "guard" :: "alarm" :: Nil
+        "title" :: "play" :: "dead" :: "clear" :: "quit" :: "arrow" :: "bomb" :: "dirs" :: "popups" :: "swap" :: "levelup_mid" :: "levelup" :: "chosen" :: "use_tilt" :: "use_potion" :: "use_meat" :: "smoke_fly" :: "smoke_puff" :: "pebble" :: "floor2" :: "floor3" :: "thunder" :: "guard" :: "alarm" :: "floor4" :: "charge" :: "blast" :: "doll" :: Nil
 
     /// 名前 → 周回の種を固定した初めの World から組んだ場面の World（1 手を見せ終えた所。途中の場面はその秒の所）。
     pub def worldOf(name: String, res: Res.Res): Option[World.World] =
@@ -84,6 +84,20 @@ mod Shots {
                 withRec(res, r -> { traps = Map#{ (8, 16) => Trap.Kind.Alarm }, revealed = Set#{ (8, 16) } | r }, sleeping(res,
                     staged(res, (8, 15), Nil, (Enemy.Kind.Swarm, (5, 18)) :: (Enemy.Kind.Jelly, (11, 13)) :: (Enemy.Kind.Shield, (11, 18)) :: Nil,
                         thirdFloor(res, World.begin(res, w0)))))))
+            // 4F の広間。右下の突進が左へ溜め（赤い線）、左の自爆虫に導火線（赤い 3×3）、左上に群れ、右上に弓兵。主人公は線の 1 段上。
+            case "floor4" => Some(World.snapCam(windups(res, (3, Enemy.Intent.Charge(Board.Dir.Left)) :: (4, Enemy.Intent.Fuse) :: Nil,
+                withRec(res, r -> { coins = 4 | r }, staged(res, (8, 14), Run.Held.Held(Item.Kind.Doll, 1) :: Nil,
+                    (Enemy.Kind.Swarm, (6, 11)) :: (Enemy.Kind.Swarm, (7, 11)) :: (Enemy.Kind.Swarm, (6, 12)) :: (Enemy.Kind.Charger, (11, 15)) :: (Enemy.Kind.Bomber, (5, 14)) :: (Enemy.Kind.Archer, (11, 12)) :: Nil,
+                    fourthFloor(res, World.begin(res, w0)))))))
+            // 左へ溜めた突進の線の上で待ち、突進が走って主人公に当たった所。
+            case "charge" => Some(turnAt(res, Run.Input.Wait, lk#stepSeconds * 1.4 + lk#strikeSeconds * 0.3, windups(res, (0, Enemy.Intent.Charge(Board.Dir.Left)) :: Nil,
+                staged(res, (8, 12), Nil, (Enemy.Kind.Charger, (13, 12)) :: Nil, fourthFloor(res, World.begin(res, w0))))))
+            // 右隣の導火線の付いた自爆虫が弾け、主人公と後ろの群れを巻き込んでいる所。
+            case "blast" => Some(turnAt(res, Run.Input.Wait, lk#arrowSeconds * 0.9, windups(res, (0, Enemy.Intent.Fuse) :: Nil,
+                staged(res, (8, 12), Nil, (Enemy.Kind.Bomber, (9, 12)) :: (Enemy.Kind.Swarm, (10, 12)) :: (Enemy.Kind.Swarm, (10, 13)) :: Nil, fourthFloor(res, World.begin(res, w0))))))
+            // HP 3 で自爆虫の弾けを受け、倒れる代わりに身代わり人形が砕けて HP が戻る所。
+            case "doll" => Some(turnAt(res, Run.Input.Wait, lk#arrowSeconds * 2.0 + lk#strikeSeconds * 1.2, windups(res, (0, Enemy.Intent.Fuse) :: Nil,
+                withRec(res, r -> { hero = { hp = 3 | r#hero } | r }, staged(res, (8, 12), Run.Held.Held(Item.Kind.Doll, 1) :: Nil, (Enemy.Kind.Bomber, (9, 12)) :: Nil, fourthFloor(res, World.begin(res, w0)))))))
             case _       => sceneOf(name, res, w0) |> Option.map(w -> World.snapCam(World.skipShow(w)))
         }
 
@@ -94,6 +108,15 @@ mod Shots {
     /// 遊んでいる 1F から 3F へ降りた所（周回の種で決まる 3F の地図）。
     def thirdFloor(res: Res.Res, w: World.World): World.World =
         World.withState(res, Floor.enter(Res.floorDocs(res), res#layouts, w#runState, 3), w)
+
+    /// 4F の 1 枚目の地図（広い広間）の始まり。
+    def fourthFloor(res: Res.Res, w: World.World): World.World =
+        World.withState(res, Floor.createOn(Res.floorDocs(res), res#layouts, { seed = w#seed, floor = 4, layout = 0 }, w#seed), w)
+
+    /// (敵の id, 溜め) の敵に溜めを持たせる。
+    def windups(res: Res.Res, intents: List[(Int32, Enemy.Intent)], w: World.World): World.World =
+        let byId = List.toMap(intents);
+        withRec(res, r -> { enemies = r#enemies |> List.map(e -> { intent = Map.getWithDefault(e#id, e#intent, byId) | e }) | r }, w)
 
     /// 敵を全員、階の始めの眠りにする。
     def sleeping(res: Res.Res, w: World.World): World.World =
