@@ -63,7 +63,7 @@ mod RulesDoc {
         Doc.Doc({ version = 1, maxHp = 20, baseAttack = 2, arrowMin = 2, arrowMax = 4, bombNeeds = 2,
                   potionAt = 0.25, regenEvery = 12, wakeSteps = 5, enemyMinSteps = 5,
                   smokeAt = 0.5, burnDamage = 1,
-                  fullnessMax = 100, hungerEvery = 3, starveDamage = 1, levelExp = 3 :: 7 :: 10 :: 14 :: 20 :: 26 :: 32 :: Nil, lastFloor = 2, trapDamage = 2, thunderNeeds = 3,
+                  fullnessMax = 100, hungerEvery = 3, starveDamage = 1, levelExp = 3 :: 7 :: 10 :: 14 :: 20 :: 26 :: 32 :: Nil, lastFloor = 3, trapDamage = 2, thunderNeeds = 3,
                   tapWaitRadius = 0.45, tapWaitPx = 32.0, tapSlop = 12.0 })
 
     /// テキストから Doc へ（fail-open）。JSON でない・形が違うフィールドは既定へ落とす。
