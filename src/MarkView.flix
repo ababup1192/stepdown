@@ -16,8 +16,8 @@ mod MarkView {
     /// 方向の予告 1 つ。at = アイコンの真ん中・hurt = 受けるダメージ（無ければ 0）・color = 枠の色・scale = 大きさの倍（斜めは小さい）。
     pub type alias Badge = { at = Vec2.Vec2, glyph = Glyph, hurt = Int32, color = Color, scale = Float64 }
 
-    /// 浮かぶ数 1 つ。at = 出始めの真ん中・age = 出てからの秒。
-    pub type alias Number = { at = Vec2.Vec2, kind = Popup.Kind, amount = Int32, age = Float64 }
+    /// 浮かぶ数 1 つ。at = 出始めの真ん中（頭の上・積んだ段の分だけ上）・lift = 段（横へ流れる向きを左右交互に分ける）・age = 出てからの秒。
+    pub type alias Number = { at = Vec2.Vec2, kind = Popup.Kind, amount = Int32, lift = Int32, age = Float64 }
 
     /// 頭の上に一瞬出る物の絵（薬・食べ物・盾）。at = 頭の上・age = 出てからの秒。
     pub type alias Overhead = { at = Vec2.Vec2, icon = Art.Icon, age = Float64 }
@@ -31,8 +31,11 @@ mod MarkView {
     /// 矢の軌跡（tail から head へ細る線）。
     pub type alias Trail = { tail = Vec2.Vec2, head = Vec2.Vec2, color = Color }
 
-    /// 見せる長さと大きさ（look の Doc から）。
-    pub type alias Timing = { life = Float64, rise = Float64, hurtScale = Float64 }
+    /// 浮かぶ数の動き（look の Doc から）。life = 消えるまでの秒・popScale と popSeconds = 出た瞬間の倍とそこから 1 倍へ戻る秒・
+    /// rise と fall = ダメージの数が投げ上がる高さと一番上から落ちる高さ（px）・drift = 横へ流れる幅（px）・fadeSeconds = 終わりの消える秒・
+    /// healRise と healPop = 回復の数がまっすぐ昇る高さ（px）と出た瞬間の倍。
+    pub type alias Timing = { life = Float64, popScale = Float64, popSeconds = Float64, rise = Float64, fall = Float64, drift = Float64,
+                              fadeSeconds = Float64, healRise = Float64, healPop = Float64 }
 
     /// 描くのに要る値。
     pub type alias In = {
@@ -100,30 +103,55 @@ mod MarkView {
 
     def unit(x: Float64): Float64 = Float64.max(0.0, Float64.min(1.0, x))
 
-    /// 種類ごとの色・大きさ・昇り方（slow = ゆっくり上る）・前に付ける字。
+    /// 種類ごとの色・大きさ・昇り方（slow = 弧を描かずまっすぐゆっくり昇る）・前に付ける字。
+    /// WhyNot: 受けた数を赤く大きくする — 主人公が赤く光り画面の周りが赤く滲むので、受けたことは数の色に頼らなくても分かる。
     def styleOf(w: In, kind: Popup.Kind): { color = Color, size = Float64, slow = Bool, sign = String } =
         let t = w#theme;
         match kind {
             case Popup.Kind.Dealt   => { color = t#popDealt, size = 34.0, slow = false, sign = "" }
-            case Popup.Kind.Taken   => { color = t#popTaken, size = 34.0 * w#timing#hurtScale, slow = false, sign = "" }
+            case Popup.Kind.Taken   => { color = t#popDealt, size = 34.0, slow = false, sign = "" }
             case Popup.Kind.Healed  => { color = t#popHealed, size = 32.0, slow = true, sign = "+" }
             case Popup.Kind.Fed     => { color = t#popFed, size = 28.0, slow = true, sign = "+" }
             case Popup.Kind.Blocked => { color = t#popBlocked, size = 30.0, slow = false, sign = "" }
-            case Popup.Kind.Starved => { color = t#popTaken, size = 26.0, slow = false, sign = "" }
-            case Popup.Kind.Burned  => { color = t#popBurned, size = 26.0, slow = false, sign = "" }
+            case Popup.Kind.Starved => { color = t#popDealt, size = 28.0, slow = false, sign = "" }
+            case Popup.Kind.Burned  => { color = t#popDealt, size = 28.0, slow = false, sign = "" }
             case Popup.Kind.Exp     => { color = t#popExp, size = 24.0, slow = true, sign = "+" }
         }
 
-    /// 数 1 つ: 出始めに少し大きく弾んで上へ昇り、終わりの 3 割で薄れる。受けた数は少し揺れる。
+    /// 投げ上げた物の高さ（px・上が正）: t 秒で一番上 rise に着き、life 秒で fall だけ落ちた所に来る放物線。
+    def arcHeight(rise: Float64, fall: Float64, life: Float64, t: Float64): Float64 =
+        if (rise <= 0.0) 0.0
+        else {
+            let top = life / (1.0 + Num.sqrt(Float64.max(0.0, fall) / rise));
+            let d = (t - top) / Float64.max(0.001, top);
+            rise * (1.0 - d * d)
+        }
+
+    /// 数 1 つ: 出た瞬間に大きく出て 1 倍へ弾み、ダメージは横へ流れながら放物線で上がって少し落ち、回復はまっすぐゆっくり昇る。
+    /// 終わりの fadeSeconds 秒で小さくなりながら消える。
     def number(atlas: FontAtlas, w: In, n: Number): List[Render.PlacedItem] =
         let style = styleOf(w, n#kind);
-        let q = unit(n#age / Float64.max(0.01, w#timing#life));
-        let climb = if (style#slow) q else 1.0 - (1.0 - q) * (1.0 - q);
-        let pop = 1.0 + 0.35 * Float64.max(0.0, 1.0 - q * 6.0);
-        let shake = if (n#kind == Popup.Kind.Taken) 3.0 * Num.sin(n#age * 60.0) * (1.0 - q) else 0.0;
-        let at = p(n#at#x + shake, n#at#y - w#timing#rise * climb);
-        let alpha = if (q < 0.8) 1.0 else 1.0 - (q - 0.8) / 0.2;
-        Render.fadeAll(alpha, rimmed(atlas, "${style#sign}${n#amount}", at, style#size * pop, { fill = style#color, rim = w#theme#popRim }, 10))
+        let tm = w#timing;
+        let life = Float64.max(0.01, tm#life);
+        let t = Float64.min(n#age, life);
+        let popped = unit(t / Float64.max(0.001, tm#popSeconds));
+        let fading = unit((t - (life - tm#fadeSeconds)) / Float64.max(0.001, tm#fadeSeconds));
+        let start = if (style#slow) tm#healPop else tm#popScale;
+        let scale = (start + (1.0 - start) * popped) * (1.0 - 0.45 * fading);
+        let side = if (Int32.modulo(n#lift, 2) == 0) 1.0 else -1.0;
+        let rise = if (style#slow) tm#healRise * (1.0 - (1.0 - t / life) * (1.0 - t / life)) else arcHeight(tm#rise, tm#fall, life, t);
+        let drift = if (style#slow) 0.0 else side * tm#drift * (t / life);
+        let at = p(n#at#x + drift, n#at#y - rise);
+        Render.fadeAll(1.0 - fading, heavy(atlas, "${style#sign}${n#amount}", at, style#size * scale, style#color, w#theme#popRim))
+
+    /// 太めに見せる字: 濃い影を右下へ細くずらして敷き、字は横に少しずらして重ねる。
+    /// WhyNot: 角ばった字形のフォントへ替える — 描き出しの Pass つきの PNG が追加のフォントを受けず、絵の確かめと実機で字が変わる。
+    def heavy(atlas: FontAtlas, s: String, center: Vec2.Vec2, size: Float64, fill: Color, shadow: Color): List[Render.PlacedItem] =
+        let d = Float64.max(1.0, size * 0.05);
+        let thick = Float64.max(0.6, size * 0.025);
+        let at = (dx: Float64, dy: Float64) -> p(center#x + dx, center#y + dy);
+        centered(atlas, s, at(d, d), size, shadow, 10) :: centered(atlas, s, at(d + thick, d), size, shadow, 10)
+            :: centered(atlas, s, at(0.0, 0.0), size, fill, 11) :: centered(atlas, s, at(thick, 0.0), size, fill, 11) :: Nil
 
     /// 頭の上の物の絵: 弾んで出て、上へ少し昇って消える。
     def overhead(w: In, o: Overhead): List[Render.PlacedItem] =

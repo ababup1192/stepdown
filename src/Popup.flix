@@ -27,7 +27,7 @@ mod Popup {
         case Exp
     }
 
-    /// 浮かぶ数 1 つ。item = 頭の上に一瞬出す物（薬・食べ物）・lift = 同じマスで先に出た数の数（その分だけ上へずらす）。
+    /// 浮かぶ数 1 つ。item = 頭の上に一瞬出す物（薬・食べ物）・lift = 出る段（同じマスでまだ消えていない数の一番上の段の 1 つ上。無ければ 0）。
     pub type alias Popup = { kind = Kind, cell = Cell, amount = Int32, item = Option[Item.Kind], lift = Int32, startedAt = Clock.Time[Clock.Real] }
 
     /// HP の棒の動き: before（動く前に見えていた値）から low まで減り（hitAt から）、そこから to まで戻る（healAt から。戻らなければ None）。
@@ -66,13 +66,9 @@ mod Popup {
     /// 並べている途中: 足した数（逆順）・前の数の時刻表の秒・最後に倒れた敵のマス。
     type alias Draft = { made = List[Popup], offset = Float64, lastDied = Option[Cell] }
 
-    /// 同じ手で同じマスに続けて出す数どうしの間（数が消えるまでの長さに対する割合）。
-    def sameCellGap(): Float64 = 0.5
-
     /// 1 手の出来事から浮かぶ数を作る。before・after = 手の前と後・tl = その手の時刻表・now = 手を当てた時の実時間・alive = まだ出ている数。
-    /// 同じ手で同じマスに出る数は、前の数から life の半分たつまで出さない。
-    /// WhyNot: 時刻表の始まりの秒だけに従う — 受けた数と薬の数は 0.1 秒しか離れず、昇る間に横へ並んで 1 つの数に読める。
-    /// WhyNot: 前の手の数とも間を空ける — 待ち続けて空腹で減る手が続くと、出る時刻が先へ先へ溜まっていく。
+    /// 出る時刻は出来事の時刻表の始まり。同じマスで、その時刻にまだ消えていない数があれば、その一番上の 1 段上から出す。
+    /// WhyNot: 後の数を前の数が消えるまで遅らせる — 続けて受けた時に数が遅れて出て、どの手の数か分からなくなる。
     pub def fromTurn(timing: Timing, turn: { before = Run.Rec, after = Run.Rec, events = List[Event] }, tl: Timeline.Timeline[TurnTimeline.Tag],
                      now: Clock.Time[Clock.Real], alive: List[Popup]): List[Popup] =
         let foes = List.toMap((turn#after#enemies ::: turn#before#enemies) |> List.map(e -> (e#id, e#at)));
@@ -94,15 +90,18 @@ mod Popup {
             };
             let made = numberOf(event) |> Option.map(match (kind, amount, item) -> {
                 let cell = cellOf(event, d);
-                let lift = List.count(p -> p#cell == cell, alive ::: d#made);
-                let planned = Clock.after(offset, now);
-                let startedAt = d#made |> List.filter(p -> p#cell == cell) |> List.map(p -> Clock.after(timing#life * sameCellGap(), p#startedAt))
-                    |> List.foldLeft((a, b) -> if (b > a) b else a, planned);
+                let startedAt = Clock.after(offset, now);
+                let lift = stackOn(timing, cell, startedAt, alive ::: d#made);
                 { kind = kind, cell = cell, amount = amount, item = item, lift = lift, startedAt = startedAt } :: d#made
             }) |> Option.getWithDefault(d#made);
             { made = made, offset = offset, lastDied = died }
         };
         List.reverse((List.zipWithIndex(turn#events) |> List.foldLeft(step, { made = Nil, offset = 0.0, lastDied = None }))#made)
+
+    /// cell に at の時刻で出す数の段: その時刻に出ている同じマスの数の一番上の段の 1 つ上（無ければ 0）。
+    def stackOn(timing: Timing, cell: Cell, at: Clock.Time[Clock.Real], shown: List[Popup]): Int32 =
+        shown |> List.filter(p -> p#cell == cell and p#startedAt <= at and Clock.since(p#startedAt, at) < timing#life)
+            |> List.map(p -> p#lift + 1) |> List.foldLeft(Int32.max, 0)
 
     /// 消えるまでの長さを過ぎた数を外す。
     pub def prune(timing: Timing, now: Clock.Time[Clock.Real], popups: List[Popup]): List[Popup] =

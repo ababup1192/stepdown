@@ -124,13 +124,16 @@ mod Motion {
         let breathe = 1.0 - fall;
         let bob = up(0.025 * breathe * (0.5 + 0.5 * Num.sin(t * 2.6)));
         let stretch = 1.0 + 0.025 * breathe * Num.sin(t * 2.6 + 1.3);
-        let height = 1.3 * stretch * (1.0 - 0.4 * fall) * Float64.max(0.0, 1.0 - state#descend);
+        let height = heroHeight() * stretch * (1.0 - 0.4 * fall) * Float64.max(0.0, 1.0 - state#descend);
         let base = Color.mix(white(), Color.rgb(0.55, 0.5, 0.55), fall);
         let healed = Color.mix(base, Color.rgb(0.6, 1.0, 0.6), state#potion * 0.6);
         let at = Vec3.add(Vec3.add(heroPoint(turn), bob), Vec3.v3(flash#shake, 0.0 - 0.3 * state#descend, 0.0));
         if (height <= 0.01) Nil
         else { picture = Art.figure(Art.Figure.Hero), at = at, height = height,
                tint = redTint(flashTint(healed, Float64.max(flashes#white#glow, state#potion * 0.4)), flashes#red#glow), lit = flash#glow <= 0.0, shadow = 0.34 * (1.0 - state#descend) } :: Nil
+
+    /// 主人公の板の高さ（m）。
+    pub def heroHeight(): Float64 = 1.3
 
     // ── 敵 ──
 

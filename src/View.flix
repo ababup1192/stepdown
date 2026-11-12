@@ -101,11 +101,13 @@ mod View {
           quitPrompt = if (World.isAskingQuit(w)) Some(TextDoc.lineOf(TextDoc.Line.QuitPrompt, res#text)) else None,
           showBars = w#screen != World.Screen.Title,
           edge = fade(lk#edgeSeconds, Popup.Kind.Taken, aged) };
-        let marks = { theme = theme, time = time, timing = { life = lk#popupSeconds, rise = lk#popupRise, hurtScale = lk#hurtScale },
+        let marks = { theme = theme, time = time,
+          timing = { life = lk#popupSeconds, popScale = lk#popupPopScale, popSeconds = lk#popupPopSeconds, rise = lk#popupRise, fall = lk#popupFall,
+                     drift = lk#popupDrift, fadeSeconds = lk#popupFadeSeconds, healRise = lk#healRise, healPop = lk#healPopScale },
           badges = preview |> List.filterMap(badgeOf(theme, lk#diagonalBadgeScale, screen)),
           sleepers = if (w#screen != World.Screen.Play) Nil else r#enemies |> List.filter(e -> not Enemy.isAwake(e))
               |> List.filterMap(e -> screen(Vec3.add(FloorMesh.cellPoint(e#at), Vec3.v3(0.0, Motion.heightOf(e#kind) + Motion.liftOf(e#kind) + 0.1, 0.0)))),
-          numbers = aged |> List.filterMap(numberOf(screen)),
+          numbers = aged |> List.filterMap(numberOf(screen, { stack = lk#popupStack, gap = lk#popupHeadGap }, headOf(r))),
           overheads = aged |> List.filterMap(overheadOf(screen)),
           rings = aged |> List.filterMap(ringOf(screen)),
           slashes = slashesOf(theme, screen, turn),
@@ -129,13 +131,17 @@ mod View {
         aged |> List.filter(e -> fst(e)#kind == kind) |> List.map(e -> 1.0 - snd(e) / Float64.max(0.01, seconds))
             |> List.foldLeft(Float64.max, 0.0)
 
-    /// マスの上の数の出始めの点（同じマスで先に出た数があれば左右へ交互に寄せる）。
-    /// WhyNot: 先に出た数の分だけ上へずらす — 先の数も昇るので、後から上に出た数と同じ高さで横に並んでしまう。
-    def numberOf(screen: Vec3.Vec3 -> Option[Vec2.Vec2], e: (Popup.Popup, Float64)): Option[MarkView.Number] =
+    /// マスの上の数の出始めの点: そのマスに立つ物の板の上端から gap だけ上・積んだ段の分だけ stack px ずつ上。
+    def numberOf(screen: Vec3.Vec3 -> Option[Vec2.Vec2], space: { stack = Float64, gap = Float64 }, head: Board.Cell -> Float64,
+                 e: (Popup.Popup, Float64)): Option[MarkView.Number] =
         let (pop, age) = e;
-        let side = if (pop#lift == 0) 0.0 else if (Int32.modulo(pop#lift, 2) == 1) 34.0 else -34.0;
-        screen(Vec3.add(FloorMesh.cellPoint(pop#cell), Vec3.v3(0.0, 1.4, 0.0)))
-            |> Option.map(at -> { at = { x = at#x + side, y = at#y }, kind = pop#kind, amount = pop#amount, age = age })
+        screen(Vec3.add(FloorMesh.cellPoint(pop#cell), Vec3.v3(0.0, head(pop#cell) + space#gap, 0.0)))
+            |> Option.map(at -> { at = { x = at#x, y = at#y - space#stack * Int32.toFloat64(pop#lift) }, kind = pop#kind, amount = pop#amount, lift = pop#lift, age = age })
+
+    /// マスに立つ物の板の上端の高さ（m）: 主人公・生きている敵（飛ぶ敵は浮かせた分も）。倒れて消えた敵のマスはゼリーほどの高さ。
+    def headOf(r: Run.Rec, cell: Board.Cell): Float64 =
+        if (cell == r#hero#at) Motion.heroHeight()
+        else r#enemies |> List.find(e -> e#at == cell) |> Option.map(e -> Motion.heightOf(e#kind) + Motion.liftOf(e#kind)) |> Option.getWithDefault(0.8)
 
     /// 頭の横に出す物: 薬・食べ物はその絵、盾の 0 は盾（数は頭の上へ昇るので、絵は左へ寄せる）。
     def overheadOf(screen: Vec3.Vec3 -> Option[Vec2.Vec2], e: (Popup.Popup, Float64)): Option[MarkView.Overhead] =

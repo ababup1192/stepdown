@@ -1,4 +1,4 @@
-// 浮かぶ数と HP の棒とカードの押し所: 出来事ごとの数の種類・同じマスの数は上へずれる・盾の 0 は灰色の 0・
+// 浮かぶ数と HP の棒とカードの押し所: 出来事ごとの数の種類・同じマスでまだ出ている数があれば 1 段上に積む・盾の 0 は灰色の 0・
 // 見せ終えたことにした数は今へ早まる・HP の減った分は残してから縮む・カードはその位置のタップで選ぶ。
 // 出来事の列は手で組む（Step を通さず、見せ方だけを確かめる）。盤は Fixtures.hall（主人公は (1, 3)）。
 mod TestPopup {
@@ -35,11 +35,35 @@ mod TestPopup {
         let made = numbers(Event.HeroHurt(Source.Starve, 1, false) :: Event.PotionUsed(Item.Kind.Herb, 6) :: Nil);
         Assert.assertEq(expected = (Popup.Kind.Starved, (1, 3)) :: (Popup.Kind.Healed, (1, 3)) :: Nil, made |> List.map(pop -> (pop#kind, pop#cell)))
 
-    /// 同じ手で主人公のマスに空腹で減った数と薬の数が出る時、薬の数は減った数から数の長さの半分あとに出る。
+    /// 同じ手で主人公のマスに空腹で減った数と薬の数が出る時、薬の数は減った数の 1 段上に出る。
     @Test
-    def testPotionNumberWaitsAfterTheStarveNumber(): Unit \ Assert =
+    def testPotionNumberStacksAboveTheStarveNumber(): Unit \ Assert =
         let made = numbers(Event.HeroHurt(Source.Starve, 1, false) :: Event.PotionUsed(Item.Kind.Herb, 6) :: Nil);
-        Assert.assertEq(expected = 0.0 :: 0.3 :: Nil, made |> List.map(pop -> Clock.secondsOf(pop#startedAt)))
+        Assert.assertEq(expected = 0 :: 1 :: Nil, made |> List.map(pop -> pop#lift))
+
+    /// 前の手の数がまだ出ている間に次の手で受けると、次の数はその上の段に出る。
+    @Test
+    def testNextTurnNumberStacksOnTheShownOnes(): Unit \ Assert =
+        let shown = numbers(Event.HeroHurt(Source.Melee(0), 2, false) :: Event.HeroHurt(Source.Melee(0), 2, false) :: Nil);
+        let later = Clock.after(0.3, Clock.zero());
+        let c = Fixtures.ctx(hall());
+        let r = Run.rec(start(c, (Enemy.Kind.Jelly, (2, 3)) :: Nil, Nil));
+        let events = Event.HeroHurt(Source.Melee(0), 2, false) :: Nil;
+        let tl = TurnTimeline.build(TurnTimeline.paceOf(LookDoc.rec(LookDoc.defaults()), false), events);
+        let made = Popup.fromTurn(timing(), { before = r, after = r, events = events }, tl, later, shown);
+        Assert.assertEq(expected = 2 :: Nil, made |> List.map(pop -> pop#lift))
+
+    /// 前の数が消えた後に受けた数は、また一番下の段から出る。
+    @Test
+    def testNumberAfterTheOthersFadedStartsAtTheBottom(): Unit \ Assert =
+        let shown = numbers(Event.HeroHurt(Source.Melee(0), 2, false) :: Nil);
+        let later = Clock.after(5.0, Clock.zero());
+        let c = Fixtures.ctx(hall());
+        let r = Run.rec(start(c, (Enemy.Kind.Jelly, (2, 3)) :: Nil, Nil));
+        let events = Event.HeroHurt(Source.Melee(0), 2, false) :: Nil;
+        let tl = TurnTimeline.build(TurnTimeline.paceOf(LookDoc.rec(LookDoc.defaults()), false), events);
+        let made = Popup.fromTurn(timing(), { before = r, after = r, events = events }, tl, later, shown);
+        Assert.assertEq(expected = 0 :: Nil, made |> List.map(pop -> pop#lift))
 
     /// 見せ終えたことにした手の、まだ始まっていない数は今に早まる。
     @Test

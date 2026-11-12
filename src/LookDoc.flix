@@ -51,8 +51,16 @@ mod LookDoc {
     ///   msaaSamples … 場面の縁のならしの標本の数（窓だけ）
     ///   figureLight … キャラの板の明るさ（板は光を受けない。絵の色にこれを掛ける）
     ///   popupSeconds … 浮かぶ数が消えるまでの秒（実時間）
-    ///   popupRise … 浮かぶ数が昇る高さ（px）
-    ///   hurtScale … 受けた数の大きさ（与えた数に対する倍）
+    ///   popupPopScale … 浮かぶ数が出た瞬間の大きさの倍（そこから 1 倍へ弾む）
+    ///   popupPopSeconds … 出た瞬間の倍から 1 倍へ戻る秒
+    ///   popupRise … ダメージの数が投げ上がる高さ（px）
+    ///   popupFall … ダメージの数が一番上から落ちる高さ（px）
+    ///   popupDrift … ダメージの数が横へ流れる幅（px。段ごとに左右交互）
+    ///   popupFadeSeconds … 終わりの、小さくなりながら消える秒
+    ///   popupStack … 続けて出た数を積む 1 段の高さ（px）
+    ///   popupHeadGap … 数が出る所の、板の上端からの高さ（m）
+    ///   healRise … 回復の数がまっすぐ昇る高さ（px）
+    ///   healPopScale … 回復の数が出た瞬間の大きさの倍
     ///   hpHoldSeconds … HP の減った分を赤く残す秒
     ///   hpShrinkSeconds … HP の棒が縮む・伸びる秒
     ///   edgeSeconds … 受けた時に画面の周りが赤く滲む秒
@@ -109,8 +117,16 @@ mod LookDoc {
         msaaSamples = Int32,
         figureLight = Float64,
         popupSeconds = Float64,
+        popupPopScale = Float64,
+        popupPopSeconds = Float64,
         popupRise = Float64,
-        hurtScale = Float64,
+        popupFall = Float64,
+        popupDrift = Float64,
+        popupFadeSeconds = Float64,
+        popupStack = Float64,
+        popupHeadGap = Float64,
+        healRise = Float64,
+        healPopScale = Float64,
         hpHoldSeconds = Float64,
         hpShrinkSeconds = Float64,
         edgeSeconds = Float64,
@@ -130,7 +146,7 @@ mod LookDoc {
     def hx(text: String): Color = Color.hex(text) |> Option.getWithDefault(Color.rgb(1.0, 0.0, 1.0))
 
     pub def defaults(): Doc =
-        Doc.Doc({ version = 1, stepSeconds = 0.14, dashStepSeconds = 0.07, strikeSeconds = 0.18, arrowSeconds = 0.22, cameraPitch = 62.0, cameraYaw = 0.0, cameraDistance = 17.5, cameraFov = 46.4, cameraLead = 0.9, cameraFollowSeconds = 0.18, ambient = hx("#2a3450"), moonColor = hx("#a6bfff"), moonIntensity = 0.4, moonElevation = 62.0, moonAzimuth = 200.0, wallTopTint = hx("#5a5560"), shadowStrength = 0.55, torchColor = hx("#ff4d14"), torchIntensity = 1.0, torchRange = 5.0, handColor = hx("#ffc27a"), handIntensity = 6.0, handRange = 7.0, handHeight = 2.0, waterLightColor = hx("#73ccff"), waterLightIntensity = 1.2, waterLightRange = 4.0, flameColor = hx("#ff1a03"), flameGlow = 1.0, flameFlicker = 0.18, waterDeep = hx("#0b3346"), waterLight = hx("#3d8fa8"), waterAlpha = 0.72, waterRoughness = 0.18, waterFlow = 0.02, exposure = 0.3, whitePoint = 4.0, bloomThreshold = 0.9, bloomKnee = 0.6, bloomStrength = 0.45, bloomRadius = 0.035, bloomTaps = 12, vignette = 0.45, saturation = 0.05, msaaSamples = 4, figureLight = 0.85, popupSeconds = 0.6, popupRise = 46.0, hurtScale = 1.3, hpHoldSeconds = 0.35, hpShrinkSeconds = 0.3, edgeSeconds = 0.35, levelUpSeconds = 0.5, cardSlideSeconds = 0.3, chosenSeconds = 0.3, diagonalBadgeScale = 0.78 })
+        Doc.Doc({ version = 1, stepSeconds = 0.14, dashStepSeconds = 0.07, strikeSeconds = 0.18, arrowSeconds = 0.22, cameraPitch = 62.0, cameraYaw = 0.0, cameraDistance = 17.5, cameraFov = 46.4, cameraLead = 0.9, cameraFollowSeconds = 0.18, ambient = hx("#2a3450"), moonColor = hx("#a6bfff"), moonIntensity = 0.4, moonElevation = 62.0, moonAzimuth = 200.0, wallTopTint = hx("#5a5560"), shadowStrength = 0.55, torchColor = hx("#ff4d14"), torchIntensity = 1.0, torchRange = 5.0, handColor = hx("#ffc27a"), handIntensity = 6.0, handRange = 7.0, handHeight = 2.0, waterLightColor = hx("#73ccff"), waterLightIntensity = 1.2, waterLightRange = 4.0, flameColor = hx("#ff1a03"), flameGlow = 1.0, flameFlicker = 0.18, waterDeep = hx("#0b3346"), waterLight = hx("#3d8fa8"), waterAlpha = 0.72, waterRoughness = 0.18, waterFlow = 0.02, exposure = 0.3, whitePoint = 4.0, bloomThreshold = 0.9, bloomKnee = 0.6, bloomStrength = 0.45, bloomRadius = 0.035, bloomTaps = 12, vignette = 0.45, saturation = 0.05, msaaSamples = 4, figureLight = 0.85, popupSeconds = 0.8, popupPopScale = 1.5, popupPopSeconds = 0.08, popupRise = 50.0, popupFall = 15.0, popupDrift = 14.0, popupFadeSeconds = 0.3, popupStack = 56.0, popupHeadGap = 0.15, healRise = 40.0, healPopScale = 1.15, hpHoldSeconds = 0.35, hpShrinkSeconds = 0.3, edgeSeconds = 0.35, levelUpSeconds = 0.5, cardSlideSeconds = 0.3, chosenSeconds = 0.3, diagonalBadgeScale = 0.78 })
 
     pub def fromJson(text: String): Option[Doc] =
         DocJson.decodeObject(fromRoot, text)
@@ -188,8 +204,16 @@ mod LookDoc {
                   msaaSamples = int("msaaSamples", d#msaaSamples),
                   figureLight = float("figureLight", d#figureLight),
                   popupSeconds = float("popupSeconds", d#popupSeconds),
+                  popupPopScale = float("popupPopScale", d#popupPopScale),
+                  popupPopSeconds = float("popupPopSeconds", d#popupPopSeconds),
                   popupRise = float("popupRise", d#popupRise),
-                  hurtScale = float("hurtScale", d#hurtScale),
+                  popupFall = float("popupFall", d#popupFall),
+                  popupDrift = float("popupDrift", d#popupDrift),
+                  popupFadeSeconds = float("popupFadeSeconds", d#popupFadeSeconds),
+                  popupStack = float("popupStack", d#popupStack),
+                  popupHeadGap = float("popupHeadGap", d#popupHeadGap),
+                  healRise = float("healRise", d#healRise),
+                  healPopScale = float("healPopScale", d#healPopScale),
                   hpHoldSeconds = float("hpHoldSeconds", d#hpHoldSeconds),
                   hpShrinkSeconds = float("hpShrinkSeconds", d#hpShrinkSeconds),
                   edgeSeconds = float("edgeSeconds", d#edgeSeconds),

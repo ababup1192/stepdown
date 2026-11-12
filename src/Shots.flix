@@ -29,10 +29,11 @@ mod Shots {
                 withRec(res, r -> { fullness = 64, exp = 2 | r },
                     staged(res, (7, 15), Run.Held.Held(Item.Kind.WoodArrow, 6) :: Run.Held.Held(Item.Kind.Pebble, 4) :: Nil,
                            (Enemy.Kind.Jelly, (8, 14)) :: Nil, World.begin(res, w0)))))
-            // 右のゼリーを殴り、殴り返されて HP が薬の線を割り、薬草を飲んだ手の途中（白い数が消えかけ、赤い数が昇り、その後に緑の +数が横に出始めた所）。
-            case "popups" => Some(turnAt(res, Run.Input.Move(Board.Dir8.Right), 0.68,
-                withRec(res, r -> { hero = { hp = 6 | r#hero } | r },
-                    staged(res, (7, 15), Run.Held.Held(Item.Kind.Herb, 1) :: Nil, (Enemy.Kind.Jelly, (8, 15)) :: Nil, World.begin(res, w0)))))
+            // 左右のゼリーに挟まれ、右を殴った手を見せ終える前に待った所。主人公の頭の上に受けた数が段になって積み上がり、
+            // 2 手目で HP が薬の線を割って、一番上に緑の +数が出始めた（右のゼリーの頭の上には与えた数が消えかけている）。
+            case "popups" => Some(turnAt(res, Run.Input.Wait, 0.55, World.skipShow(World.seekShow(0.25, World.play(res, Run.Input.Move(Board.Dir8.Right),
+                withRec(res, r -> { hero = { hp = 10 | r#hero } | r },
+                    staged(res, (7, 15), Run.Held.Held(Item.Kind.Herb, 1) :: Nil, (Enemy.Kind.Jelly, (8, 15)) :: (Enemy.Kind.Jelly, (6, 15)) :: Nil, World.begin(res, w0))))))))
             // 枠が 3 つ埋まった所で、右のマスの煙玉の上に乗った（捨てるカード 4 枚）。
             case "swap"  => Some(cardsAt(res, Run.Input.Move(Board.Dir8.Right), 0.6,
                 withRec(res, r -> { items = Map#{ (8, 15) => Item.Kind.Smoke } | r },
