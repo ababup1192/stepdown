@@ -149,11 +149,11 @@ mod Preview {
 
     def laneOf(ctx: Ctx, dir: Board.Dir, origin: Cell): List[Cell] = Board.lane(RulesDoc.reachOf(ctx#rules), dir, origin, ctx#board)
 
-    /// 起きている弓兵の射線と、溜めた突進の走る道: (敵のマス, 一番遠いマス) の列（見せる側が床に線を引く）。
+    /// 起きている弓兵の射線（部屋の中の弓兵から、部屋の中のマスまで）と、溜めた突進の走る道: (敵のマス, 一番遠いマス) の列（見せる側が床に線を引く）。
     pub def firingLanes(ctx: Ctx, runState: Run.State): List[(Cell, Cell)] =
         let archers = Run.enemiesOf(runState)
             |> List.filter(e -> Enemy.isAwake(e) and Enemy.behaviourOf(e#kind) == Enemy.Behaviour.Shoot)
-            |> List.flatMap(e -> Board.dirs() |> List.filterMap(dir -> List.last(laneOf(ctx, dir, e#at)) |> Option.map(far -> (e#at, far))));
+            |> List.flatMap(e -> Board.dirs() |> List.filterMap(dir -> List.last(laneOf(ctx, dir, e#at) |> List.filter(c -> Run.canShoot(ctx, e#at, c))) |> Option.map(far -> (e#at, far))));
         let chargers = Run.enemiesOf(runState) |> List.filterMap(e -> chargeDir(e) |> Option.flatMap(dir -> List.last(Run.chargeLane(ctx, Set.empty(), e, dir))) |> Option.map(far -> (e#at, far)));
         archers ::: chargers
 

@@ -348,15 +348,17 @@ mod Run {
     }
 
     /// e が今の位置から cell へ当てる攻撃（届かなければ None）。敵の手番（Step）と敵の予告（Preview）はどちらもこれだけを見る。
-    ///   殴る … e のどれかのマスの 8 近傍の隣で、間の角が抜けている（自爆虫は殴らない）
-    ///   矢   … 弓兵で、上下左右の列がそろい距離 arrowMin..arrowMax、間に矢を止めるマスも blockers も無い
+    ///   殴る … e のどれかのマスの 8 近傍の隣で、間の角が抜けている（自爆虫は殴らない。弓兵は隣へは矢を撃つ）
+    ///   矢   … 弓兵で、上下左右の列がそろい距離 arrowMin..arrowMax、間に矢を止めるマスも blockers も無く、両方が部屋の中（canShoot）
     ///   突進 … 溜めた向きの走る道（chargeLane）の上。溜めている手は隣でも殴らない
     ///   弾け … 導火線の付いた自爆虫の殴れる隣と同じマス（壁と、壁の角の向こうは入らない）
     /// blockers は矢と突進を止める敵のマス。予告は敵が動いた後も当たる側に倒すので空で渡す。
     pub def attackOn(ctx: Ctx, blockers: Set[Cell], e: Enemy.Enemy, cell: Cell): Option[Attack] = match e#intent {
         case Enemy.Intent.Idle =>
-            if (Enemy.strikesBeside(e#kind) and isBeside(ctx, e, cell)) Some(Attack.Melee)
-            else if (Enemy.behaviourOf(e#kind) == Enemy.Behaviour.Shoot and isInLine(ctx, blockers, e#at, cell)) Some(Attack.Shot)
+            let shooter = Enemy.behaviourOf(e#kind) == Enemy.Behaviour.Shoot;
+            if (shooter and isBeside(ctx, e, cell)) Some(Attack.Shot)
+            else if (Enemy.strikesBeside(e#kind) and isBeside(ctx, e, cell)) Some(Attack.Melee)
+            else if (shooter and canShoot(ctx, e#at, cell) and isInLine(ctx, blockers, e#at, cell)) Some(Attack.Shot)
             else None
         case Enemy.Intent.Charge(dir) => if (List.memberOf(cell, chargeLane(ctx, blockers, e, dir))) Some(Attack.Charge) else None
         case Enemy.Intent.Fuse        => if (isBeside(ctx, e, cell)) Some(Attack.Blast) else None
@@ -376,6 +378,9 @@ mod Run {
             k >= Int32.max(2, stats#chargeMin) and k <= stats#chargeMax
                 and List.range(1, k) |> List.forAll(i -> { let between = Board.ahead(dir, i, e#at); Board.isWalkable(between, ctx#board) and not Set.memberOf(between, blockers) }))
             |> Option.map(fst)
+
+    /// origin から target へ矢を撃てる場所か: 撃つ側も当てる相手も部屋の中（通路のマスでない）。弓兵の矢（隣は除く）と主人公の矢はどちらもこれを見る。
+    pub def canShoot(ctx: Ctx, origin: Cell, target: Cell): Bool = Board.isInRoom(origin, ctx#board) and Board.isInRoom(target, ctx#board)
 
     /// origin から cell へ上下左右の列がそろい、距離 arrowMin..arrowMax で、間に矢を止めるマスも blockers も無いか。
     def isInLine(ctx: Ctx, blockers: Set[Cell], origin: Cell, cell: Cell): Bool =

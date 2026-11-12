@@ -288,13 +288,15 @@ mod Step {
         base + Run.perkCount(Run.Perk.Reach, r) * CardsDoc.rec(ctx#cards)#reach
 
     /// 矢・小石を撃つ向き: 直線の距離 arrowMin..届く距離 の最初の敵が起きていて盾の正面でなく、間に矢を止めるマスも敵も無い向きのうち、近い順 → 上・右・下・左。
+    /// 矢は主人公と敵の両方が部屋の中の時だけ（Run.canShoot。小石と鉄球は通路でも投げる）。
     def lineTarget(ctx: Ctx, family: Item.Family, r: Run.Rec): Option[Dir] =
         let occupied = Run.occupancy(r#enemies);
         let nearest = RulesDoc.rec(ctx#rules)#arrowMin;
         let farthest = farthestOf(ctx, family, r);
+        let placed = (e: Enemy.Enemy) -> Item.isStone(family) or Run.canShoot(ctx, r#hero#at, e#at);
         Board.dirs()
             |> List.filterMap(dir -> firstEnemyAlong(ctx, occupied, farthest, dir, r#hero#at, 1)
-                |> Option.filter(hit -> fst(hit) >= nearest and Enemy.isAwake(snd(hit)) and not Enemy.guards(r#hero#at, snd(hit))) |> Option.map(hit -> (fst(hit), dir)))
+                |> Option.filter(hit -> fst(hit) >= nearest and Enemy.isAwake(snd(hit)) and not Enemy.guards(r#hero#at, snd(hit)) and placed(snd(hit))) |> Option.map(hit -> (fst(hit), dir)))
             |> List.foldLeft((best, c) -> if (Option.exists(b -> fst(b) <= fst(c), best)) best else Some(c), None)
             |> Option.map(snd)
 

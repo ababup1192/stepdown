@@ -74,13 +74,13 @@ mod TestDash {
     // 赤で止まる
     // ══════════════════════════════════════════════════════
 
-    /// 気付かれない遠さの起きた弓兵の射線が通路を横切っていれば、射線の手前のマスで止まり、撃たれない（見える距離 1 の rules）。
+    /// 通路は射線にならない: 気付かれない遠さの起きた弓兵の列が通路を横切っていても、赤が無いので分かれ道まで進み、撃たれない（見える距離 1 の rules）。
     @Test
-    def testStopsBeforeTheRed(): Unit \ Assert =
+    def testCorridorIsNotALane(): Unit \ Assert =
         let c = Fixtures.ctxWith(Fixtures.rulesWith("{\"wakeSteps\": 1}"),
             "#########" :: "#@,,,,,>#" :: "####.####" :: "####.####" :: "####.####" :: "####.####" :: "#########" :: Nil);
         let steps = dashFromCorridor(c, Fixtures.awake(start(c, (Enemy.Kind.Archer, (4, 5)) :: Nil, Nil)));
-        Assert.assertEq(expected = (Some((3, 1)), false), (lastCell(steps), List.exists(e -> List.exists(Run.hurtsHero, snd(e)), steps)))
+        Assert.assertEq(expected = (Some((4, 1)), false), (lastCell(steps), List.exists(e -> List.exists(Run.hurtsHero, snd(e)), steps)))
 
     /// 乱数の局面 seed で 4 方向へダッシュし、2 歩目から後の歩で敵の攻撃を受けたのに、その歩の前の赤に立ったマスが入っていなかった歩。
     def hitsOutsideTheRedWhileDashing(seed: Int64): List[String] =

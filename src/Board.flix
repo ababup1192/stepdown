@@ -176,6 +176,9 @@ mod Board {
     /// 部屋の番号（通路と壁は 0）。
     pub def roomAt(cell: Cell, b: Board): Int32 = Map.getWithDefault(cell, 0, b#rooms)
 
+    /// 部屋の中のマスか（通路と壁でない）。
+    pub def isInRoom(cell: Cell, b: Board): Bool = roomAt(cell, b) != 0
+
     /// cell に立った時に見たことにするマス: 部屋の中なら部屋全体とそれを囲む壁、通路なら 8 近傍。
     pub def viewFrom(cell: Cell, b: Board): Set[Cell] =
         Map.get(roomAt(cell, b), b#views) |> Option.getWithDefault(List.toSet(cell :: neighbors8(cell)))
