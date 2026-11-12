@@ -1,0 +1,688 @@
+{
+  "//": "stepdown.look.json の形の宣言。",
+  "version": 1,
+  "sections": {
+    "stepSeconds": {
+      "kind": "field",
+      "type": "float",
+      "label": "1 歩の秒",
+      "order": 1,
+      "group": "秒",
+      "min": 0.02,
+      "max": 1.0,
+      "default": 0.14
+    },
+    "dashStepSeconds": {
+      "kind": "field",
+      "type": "float",
+      "label": "ダッシュの 1 歩の秒",
+      "order": 2,
+      "group": "秒",
+      "min": 0.02,
+      "max": 1.0,
+      "default": 0.07
+    },
+    "strikeSeconds": {
+      "kind": "field",
+      "type": "float",
+      "label": "殴るの秒",
+      "order": 3,
+      "group": "秒",
+      "min": 0.02,
+      "max": 1.0,
+      "default": 0.18
+    },
+    "arrowSeconds": {
+      "kind": "field",
+      "type": "float",
+      "label": "矢が飛ぶ秒",
+      "order": 4,
+      "group": "秒",
+      "min": 0.02,
+      "max": 1.0,
+      "default": 0.22
+    },
+    "cameraPitch": {
+      "kind": "field",
+      "type": "float",
+      "label": "見下ろす角度（度）",
+      "order": 5,
+      "group": "カメラ",
+      "min": 10.0,
+      "max": 90.0,
+      "default": 56.0
+    },
+    "cameraYaw": {
+      "kind": "field",
+      "type": "float",
+      "label": "向き（度）",
+      "order": 6,
+      "group": "カメラ",
+      "min": -180.0,
+      "max": 180.0,
+      "default": 0.0
+    },
+    "cameraDistance": {
+      "kind": "field",
+      "type": "float",
+      "label": "主人公までの距離（マス）",
+      "order": 7,
+      "group": "カメラ",
+      "min": 2.0,
+      "max": 40.0,
+      "default": 17.5
+    },
+    "cameraFov": {
+      "kind": "field",
+      "type": "float",
+      "label": "縦の画角（度）",
+      "order": 8,
+      "group": "カメラ",
+      "min": 10.0,
+      "max": 90.0,
+      "default": 46.4
+    },
+    "cameraLead": {
+      "kind": "field",
+      "type": "float",
+      "label": "注目点を主人公の奥へずらす量（マス）",
+      "order": 9,
+      "group": "カメラ",
+      "min": -3.0,
+      "max": 3.0,
+      "default": 0.9
+    },
+    "cameraFollowSeconds": {
+      "kind": "field",
+      "type": "float",
+      "label": "追う遅れ（秒）",
+      "order": 10,
+      "group": "カメラ",
+      "min": 0.01,
+      "max": 2.0,
+      "default": 0.18
+    },
+    "ambient": {
+      "kind": "field",
+      "type": "color",
+      "label": "環境光（暗い青）",
+      "order": 11,
+      "group": "光（環境・月）",
+      "default": "#2a3450"
+    },
+    "moonColor": {
+      "kind": "field",
+      "type": "color",
+      "label": "月の光の色",
+      "order": 12,
+      "group": "光（環境・月）",
+      "default": "#a6bfff"
+    },
+    "moonIntensity": {
+      "kind": "field",
+      "type": "float",
+      "label": "月の光の強さ",
+      "order": 13,
+      "group": "光（環境・月）",
+      "min": 0.0,
+      "max": 4.0,
+      "default": 0.4
+    },
+    "moonElevation": {
+      "kind": "field",
+      "type": "float",
+      "label": "月の高さ（度）",
+      "order": 14,
+      "group": "光（環境・月）",
+      "min": 5.0,
+      "max": 90.0,
+      "default": 62.0
+    },
+    "moonAzimuth": {
+      "kind": "field",
+      "type": "float",
+      "label": "月の方角（度）",
+      "order": 15,
+      "group": "光（環境・月）",
+      "min": -360.0,
+      "max": 360.0,
+      "default": 200.0
+    },
+    "wallTopTint": {
+      "kind": "field",
+      "type": "color",
+      "label": "壁の上面の暗さ",
+      "order": 16,
+      "group": "光（環境・月）",
+      "default": "#5a5560"
+    },
+    "shadowStrength": {
+      "kind": "field",
+      "type": "float",
+      "label": "影の濃さ",
+      "order": 17,
+      "group": "光（環境・月）",
+      "min": 0.0,
+      "max": 1.0,
+      "default": 0.55
+    },
+    "torchColor": {
+      "kind": "field",
+      "type": "color",
+      "label": "松明の光の色",
+      "order": 18,
+      "group": "光（松明・灯り）",
+      "default": "#ff4d14"
+    },
+    "torchIntensity": {
+      "kind": "field",
+      "type": "float",
+      "label": "松明の光の強さ",
+      "order": 19,
+      "group": "光（松明・灯り）",
+      "min": 0.0,
+      "max": 20.0,
+      "default": 1.0
+    },
+    "torchRange": {
+      "kind": "field",
+      "type": "float",
+      "label": "松明の光の届く距離（マス）",
+      "order": 20,
+      "group": "光（松明・灯り）",
+      "min": 0.5,
+      "max": 20.0,
+      "default": 5.0
+    },
+    "handColor": {
+      "kind": "field",
+      "type": "color",
+      "label": "手もとの灯りの色",
+      "order": 21,
+      "group": "光（松明・灯り）",
+      "default": "#ffc27a"
+    },
+    "handIntensity": {
+      "kind": "field",
+      "type": "float",
+      "label": "手もとの灯りの強さ",
+      "order": 22,
+      "group": "光（松明・灯り）",
+      "min": 0.0,
+      "max": 20.0,
+      "default": 6.0
+    },
+    "handRange": {
+      "kind": "field",
+      "type": "float",
+      "label": "手もとの灯りの届く距離（マス）",
+      "order": 23,
+      "group": "光（松明・灯り）",
+      "min": 0.5,
+      "max": 20.0,
+      "default": 7.0
+    },
+    "handHeight": {
+      "kind": "field",
+      "type": "float",
+      "label": "手もとの灯りの高さ（マス）",
+      "order": 24,
+      "group": "光（松明・灯り）",
+      "min": 0.2,
+      "max": 5.0,
+      "default": 2.0
+    },
+    "waterLightColor": {
+      "kind": "field",
+      "type": "color",
+      "label": "水の上の光の色",
+      "order": 25,
+      "group": "光（松明・灯り）",
+      "default": "#73ccff"
+    },
+    "waterLightIntensity": {
+      "kind": "field",
+      "type": "float",
+      "label": "水の上の光の強さ",
+      "order": 26,
+      "group": "光（松明・灯り）",
+      "min": 0.0,
+      "max": 20.0,
+      "default": 1.2
+    },
+    "waterLightRange": {
+      "kind": "field",
+      "type": "float",
+      "label": "水の上の光の届く距離（マス）",
+      "order": 27,
+      "group": "光（松明・灯り）",
+      "min": 0.5,
+      "max": 20.0,
+      "default": 4.0
+    },
+    "flameColor": {
+      "kind": "field",
+      "type": "color",
+      "label": "炎の色",
+      "order": 28,
+      "group": "炎",
+      "default": "#ff1a03"
+    },
+    "flameGlow": {
+      "kind": "field",
+      "type": "float",
+      "label": "炎の明るさ",
+      "order": 29,
+      "group": "炎",
+      "min": 0.0,
+      "max": 8.0,
+      "default": 1.0
+    },
+    "flameFlicker": {
+      "kind": "field",
+      "type": "float",
+      "label": "炎の揺らぎ",
+      "order": 30,
+      "group": "炎",
+      "min": 0.0,
+      "max": 1.0,
+      "default": 0.18
+    },
+    "waterDeep": {
+      "kind": "field",
+      "type": "color",
+      "label": "水の暗い色",
+      "order": 31,
+      "group": "水",
+      "default": "#0b3346"
+    },
+    "waterLight": {
+      "kind": "field",
+      "type": "color",
+      "label": "水の明るい色",
+      "order": 32,
+      "group": "水",
+      "default": "#3d8fa8"
+    },
+    "waterAlpha": {
+      "kind": "field",
+      "type": "float",
+      "label": "水の不透明さ",
+      "order": 33,
+      "group": "水",
+      "min": 0.0,
+      "max": 1.0,
+      "default": 0.72
+    },
+    "waterRoughness": {
+      "kind": "field",
+      "type": "float",
+      "label": "水の粗さ",
+      "order": 34,
+      "group": "水",
+      "min": 0.0,
+      "max": 1.0,
+      "default": 0.18
+    },
+    "waterFlow": {
+      "kind": "field",
+      "type": "float",
+      "label": "水の流れる速さ",
+      "order": 35,
+      "group": "水",
+      "min": 0.0,
+      "max": 0.5,
+      "default": 0.02
+    },
+    "exposure": {
+      "kind": "field",
+      "type": "float",
+      "label": "露出（段）",
+      "order": 36,
+      "group": "後処理",
+      "min": -4.0,
+      "max": 4.0,
+      "default": 0.3
+    },
+    "whitePoint": {
+      "kind": "field",
+      "type": "float",
+      "label": "白の点",
+      "order": 37,
+      "group": "後処理",
+      "min": 0.5,
+      "max": 16.0,
+      "default": 4.0
+    },
+    "bloomThreshold": {
+      "kind": "field",
+      "type": "float",
+      "label": "ブルームのしきい",
+      "order": 38,
+      "group": "後処理",
+      "min": 0.0,
+      "max": 8.0,
+      "default": 0.9
+    },
+    "bloomKnee": {
+      "kind": "field",
+      "type": "float",
+      "label": "ブルームの立ち上がり",
+      "order": 39,
+      "group": "後処理",
+      "min": 0.0,
+      "max": 4.0,
+      "default": 0.6
+    },
+    "bloomStrength": {
+      "kind": "field",
+      "type": "float",
+      "label": "ブルームの強さ",
+      "order": 40,
+      "group": "後処理",
+      "min": 0.0,
+      "max": 4.0,
+      "default": 0.45
+    },
+    "bloomRadius": {
+      "kind": "field",
+      "type": "float",
+      "label": "ブルームの広がり",
+      "order": 41,
+      "group": "後処理",
+      "min": 0.0,
+      "max": 0.2,
+      "default": 0.035
+    },
+    "bloomTaps": {
+      "kind": "field",
+      "type": "int",
+      "label": "ブルームの標本の数",
+      "order": 42,
+      "group": "後処理",
+      "min": 1,
+      "max": 32,
+      "default": 12
+    },
+    "vignette": {
+      "kind": "field",
+      "type": "float",
+      "label": "周辺の暗さ",
+      "order": 43,
+      "group": "後処理",
+      "min": 0.0,
+      "max": 1.0,
+      "default": 0.45
+    },
+    "saturation": {
+      "kind": "field",
+      "type": "float",
+      "label": "彩度",
+      "order": 44,
+      "group": "後処理",
+      "min": -1.0,
+      "max": 1.0,
+      "default": 0.05
+    },
+    "msaaSamples": {
+      "kind": "field",
+      "type": "int",
+      "label": "MSAA の標本の数",
+      "order": 45,
+      "group": "後処理",
+      "min": 1,
+      "max": 8,
+      "default": 4
+    },
+    "figureLight": {
+      "kind": "field",
+      "type": "float",
+      "label": "キャラの板の明るさ（板は光を受けない）",
+      "order": 46,
+      "group": "光（松明・灯り）",
+      "min": 0.2,
+      "max": 2.0,
+      "default": 0.85
+    },
+    "popupSeconds": {
+      "kind": "field",
+      "type": "float",
+      "label": "浮かぶ数の秒",
+      "order": 47,
+      "group": "UI の動き",
+      "min": 0.2,
+      "max": 2.0,
+      "default": 0.8
+    },
+    "popupPopScale": {
+      "kind": "field",
+      "type": "float",
+      "label": "浮かぶ数の出始めの倍",
+      "order": 48,
+      "group": "UI の動き",
+      "min": 1.0,
+      "max": 3.0,
+      "default": 1.5
+    },
+    "popupPopSeconds": {
+      "kind": "field",
+      "type": "float",
+      "label": "浮かぶ数の弾みの秒",
+      "order": 49,
+      "group": "UI の動き",
+      "min": 0.01,
+      "max": 0.5,
+      "default": 0.08
+    },
+    "popupRise": {
+      "kind": "field",
+      "type": "float",
+      "label": "ダメージの数の昇る高さ（px）",
+      "order": 50,
+      "group": "UI の動き",
+      "min": 0.0,
+      "max": 160.0,
+      "default": 50.0
+    },
+    "popupFall": {
+      "kind": "field",
+      "type": "float",
+      "label": "ダメージの数の落ちる高さ（px）",
+      "order": 51,
+      "group": "UI の動き",
+      "min": 0.0,
+      "max": 80.0,
+      "default": 15.0
+    },
+    "popupDrift": {
+      "kind": "field",
+      "type": "float",
+      "label": "ダメージの数の横の流れ（px）",
+      "order": 52,
+      "group": "UI の動き",
+      "min": 0.0,
+      "max": 60.0,
+      "default": 14.0
+    },
+    "popupFadeSeconds": {
+      "kind": "field",
+      "type": "float",
+      "label": "浮かぶ数の消える秒",
+      "order": 53,
+      "group": "UI の動き",
+      "min": 0.05,
+      "max": 1.0,
+      "default": 0.3
+    },
+    "popupStack": {
+      "kind": "field",
+      "type": "float",
+      "label": "浮かぶ数の段の高さ（px）",
+      "order": 54,
+      "group": "UI の動き",
+      "min": 0.0,
+      "max": 80.0,
+      "default": 56.0
+    },
+    "popupHeadGap": {
+      "kind": "field",
+      "type": "float",
+      "label": "浮かぶ数の頭の上の隙間（m）",
+      "order": 55,
+      "group": "UI の動き",
+      "min": 0.0,
+      "max": 1.0,
+      "default": 0.15
+    },
+    "healRise": {
+      "kind": "field",
+      "type": "float",
+      "label": "回復の数の昇る高さ（px）",
+      "order": 56,
+      "group": "UI の動き",
+      "min": 0.0,
+      "max": 160.0,
+      "default": 40.0
+    },
+    "healPopScale": {
+      "kind": "field",
+      "type": "float",
+      "label": "回復の数の出始めの倍",
+      "order": 57,
+      "group": "UI の動き",
+      "min": 1.0,
+      "max": 3.0,
+      "default": 1.15
+    },
+    "potionSeconds": {
+      "kind": "field",
+      "type": "float",
+      "label": "薬を使う秒",
+      "order": 58,
+      "group": "UI の動き",
+      "min": 0.2,
+      "max": 2.0,
+      "default": 0.7
+    },
+    "eatSeconds": {
+      "kind": "field",
+      "type": "float",
+      "label": "食べる秒",
+      "order": 59,
+      "group": "UI の動き",
+      "min": 0.2,
+      "max": 2.0,
+      "default": 0.75
+    },
+    "smokeSeconds": {
+      "kind": "field",
+      "type": "float",
+      "label": "煙玉の秒",
+      "order": 60,
+      "group": "UI の動き",
+      "min": 0.2,
+      "max": 2.0,
+      "default": 0.6
+    },
+    "pebbleSeconds": {
+      "kind": "field",
+      "type": "float",
+      "label": "小石の秒",
+      "order": 61,
+      "group": "UI の動き",
+      "min": 0.1,
+      "max": 1.0,
+      "default": 0.3
+    },
+    "useIconSize": {
+      "kind": "field",
+      "type": "float",
+      "label": "使った物の絵の大きさ（px）",
+      "order": 62,
+      "group": "UI の動き",
+      "min": 16.0,
+      "max": 120.0,
+      "default": 80.0
+    },
+    "useTilt": {
+      "kind": "field",
+      "type": "float",
+      "label": "薬の瓶の傾き（度）",
+      "order": 63,
+      "group": "UI の動き",
+      "min": 0.0,
+      "max": 120.0,
+      "default": 45.0
+    },
+    "hpHoldSeconds": {
+      "kind": "field",
+      "type": "float",
+      "label": "HP の減った分を残す秒",
+      "order": 64,
+      "group": "UI の動き",
+      "min": 0.0,
+      "max": 2.0,
+      "default": 0.35
+    },
+    "hpShrinkSeconds": {
+      "kind": "field",
+      "type": "float",
+      "label": "HP の棒が縮む秒",
+      "order": 65,
+      "group": "UI の動き",
+      "min": 0.05,
+      "max": 2.0,
+      "default": 0.3
+    },
+    "edgeSeconds": {
+      "kind": "field",
+      "type": "float",
+      "label": "画面の周りの赤の秒",
+      "order": 66,
+      "group": "UI の動き",
+      "min": 0.05,
+      "max": 2.0,
+      "default": 0.35
+    },
+    "levelUpSeconds": {
+      "kind": "field",
+      "type": "float",
+      "label": "レベルアップの演出の秒",
+      "order": 67,
+      "group": "UI の動き",
+      "min": 0.2,
+      "max": 2.0,
+      "default": 0.5
+    },
+    "cardSlideSeconds": {
+      "kind": "field",
+      "type": "float",
+      "label": "カードが滑り込む秒",
+      "order": 68,
+      "group": "UI の動き",
+      "min": 0.05,
+      "max": 1.0,
+      "default": 0.3
+    },
+    "chosenSeconds": {
+      "kind": "field",
+      "type": "float",
+      "label": "選んだカードが消える秒",
+      "order": 69,
+      "group": "UI の動き",
+      "min": 0.05,
+      "max": 1.0,
+      "default": 0.3
+    },
+    "diagonalBadgeScale": {
+      "kind": "field",
+      "type": "float",
+      "label": "斜めの予告の大きさの倍",
+      "order": 70,
+      "group": "UI の動き",
+      "min": 0.4,
+      "max": 1.0,
+      "default": 0.78
+    }
+  }
+}

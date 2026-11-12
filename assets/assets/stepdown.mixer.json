@@ -1,0 +1,51 @@
+{
+  "version": 1,
+  "note": "音の通り道。1 手の時刻表の効果音（sd_*）は sfx のバス。環境音（ダンジョンの低い響き）は作る時に amb_ で始まる名前にして ambience のバスへ通す。",
+  "defaultBus": "sfx",
+  "transitionSeconds": 0.4,
+  "buses": [
+    {
+      "name": "ambience",
+      "volume": 0.55,
+      "lowpassGainHF": 1.0
+    },
+    {
+      "name": "sfx",
+      "volume": 0.8,
+      "lowpassGainHF": 1.0
+    },
+    {
+      "name": "ui",
+      "volume": 0.7,
+      "lowpassGainHF": 1.0
+    }
+  ],
+  "routes": [
+    {
+      "bus": "ambience",
+      "prefixes": [
+        "amb_"
+      ]
+    }
+  ],
+  "ducks": [
+    {
+      "bus": "ambience",
+      "by": [
+        "sfx"
+      ],
+      "depth": 0.8,
+      "attackSeconds": 0.05,
+      "holdSeconds": 0.15,
+      "releaseSeconds": 0.6
+    }
+  ],
+  "cooldowns": [
+    {
+      "prefix": "sd_step",
+      "seconds": 0.05
+    }
+  ],
+  "snapshots": [],
+  "title": "音の通り道"
+}

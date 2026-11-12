@@ -1,0 +1,175 @@
+{
+  "//": "stepdown.rules.json の形の宣言（Studio の sections 方言）。値だけを Doc に置き、判定の式と敵の動き方はコード（Step）側。",
+  "version": 1,
+  "sections": {
+    "maxHp": {
+      "kind": "field",
+      "type": "int",
+      "label": "最大 HP",
+      "order": 1,
+      "group": "主人公",
+      "min": 1,
+      "max": 99,
+      "default": 20
+    },
+    "baseAttack": {
+      "kind": "field",
+      "type": "int",
+      "label": "剣なしの攻撃",
+      "order": 2,
+      "group": "主人公",
+      "min": 0,
+      "max": 20,
+      "default": 2
+    },
+    "regenEvery": {
+      "kind": "field",
+      "type": "int",
+      "label": "移動したこの手数ごとに HP +1",
+      "order": 3,
+      "group": "主人公",
+      "min": 1,
+      "max": 100,
+      "default": 12
+    },
+    "potionAt": {
+      "kind": "field",
+      "type": "float",
+      "label": "薬を使う HP（最大 HP × これ 以下）",
+      "order": 4,
+      "group": "主人公",
+      "min": 0.0,
+      "max": 1.0,
+      "default": 0.25
+    },
+    "arrowMin": {
+      "kind": "field",
+      "type": "int",
+      "label": "矢を撃つ最短の距離",
+      "order": 5,
+      "group": "判定",
+      "min": 2,
+      "max": 9,
+      "default": 2
+    },
+    "arrowMax": {
+      "kind": "field",
+      "type": "int",
+      "label": "矢を撃つ最長の距離",
+      "order": 6,
+      "group": "判定",
+      "min": 2,
+      "max": 9,
+      "default": 4
+    },
+    "bombNeeds": {
+      "kind": "field",
+      "type": "int",
+      "label": "爆弾を投げる 8 近傍の起きた敵の数",
+      "order": 7,
+      "group": "判定",
+      "min": 1,
+      "max": 8,
+      "default": 2
+    },
+    "burnDamage": {
+      "kind": "field",
+      "type": "int",
+      "label": "燃える敵が 1 手に受けるダメージ",
+      "order": 8,
+      "group": "判定",
+      "min": 0,
+      "max": 20,
+      "default": 1
+    },
+    "fullnessMax": {
+      "kind": "field",
+      "type": "int",
+      "label": "満腹度の最大",
+      "group": "空腹",
+      "min": 1,
+      "max": 999,
+      "default": 100,
+      "order": 9
+    },
+    "hungerEvery": {
+      "kind": "field",
+      "type": "int",
+      "label": "手が進んだこの数ごとに満腹度 -1",
+      "group": "空腹",
+      "min": 1,
+      "max": 100,
+      "default": 3,
+      "order": 10
+    },
+    "starveDamage": {
+      "kind": "field",
+      "type": "int",
+      "label": "満腹度 0 の間 1 手ごとに減る HP",
+      "group": "空腹",
+      "min": 0,
+      "max": 20,
+      "default": 1,
+      "order": 11
+    },
+    "levelExp": {
+      "kind": "field",
+      "type": {
+        "list": "int"
+      },
+      "label": "次のレベルまでに要る経験値（Lv1→2, 2→3, …）",
+      "group": "経験値",
+      "order": 12
+    },
+    "wakeSteps": {
+      "kind": "field",
+      "type": "int",
+      "label": "見える距離（歩く距離。起きる・ダッシュが止まる）",
+      "order": 13,
+      "group": "敵",
+      "min": 0,
+      "max": 30,
+      "default": 5
+    },
+    "enemyMinSteps": {
+      "kind": "field",
+      "type": "int",
+      "label": "階の始めに敵を置く、始まりからの最小の歩数",
+      "order": 14,
+      "group": "敵",
+      "min": 0,
+      "max": 30,
+      "default": 5
+    },
+    "smokeAt": {
+      "kind": "field",
+      "type": "float",
+      "label": "煙玉を 1 体の隣でも使う HP（最大 HP × これ 以下）",
+      "group": "判定",
+      "min": 0.0,
+      "max": 1.0,
+      "default": 0.5,
+      "order": 15
+    },
+    "tapWaitRadius": {
+      "kind": "field",
+      "type": "float",
+      "label": "主人公のマスの中のタップを待つとみなす半径（マス）",
+      "order": 16,
+      "group": "タップ",
+      "min": 0.0,
+      "max": 1.0,
+      "default": 0.45
+    },
+    "tapSlop": {
+      "kind": "field",
+      "type": "float",
+      "label": "押してから動いてもタップとみなす距離（px）",
+      "order": 17,
+      "group": "タップ",
+      "min": 0.0,
+      "max": 80.0,
+      "default": 12.0
+    }
+  }
+}

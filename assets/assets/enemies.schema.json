@@ -1,0 +1,75 @@
+{
+  "//": "stepdown.enemies.json の形の宣言。enemies は敵の名前（Enemy.Kind の名前）→ 強さ・経験値・落とし物。",
+  "version": 1,
+  "sections": {
+    "enemies": {
+      "kind": "catalog",
+      "label": "敵ごとの強さ",
+      "order": 1,
+      "fields": {
+        "name": {
+          "type": "text",
+          "label": "名前",
+          "order": 1
+        },
+        "hp": {
+          "type": "int",
+          "label": "HP",
+          "order": 2
+        },
+        "attack": {
+          "type": "int",
+          "label": "攻撃",
+          "order": 3
+        },
+        "firstFloor": {
+          "type": "int",
+          "label": "初出の階",
+          "order": 4
+        },
+        "exp": {
+          "type": "int",
+          "label": "経験値",
+          "order": 5
+        },
+        "dropChance": {
+          "type": "float",
+          "label": "物を落とす確率",
+          "order": 6,
+          "min": 0.0,
+          "max": 1.0
+        },
+        "drops": {
+          "type": {
+            "list": {
+              "enum": [
+                "WoodSword",
+                "IronSword",
+                "SilverSword",
+                "WoodShield",
+                "IronShield",
+                "SilverShield",
+                "WoodArrow",
+                "IronArrow",
+                "SilverArrow",
+                "FireArrow",
+                "SmallBomb",
+                "BigBomb",
+                "SleepBomb",
+                "Herb",
+                "Tonic",
+                "Elixir",
+                "Bread",
+                "Meat",
+                "Pebble",
+                "Smoke"
+              ]
+            }
+          },
+          "label": "落とす物（並べるほど出やすい）",
+          "order": 7
+        }
+      }
+    }
+  }
+}
