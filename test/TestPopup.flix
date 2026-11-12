@@ -91,4 +91,26 @@ mod TestPopup {
         let r = CardView.rectOf(4, 2);
         let middle = { x = r#at#x + r#size#x / 2.0, y = r#at#y + r#size#y / 2.0 };
         Assert.assertEq(expected = (Some(2), None), (CardView.cardAt(4, middle), CardView.cardAt(4, { x = 270.0, y = 100.0 })))
+
+    // ══════════════════════════════════════════════════════
+    // 敵の動きを始める時刻
+    // ══════════════════════════════════════════════════════
+
+    def paceNow(): TurnTimeline.Pace = TurnTimeline.paceOf(LookDoc.rec(LookDoc.defaults()), false)
+
+    /// 主人公が歩いただけの手は、敵 3 体の移動が主人公の移動と同時に始まり、表は 1 歩の秒で終わる。
+    @Test
+    def testEnemiesMoveTogetherWithTheHerosStep(): Unit \ Assert =
+        let events = Event.HeroMoved((1, 3), (2, 3)) :: Event.EnemyMoved(0, (5, 3), (4, 3)) :: Event.EnemyMoved(1, (5, 4), (4, 4)) ::
+                     Event.EnemyMoved(2, (5, 5), (4, 5)) :: Nil;
+        Assert.assertEq(expected = paceNow()#step, Timeline.endOf(TurnTimeline.build(paceNow(), events)))
+
+    /// 主人公の矢が挟まった手は、矢を見せ終えてから敵が動く（矢は当たる前の敵のマスへ飛ぶ）。
+    @Test
+    def testEnemiesWaitForTheHerosArrow(): Unit \ Assert =
+        let events = Event.HeroMoved((1, 3), (2, 3)) :: Event.ArrowShot(Board.Dir.Right, Item.Kind.WoodArrow, (5, 3)) ::
+                     Event.EnemyMoved(0, (5, 3), (4, 3)) :: Nil;
+        let p = paceNow();
+        Assert.assertEq(expected = p#step + p#arrow + p#step, Timeline.endOf(TurnTimeline.build(p, events)))
 }
+
