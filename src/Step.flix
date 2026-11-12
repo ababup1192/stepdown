@@ -1,5 +1,6 @@
 // Step — 1 手を Run に当てる（純粋）。
 //   1. 主人公の手（8 方向。角は抜けない）: 敵がいれば殴る（移動しない）・歩けないか角なら何も起きない（手は進まない）・それ以外は動いて罠を踏み（倒れたらそこで終わり）、拾う。
+//      罠は見えていなくても効く（踏まれて見えるようになる）。歩く敵も罠を踏む。
 //      待つは「その場に動いた」とみなし、階段の上なら降りる（その手はそこで終わる。最後の階なら Cleared）。
 //   2. 動いたか待った後、その位置で 1 つだけ判定する: 爆弾（攻撃できる隣の起きた敵が bombNeeds 以上）→ 矢 → 鉄球（当たると 1 マス押す）→ 小石（直線の射程の起きた敵）
 //      → 煙玉（隣の起きた敵が bombNeeds 以上か、1 体以上で HP が smokeAt 以下）。
@@ -74,19 +75,34 @@ mod Step {
     /// 主人公が倒れていなければ残りを進める（罠で倒れた手は、拾う・判定・敵の番・空腹をしない）。
     def whilePlaying(rest: Turn -> Turn, t: Turn): Turn = if (t#runState#status == Status.Playing) rest(t) else t
 
-    /// 歩いて入ったマスの罠が動く。毒矢は trapDamage（盾は効かない）。
+    /// 歩いて入ったマスの罠が動き、見えるようになる。毒矢は trapDamage（盾は効かない）、警報は眠っている敵を起こしかける。
     def springTrap(ctx: Ctx, t: Turn): Turn =
+        let at = t#runState#hero#at;
+        Map.get(at, t#runState#traps) |> Option.map(kind -> t |> reveal(kind, at) |> heroTrap(ctx, kind)) |> Option.getWithDefault(t)
+
+    def heroTrap(ctx: Ctx, kind: Trap.Kind, t: Turn): Turn =
         let r = t#runState;
-        match Map.get(r#hero#at, r#traps) {
-            case Some(Trap.Kind.PoisonDart) =>
+        match kind {
+            case Trap.Kind.PoisonDart =>
                 let damage = RulesDoc.rec(ctx#rules)#trapDamage;
-                t |> emit(Event.TrapSprung(Trap.Kind.PoisonDart, r#hero#at))
-                  |> withRun({ hero = { hp = r#hero#hp - damage | r#hero } | r })
+                t |> withRun({ hero = { hp = r#hero#hp - damage | r#hero } | r })
                   |> emit(Event.HeroHurt(Source.Trap(Trap.Kind.PoisonDart), damage, false))
                   |> drinkIfLow(ctx)
                   |> fallIfDown
-            case _ => t
+            case Trap.Kind.Alarm => ringAlarm(t)
+            case Trap.Kind.Pit   => t
         }
+
+    /// 罠が動いた出来事を出し、そのマスの罠を見えるようにする。
+    def reveal(kind: Trap.Kind, cell: Cell, t: Turn): Turn =
+        t |> withRun({ revealed = Set.insert(cell, t#runState#revealed) | t#runState }) |> emit(Event.TrapSprung(kind, cell))
+
+    /// 警報: 階の始めの眠り（Dormant）の敵だけを Dozing(1) にする（その手の敵の番では動かず、次の手から起きる）。
+    /// WhyNot: 眠り玉・煙玉の Dozing も縮める — 主人公が眠らせた敵が、罠のせいで先に起きると読めない。
+    def ringAlarm(t: Turn): Turn =
+        let dormant = t#runState#enemies |> List.filter(e -> e#rest == Enemy.Rest.Dormant);
+        dormant |> List.foldLeft((acc, e) -> setEnemy({ rest = Enemy.Rest.Dozing(1) | e }, acc), t)
+            |> emit(Event.AlarmRang(dormant |> List.map(e -> e#id)))
 
     def walk(target: Cell, t: Turn): Turn =
         let r = t#runState;
@@ -118,14 +134,17 @@ mod Step {
             else t
         }) |> Option.getWithDefault(t)
 
-    /// 押し出された敵が乗ったマスの罠が動く（自分で歩いて乗った敵には動かない）。毒矢は trapDamage。
+    /// 敵が入ったマス（歩いた・押し出された）の罠が動き、見えるようになる。毒矢は trapDamage、警報は眠っている敵を起こしかける。
     def trapEnemy(ctx: Ctx, id: Int32, cell: Cell, t: Turn): Turn =
-        match Map.get(cell, t#runState#traps) {
-            case Some(Trap.Kind.PoisonDart) =>
-                let damage = RulesDoc.rec(ctx#rules)#trapDamage;
-                t |> emit(Event.TrapSprung(Trap.Kind.PoisonDart, cell)) |> emit(Event.EnemyTrapped(id, damage)) |> hurt(ctx, id, damage)
-            case _ => t
-        }
+        Map.get(cell, t#runState#traps) |> Option.map(kind -> t |> reveal(kind, cell) |> enemyTrap(ctx, id, kind)) |> Option.getWithDefault(t)
+
+    def enemyTrap(ctx: Ctx, id: Int32, kind: Trap.Kind, t: Turn): Turn = match kind {
+        case Trap.Kind.PoisonDart =>
+            let damage = RulesDoc.rec(ctx#rules)#trapDamage;
+            t |> emit(Event.EnemyTrapped(id, damage)) |> hurt(ctx, id, damage)
+        case Trap.Kind.Alarm => ringAlarm(t)
+        case Trap.Kind.Pit   => t
+    }
 
     // ══════════════════════════════════════════════════════
     // 拾う（上位互換・枠は slotCount まで）
@@ -385,10 +404,12 @@ mod Step {
         Board.isCornerOpen(e#at, dest, ctx#board) and Enemy.cellsAt(dest, e#size) |> Set.forAll(c ->
             passable(c) and c != r#hero#at and Map.get(c, occupied) |> Option.forAll(other -> other#id == e#id))
 
-    /// 敵が自分で歩く（向きを歩いた向きにする）。
-    def moveEnemy(e: Enemy.Enemy, dest: Cell, t: Turn): Turn =
+    /// 敵が自分で動く（向きを動いた向きにする）。歩く敵は入ったマスの罠を踏む（見えている罠もよけない）。
+    /// WhyNot: 飛ぶ敵にも罠を効かせる — 床の板を踏まずに飛び越える絵と合わない。
+    def moveEnemy(ctx: Ctx, e: Enemy.Enemy, dest: Cell, t: Turn): Turn =
         let facing = Board.dirTo(e#at, dest) |> Option.getWithDefault(e#facing);
-        t |> setEnemy({ at = dest, facing = facing | e }) |> emit(Event.EnemyMoved(e#id, e#at, dest))
+        let moved = t |> setEnemy({ at = dest, facing = facing | e }) |> emit(Event.EnemyMoved(e#id, e#at, dest));
+        if (Enemy.isFlying(e#kind)) moved else trapEnemy(ctx, e#id, dest, moved)
 
     // ══════════════════════════════════════════════════════
     // 敵が起きる・敵の手番
@@ -454,7 +475,7 @@ mod Step {
         Board.dirs8()
             |> List.map(dir -> Board.step8(dir, e#at))
             |> List.find(next -> Map.get(next, toward) == Some(here - 1) and canStand(ctx, e, next, t#runState))
-            |> Option.map(next -> moveEnemy(e, next, t))
+            |> Option.map(next -> moveEnemy(ctx, e, next, t))
             |> Option.getWithDefault(fallback)
 
     /// 歩ける道（8 方向・角は抜けない）の幅優先で主人公へ 1 マス寄る。
@@ -467,7 +488,7 @@ mod Step {
         else {
             let (i, rng) = Rng.below(List.length(options), t#runState#rng);
             let moved = t |> withRun({ rng = rng | t#runState });
-            List.drop(i, options) |> List.head |> Option.map(next -> moveEnemy(e, next, moved)) |> Option.getWithDefault(moved)
+            List.drop(i, options) |> List.head |> Option.map(next -> moveEnemy(ctx, e, next, moved)) |> Option.getWithDefault(moved)
         }
 
     /// 主人公を射線に入れる歩けるマス（主人公から 4 方向・距離 arrowMin..arrowMax・矢を止めるマスの手前まで）への歩く距離で 1 マス寄る。

@@ -11,6 +11,7 @@ mod MarkView {
         case Steps
         case Stairs
         case Hourglass
+        case Alert
     }
 
     /// 方向の予告 1 つ。at = アイコンの真ん中・hurt = 受けるダメージ（無ければ 0）・color = 枠の色・scale = 大きさの倍（斜めは小さい）・
@@ -36,6 +37,9 @@ mod MarkView {
     /// 斬り跡の弧。at = 当たった物の真ん中・toward = 打った側の向き（画面のラジアン）・color = 色・progress = 進み（0..1）。
     pub type alias Slash = { at = Vec2.Vec2, toward = Float64, color = Color, progress = Float64 }
 
+    /// 起きかけた敵の頭の「!」。at = 頭の上・progress = 進み（0..1）。
+    pub type alias Alert = { at = Vec2.Vec2, progress = Float64 }
+
     /// 矢の軌跡（tail から head へ細る線）。
     pub type alias Trail = { tail = Vec2.Vec2, head = Vec2.Vec2, color = Color }
 
@@ -57,7 +61,8 @@ mod MarkView {
         uses = List[Use],
         rings = List[Ring],
         slashes = List[Slash],
-        trails = List[Trail]
+        trails = List[Trail],
+        alerts = List[Alert]
     }
 
     /// 場面の上の印（奥から: 予告 → 眠りの z → 軌跡 → 弧 → 輪 → 頭の上 → 数）。
@@ -70,7 +75,8 @@ mod MarkView {
             :: (w#rings |> List.flatMap(ring(w)))
             :: (w#overheads |> List.flatMap(overhead(w)))
             :: (w#uses |> List.flatMap(useMark))
-            :: (w#numbers |> List.flatMap(number(atlas, w))) :: Nil)
+            :: (w#numbers |> List.flatMap(number(atlas, w)))
+            :: (w#alerts |> List.flatMap(alert(atlas, w))) :: Nil)
 
     // ── 方向の予告 ──
 
@@ -80,15 +86,16 @@ mod MarkView {
         let rings = RawDraw.circleAt(b#at, 22.0 * k, t#badgeEdge, 1) :: faded(0.35, RawDraw.circleAt(b#at, 26.0 * k, b#color, 0)) :: Nil;
         let hurt = if (b#hurt <= 0) Nil else hurtTag(atlas, t, b);
         let see = List.map(faded(b#alpha));
-        List.flatten(see(rings) :: see(face) :: see(glyph(b#glyph, b#at, k, t#badgeEdge)) :: hurt :: Nil)
+        List.flatten(see(rings) :: see(face) :: see(glyph(atlas, b#glyph, b#at, k, t#badgeEdge)) :: hurt :: Nil)
 
-    def glyph(g: Glyph, c: Vec2.Vec2, k: Float64, color: Color): List[Render.PlacedItem] =
+    def glyph(atlas: FontAtlas, g: Glyph, c: Vec2.Vec2, k: Float64, color: Color): List[Render.PlacedItem] =
         let small = (items: List[Render.PlacedItem]) -> if (k >= 0.999) items else Render.scaledAllAround(k, c, items);
         match g {
             case Glyph.Picture(i) => icon(Art.icon(i), c, 30.0 * k, 3) :: Nil
             case Glyph.Steps      => small(steps(c, color, 3))
             case Glyph.Stairs     => small(stairs(c, color, 3))
             case Glyph.Hourglass  => small(hourglass(c, color, 3))
+            case Glyph.Alert      => centered(atlas, "!", c, 30.0 * k, color, 3) :: Nil
         }
 
     /// 受けるダメージ: アイコンの下の赤いラベルに、小さなハートと数。
@@ -163,6 +170,17 @@ mod MarkView {
         let at = (dx: Float64, dy: Float64) -> p(center#x + dx, center#y + dy);
         centered(atlas, s, at(d, d), size, shadow, 10) :: centered(atlas, s, at(d + thick, d), size, shadow, 10)
             :: centered(atlas, s, at(0.0, 0.0), size, fill, 11) :: centered(atlas, s, at(thick, 0.0), size, fill, 11) :: Nil
+
+    /// 頭の上の「!」: 下から跳ねて大きく出て、少し縮んで止まり、終わりに消える。
+    def alertKeys(): List[(Float64, Float64)] = (0.0, 0.3) :: (0.18, 1.3) :: (0.32, 1.0) :: (1.0, 1.0) :: Nil
+
+    def alert(atlas: FontAtlas, w: In, a: Alert): List[Render.PlacedItem] =
+        let q = unit(a#progress);
+        let size = 40.0 * Curve.pieces(alertKeys(), q);
+        let lift = 18.0 * Curve.pieces((0.0, 0.0) :: (0.18, 1.0) :: (1.0, 1.0) :: Nil, q);
+        Render.fadeAll(Curve.pieces(fadeOut(), q), heavy(atlas, "!", p(a#at#x, a#at#y - lift), size, w#theme#popExp, w#theme#popRim))
+
+    def fadeOut(): List[(Float64, Float64)] = (0.0, 1.0) :: (0.8, 1.0) :: (1.0, 0.0) :: Nil
 
     /// 頭の上の物の絵: 弾んで出て、上へ少し昇って消える。
     def overhead(w: In, o: Overhead): List[Render.PlacedItem] =

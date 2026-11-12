@@ -46,7 +46,7 @@ mod TestPreview {
     // 敵の予告の性質（種で流す）
     // ══════════════════════════════════════════════════════
 
-    /// 乱数の局面 seed の 9 つの入力のうち、赤（手の前の敵の予告）の外で罠でもないマスに主人公が立ち、敵の攻撃を受けた入力。
+    /// 乱数の局面 seed の 9 つの入力のうち、赤（手の前の敵の予告）の外で、見えている罠でも見えていない罠でもないマスに主人公が立ち、敵の攻撃を受けた入力。
     def hitsOutsideTheRed(seed: Int64): List[String] =
         let (c, before) = Fixtures.randomCase(seed);
         let danger = Preview.dangerCells(c, before);
@@ -58,7 +58,7 @@ mod TestPreview {
             else Some("種 ${seed}・${input} で ${at}: ${Run.fingerprint(before)}")
         })
 
-    /// 乱数で組んだ局面 300 個（種類・眠り方・燃える・向き・罠を混ぜる）× 9 入力で、赤の外で罠でもないマスに立った手の被ダメージは 0。
+    /// 乱数で組んだ局面 300 個（種類・眠り方・燃える・向き・見えている罠と見えていない罠を混ぜる）× 9 入力で、赤の外で罠でもないマスに立った手の被ダメージは 0。
     @Test
     def testNoDamageOutsideTheRedOnRandomCases(): Unit \ Assert =
         Assert.assertEq(expected = Nil, List.range(1, 301) |> List.flatMap(seed -> hitsOutsideTheRed(Int32.toInt64(seed))))

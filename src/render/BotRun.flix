@@ -1,5 +1,6 @@
 // BotRun — 自動で遊ぶ 4 人（でたらめ・避ける人・戦う人・先を読む人）に 1F から最後の階までを種ごとに遊ばせ、クリア率・死亡率・着いた階などの数を出す（画面なし）。
 // 回すのは決まりの関数（Step.step と、その要約の Preview.summarize）だけ。見せる側（World・時刻表）は通さない。
+// 手を選ぶ読みは人と同じく見えている罠だけの Run（Run.asSeen）で回し、選んだ手は本物の Run に当てる。
 // 実行: make bots（SEEDS=<種の数・既定 200、先を読む人だけは 50>・LIMIT=<1 回の手の上限・既定 2000>・ONLY=Random,Avoider,Fighter,Lookahead のどれかで絞る
 //                  ・DEPTH=<先を読む手数・既定 3>・MODE=peek（Run の乱数のまま読む・既定）か sample（乱数を 3 通りに替えて平均））
 mod BotRun {
@@ -172,11 +173,12 @@ mod BotRun {
         if (r#status != Run.Status.Playing or tally#hands >= limit) (runState, tally)
         else if (not List.isEmpty(r#pending)) play(bot, field, limit, fst(Step.step(field#ctx, runState, answer(field#ctx, runState))), tally)
         else {
-            let options = Run.inputs() |> List.map(input -> candidateOf(field#ctx, runState, input));
+            let seen = Run.asSeen(runState);
+            let options = Run.inputs() |> List.map(input -> candidateOf(field#ctx, seen, input));
             let moving = List.length(options |> List.filter(c -> not c#blocked));
             let hurting = List.count(c -> not c#blocked and c#damage > 0, options);
-            let (picked, rng) = decide(bot, field, runState, options, tally#rng);
-            play(bot, field, limit, picked#next,
+            let (picked, rng) = decide(bot, field, seen, options, tally#rng);
+            play(bot, field, limit, fst(Step.step(field#ctx, runState, picked#input)),
                  { hands = tally#hands + 1, stuck = tally#stuck + countIf(hurting == moving),
                    judged = tally#judged + countIf(hurting > 0 and hurting < moving),
                    strikes = tally#strikes + countIf(picked#strike), rng = rng })

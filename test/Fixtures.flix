@@ -55,6 +55,16 @@ mod Fixtures {
         let r = Run.rec(runState);
         Run.of({ enemies = r#enemies |> List.map(e -> { rest = Enemy.Rest.Awake | e }) | r })
 
+    /// id の敵の眠り方を rest にした Run。
+    pub def resting(id: Int32, rest: Enemy.Rest, runState: Run.State): Run.State =
+        let r = Run.rec(runState);
+        Run.of({ enemies = r#enemies |> List.map(e -> if (e#id == id) { rest = rest | e } else e) | r })
+
+    /// cells の罠を見えている罠にした Run。
+    pub def revealing(cells: List[Cell], runState: Run.State): Run.State =
+        let r = Run.rec(runState);
+        Run.of({ revealed = Set.union(r#revealed, List.toSet(cells)) | r })
+
     /// 持ち物の枠を pack にした Run。
     pub def holding(pack: Run.Pack, runState: Run.State): Run.State = Run.of({ pack = pack | Run.rec(runState) })
 
@@ -89,8 +99,8 @@ mod Fixtures {
          "#.P.^...r..>#" ::
          "#############" :: Nil) :: Nil
 
-    /// seed から乱数で組んだ局面: 盤・主人公の位置と HP・持ち物・1〜5 体の敵（種類・位置・眠り方・HP・燃える手・向き・溜め）・0〜3 個の毒矢の罠を足す。
-    /// 地図の字の罠もそのまま残す。
+    /// seed から乱数で組んだ局面: 盤・主人公の位置と HP・持ち物・1〜5 体の敵（種類・位置・眠り方・HP・燃える手・向き・溜め）・0〜3 個の毒矢か警報の罠を足す。
+    /// 地図の字の罠もそのまま残し、罠は乱数で半分ほどを見えている罠にする。
     pub def randomCase(seed: Int64): (Run.Ctx, Run.State) =
         let boards = randomBoards();
         let (which, r1) = Rng.below(List.length(boards), Rng.mix(seed, 7i64));
@@ -131,11 +141,12 @@ mod Fixtures {
         let (hpLeft, r8) = Rng.below(20, r7);
         let packs = Nil :: (Run.Held.Held(Item.Kind.WoodArrow, 3) :: Nil) :: (Run.Held.Held(Item.Kind.SmallBomb, 1) :: Nil)
             :: (Run.Held.Held(Item.Kind.Smoke, 1) :: Nil) :: (Run.Held.Held(Item.Kind.Pebble, 3) :: Run.Held.Held(Item.Kind.Herb, 1) :: Nil) :: Nil;
-        let traps = trapCells |> List.foldLeft((m, cell) -> Map.insert(cell, Trap.Kind.PoisonDart, m), b#traps);
-        let r = Run.rec(Run.start(c, { floor = 1, layout = 0, seed = seed, rng = r8 }, { enemies = Nil, items = Nil, traps = traps }));
+        let traps = trapCells |> List.zipWithIndex |> List.foldLeft((m, e) -> Map.insert(snd(e), if (Int32.modulo(fst(e) + packAt, 2) == 0) Trap.Kind.PoisonDart else Trap.Kind.Alarm, m), b#traps);
+        let (shown, r9) = Rng.pick(Map.size(traps) / 2, Map.keysOf(traps) |> Set.toList, r8);
+        let r = Run.rec(Run.start(c, { floor = 1, layout = 0, seed = seed, rng = r9 }, { enemies = Nil, items = Nil, traps = traps }));
         let enemies = List.reverse(foes);
         (c, Run.of({ hero = { at = heroAt, hp = 1 + hpLeft | r#hero }, pack = List.nth(packAt, packs) |> Option.getWithDefault(Nil),
-                     enemies = enemies, nextId = List.length(enemies), seen = Board.viewFrom(heroAt, b) | r }))
+                     enemies = enemies, nextId = List.length(enemies), revealed = List.toSet(shown), seen = Board.viewFrom(heroAt, b) | r }))
 
     /// 先頭の選ぶ場面のカード（レベルアップでなければ空）。
     def levelCards(runState: Run.State): List[Run.Perk] = match Run.pendingOf(runState) {

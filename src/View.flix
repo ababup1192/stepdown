@@ -113,7 +113,8 @@ mod View {
           uses = usesOf(screen, { side = lk#useIconSize, tilt = lk#useTilt, gap = lk#popupHeadGap }, turn),
           rings = aged |> List.filterMap(ringOf(screen)),
           slashes = slashesOf(theme, screen, turn),
-          trails = trailsOf(theme, screen, turn) };
+          trails = trailsOf(theme, screen, turn),
+          alerts = alertsOf(screen, turn) };
         let choosing = w#screen == World.Screen.Cards;
         let pending = if (choosing) Run.pendingOf(w#runState) |> List.head else None;
         let cards = { theme = theme, time = time,
@@ -265,6 +266,19 @@ mod View {
             case _ => None
         })
 
+    /// 警報で起きかけた敵の頭の「!」（手の後の位置）。
+    def alertsOf(screen: Vec3.Vec3 -> Option[Vec2.Vec2], turn: Motion.Turn): List[MarkView.Alert] =
+        let foes = List.toMap(turn#after#enemies |> List.map(e -> (e#id, e)));
+        turn#events |> List.flatMap(ie -> match ie {
+            case (i, Run.Event.AlarmRang(ids)) =>
+                let progress = turn#progress((i, TurnTimeline.Beat.Alarm));
+                if (progress <= 0.0 or progress >= 1.0) Nil
+                else ids |> List.filterMap(id -> Map.get(id, foes)) |> List.filterMap(e ->
+                    screen(Vec3.add(FloorMesh.cellPoint(e#at), Vec3.v3(0.0, Motion.heightOf(e#kind) + Motion.liftOf(e#kind) + 0.35, 0.0)))
+                        |> Option.map(at -> { at = at, progress = progress }))
+            case _ => Nil
+        })
+
     // ── カード ──
 
     def isLevelUp(choice: Run.Choice): Bool = match choice {
@@ -311,7 +325,7 @@ mod View {
         case Smoke
         case Potion
         case Descend
-        case Trap
+        case Trap(Trap.Kind)
     }
 
     /// 見せる予告 1 つ: 入力・マス・主な種類・受けるダメージ。
@@ -326,7 +340,7 @@ mod View {
     def actOf(summary: Preview.Summary): Option[Act] =
         let has = mark -> List.memberOf(mark, summary);
         if (has(Preview.Mark.Blocked)) None
-        else if (has(Preview.Mark.Trap(Trap.Kind.PoisonDart))) Some(Act.Trap)
+        else if (Option.nonEmpty(trapIn(summary))) trapIn(summary) |> Option.map(Act.Trap)
         else if (has(Preview.Mark.Bomb)) Some(Act.Bomb)
         else if (has(Preview.Mark.Arrow)) Some(Act.Arrow)
         else if (has(Preview.Mark.IronBall) or has(Preview.Mark.Pebble)) Some(Act.Pebble)
@@ -336,6 +350,12 @@ mod View {
         else if (has(Preview.Mark.Potion)) Some(Act.Potion)
         else if (has(Preview.Mark.Move)) Some(Act.Move)
         else Some(Act.Wait)
+
+    /// 要約の中の踏む罠。
+    def trapIn(summary: Preview.Summary): Option[Trap.Kind] = summary |> List.findMap(m -> match m {
+        case Preview.Mark.Trap(kind) => Some(kind)
+        case _                       => None
+    })
 
     /// 予告を見せる形にする。進めない向き（枠を出す床が無い）と、何も起きない待つは出さない。
     def shownOf(hero: Cell, e: (Run.Input, Preview.Summary)): Option[Shown] =
@@ -358,7 +378,7 @@ mod View {
         case Act.Smoke   => t#markBomb
         case Act.Potion  => t#markDescend
         case Act.Descend => t#markDescend
-        case Act.Trap    => t#markTrap
+        case Act.Trap(_) => t#markTrap
     }
 
     def markOf(t: ThemeDoc.Rec, s: Shown): List[SceneView.Mark] =
@@ -372,10 +392,11 @@ mod View {
             { at = FloorMesh.cellPoint(c), color = t#markDanger, stroke = SceneView.Stroke.Fill } :: { at = FloorMesh.cellPoint(c), color = t#markDanger, stroke = SceneView.Stroke.Dashed } :: Nil);
         if (Set.memberOf(hero, danger)) { at = FloorMesh.cellPoint(hero), color = t#markDanger, stroke = SceneView.Stroke.Frame } :: fills else fills
 
-    /// 見たマスの罠: 床に罠の色の面と枠（罠の絵ができるまでの印）。
+    /// 見えている罠（踏まれた罠）: 床に罠の色の面と、毒矢は枠・警報は破線（罠の絵ができるまでの印）。
     def trapMarks(t: ThemeDoc.Rec, r: Run.Rec): List[SceneView.Mark] =
-        r#traps |> Map.keysOf |> Set.toList |> List.filter(c -> Set.memberOf(c, r#seen)) |> List.flatMap(c ->
-            { at = FloorMesh.cellPoint(c), color = t#markTrap, stroke = SceneView.Stroke.Fill } :: { at = FloorMesh.cellPoint(c), color = t#markTrap, stroke = SceneView.Stroke.Frame } :: Nil)
+        Run.seenTraps(r) |> Map.toList |> List.flatMap(match (c, kind) ->
+            { at = FloorMesh.cellPoint(c), color = t#markTrap, stroke = SceneView.Stroke.Fill }
+                :: { at = FloorMesh.cellPoint(c), color = t#markTrap, stroke = if (kind == Trap.Kind.Alarm) SceneView.Stroke.Dashed else SceneView.Stroke.Frame } :: Nil)
 
     def laneOf(t: ThemeDoc.Rec, lane: (Cell, Cell)): SceneView.Lane =
         let (archer, far) = (FloorMesh.cellPoint(fst(lane)), FloorMesh.cellPoint(snd(lane)));
@@ -406,7 +427,8 @@ mod View {
         case Act.Smoke   => MarkView.Glyph.Picture(Art.Icon.Smoke)
         case Act.Potion  => MarkView.Glyph.Picture(Art.Icon.Herb)
         case Act.Descend => MarkView.Glyph.Stairs
-        case Act.Trap    => MarkView.Glyph.Picture(Art.Icon.Arrow)
+        case Act.Trap(Trap.Kind.Alarm) => MarkView.Glyph.Alert
+        case Act.Trap(_) => MarkView.Glyph.Picture(Art.Icon.Arrow)
     }
 
     /// 斜めの向きか（予告のアイコンを小さくする）。
@@ -512,6 +534,7 @@ mod View {
             case Run.Event.HeroHurt(Run.Source.Starve, n, _) => say(TextDoc.Line.Starved, ("n", "${n}") :: Nil)
             case Run.Event.HeroHurt(Run.Source.Trap(_), n, _) => say(TextDoc.Line.Darted, ("n", "${n}") :: Nil)
             case Run.Event.EnemyTrapped(id, n)  => say(TextDoc.Line.EnemyDarted, enemy(id) :: ("n", "${n}") :: Nil)
+            case Run.Event.AlarmRang(_)         => say(TextDoc.Line.Alarmed, Nil)
             case Run.Event.HeroHurt(_, 0, _)    => say(TextDoc.Line.Guarded, Nil)
             case Run.Event.HeroHurt(source, n, _) => Run.attackerOf(source) |> Option.flatMap(id -> say(TextDoc.Line.Hurt, enemy(id) :: ("n", "${n}") :: Nil))
             case Run.Event.Ate(kind, n)         => say(TextDoc.Line.Ate, item(kind) :: ("n", "${n}") :: Nil)

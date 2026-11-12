@@ -82,7 +82,8 @@ mod Run {
     ///   layout  … その階の地図の番号（floors の Doc の maps の何番目か）
     ///   enemies … 生きている敵（作った順）
     ///   items   … 床のアイテム
-    ///   traps   … 罠のマス
+    ///   traps   … 罠のマス（見えていない物も入る）
+    ///   revealed … 見えている罠のマス（主人公か敵が一度踏んだ。階を出るまで見えたまま）
     ///   seen    … 見たマス（霧）
     ///   rng     … 乱数の状態
     ///   seed    … 周回の種（階の種はここと階の番号から作る）
@@ -101,6 +102,7 @@ mod Run {
         enemies = List[Enemy.Enemy],
         items = Map[Cell, Item.Kind],
         traps = Map[Cell, Trap.Kind],
+        revealed = Set[Cell],
         seen = Set[Cell],
         rng = Int64,
         seed = Int64,
@@ -170,10 +172,12 @@ mod Run {
         case LevelUp(Int32)
         /// 倒した敵が物を落とした（種類・マス）。
         case ItemDropped(Item.Kind, Cell)
-        /// 主人公が歩いて入ったマスか、敵が押し出されたマスの罠が動いた（種類・マス）。主人公へのダメージは続く HeroHurt、敵へは EnemyTrapped。
+        /// 主人公か敵が入ったマスの罠が動いた（種類・マス）。そのマスの罠はこの後ずっと見える。主人公へのダメージは続く HeroHurt、敵へは EnemyTrapped、警報は AlarmRang。
         case TrapSprung(Trap.Kind, Cell)
-        /// 押し出された敵が罠でダメージを受けた（敵の id・ダメージ）。
+        /// 敵が罠でダメージを受けた（敵の id・ダメージ）。
         case EnemyTrapped(Int32, Int32)
+        /// 警報で、眠っていた敵（id）が起きかけた（その手の敵の番では動かない）。
+        case AlarmRang(List[Int32])
         /// 押し出しの先が壁・柱・岩で、押せずにダメージが増えた（敵の id・足したダメージ）。続く出来事で HP が減る。
         case PushedIntoWall(Int32, Int32)
         /// カードを取った。
@@ -219,7 +223,7 @@ mod Run {
         let rules = RulesDoc.rec(ctx#rules);
         let fresh = { floor = at#floor, layout = at#layout,
                       hero = { at = ctx#board#start, hp = rules#maxHp, maxHp = rules#maxHp, sword = None, shield = None },
-                      pack = Nil, enemies = Nil, items = Map.empty(), traps = Map.empty(), seen = Set.empty(), rng = at#rng, seed = at#seed,
+                      pack = Nil, enemies = Nil, items = Map.empty(), traps = Map.empty(), revealed = Set.empty(), seen = Set.empty(), rng = at#rng, seed = at#seed,
                       perks = Nil, level = 1, exp = 0, walked = 0, turns = 0, fullness = rules#fullnessMax,
                       pending = Nil, declined = None, nextId = 0, status = Status.Playing };
         enter(of(fresh), ctx, at, placement)
@@ -232,7 +236,7 @@ mod Run {
             Enemy.make(i, kind, cell, EnemiesDoc.statsOf(kind, ctx#enemies)#hp));
         let start = ctx#board#start;
         of({ floor = at#floor, layout = at#layout, hero = { at = start | r#hero },
-             enemies = enemies, items = List.toMap(placement#items |> List.map(match (kind, cell) -> (cell, kind))), traps = placement#traps,
+             enemies = enemies, items = List.toMap(placement#items |> List.map(match (kind, cell) -> (cell, kind))), traps = placement#traps, revealed = Set.empty(),
              seen = Board.viewFrom(start, ctx#board), rng = at#rng, seed = at#seed,
              pending = r#pending |> List.filter(isLevelUp), declined = None, nextId = List.length(enemies), status = Status.Playing | r })
 
@@ -289,6 +293,12 @@ mod Run {
         case Some(Held.Held(_, n)) => n
         case None                  => 0
     }
+
+    /// 見えている罠（見えていない罠は入れない）。
+    pub def seenTraps(r: Rec): Map[Cell, Trap.Kind] = r#traps |> Map.filterWithKey((c, _) -> Set.memberOf(c, r#revealed))
+
+    /// 主人公に見えている物だけの Run（見えていない罠を除く）。方向の予告と自動で遊ぶ人の読みはこれで step を回す。
+    pub def asSeen(runState: State): State = { let r = rec(runState); of({ traps = seenTraps(r) | r }) }
 
     /// 敵の占めるマス → 敵。
     pub def occupancy(enemies: List[Enemy.Enemy]): Map[Cell, Enemy.Enemy] =
@@ -347,5 +357,5 @@ mod Run {
     pub def fingerprint(runState: State): String =
         let r = rec(runState);
         let enemies = r#enemies |> List.map(e -> "${e#id}:${e#kind}@${e#at}/${e#hp}/${e#rest}/t${e#turns}/b${e#burn}/${e#facing}/${e#intent}") |> List.join(",");
-        "F${r#floor}.${r#layout}|${r#status}|hero=${r#hero#at}/${r#hero#hp}|sword=${r#hero#sword}|shield=${r#hero#shield}|pack=${r#pack}|enemies=${enemies}|items=${r#items}|traps=${r#traps}|walked=${r#walked}|turns=${r#turns}|fullness=${r#fullness}|pending=${r#pending}|declined=${r#declined}|level=${r#level}/${r#exp}|perks=${r#perks}"
+        "F${r#floor}.${r#layout}|${r#status}|hero=${r#hero#at}/${r#hero#hp}|sword=${r#hero#sword}|shield=${r#hero#shield}|pack=${r#pack}|enemies=${enemies}|items=${r#items}|traps=${r#traps}|revealed=${r#revealed}|walked=${r#walked}|turns=${r#turns}|fullness=${r#fullness}|pending=${r#pending}|declined=${r#declined}|level=${r#level}/${r#exp}|perks=${r#perks}"
 }

@@ -31,7 +31,7 @@ mod Preview {
     pub def summarize(events: List[Event]): Summary =
         let damage = events |> List.map(damageOf) |> List.sum;
         let used = (mark, f) -> if (List.exists(f, events)) mark :: Nil else Nil;
-        (actOf(events) :: Nil) ::: (events |> List.filterMap(trapOf)) ::: used(Mark.Arrow, isThrown(Item.Family.Arrow)) ::: used(Mark.IronBall, isThrown(Item.Family.IronBall)) ::: used(Mark.Pebble, isThrown(Item.Family.Pebble))
+        (actOf(events) :: Nil) ::: trapsOf(events) ::: used(Mark.Arrow, isThrown(Item.Family.Arrow)) ::: used(Mark.IronBall, isThrown(Item.Family.IronBall)) ::: used(Mark.Pebble, isThrown(Item.Family.Pebble))
             ::: used(Mark.Bomb, isBomb) ::: used(Mark.Smoke, isSmoke) ::: used(Mark.Potion, isPotion)
             ::: (if (damage > 0) Mark.Damage(damage) :: Nil else Nil) ::: used(Mark.Falls, e -> e == Event.HeroDied)
 
@@ -42,11 +42,16 @@ mod Preview {
         else if (List.exists(isMove, events)) Mark.Move
         else Mark.Wait
 
-    /// 主人公が踏んだ罠（押し出した敵が乗った罠は入れない）。
-    def trapOf(e: Event): Option[Mark] = match e {
-        case Event.HeroHurt(Run.Source.Trap(kind), _, _) => Some(Mark.Trap(kind))
-        case _ => None
-    }
+    /// 主人公が踏んだ罠（主人公が入ったマスの罠だけ。敵が踏んだ罠は入れない）。
+    def trapsOf(events: List[Event]): List[Mark] =
+        let dest = events |> List.findMap(e -> match e {
+            case Event.HeroMoved(_, to) => Some(to)
+            case _                      => None
+        });
+        events |> List.filterMap(e -> match e {
+            case Event.TrapSprung(kind, cell) if Some(cell) == dest => Some(Mark.Trap(kind))
+            case _                                                => None
+        })
 
     def damageOf(e: Event): Int32 = match e {
         case Event.HeroHurt(_, amount, _) => amount
@@ -88,10 +93,11 @@ mod Preview {
         case _ => false
     }
 
-    /// 9 つの入力（8 方向＋待つ）それぞれの要約（遊んでいない・選ぶ場面がある Run は空）。
+    /// 9 つの入力（8 方向＋待つ）それぞれの要約（遊んでいない・選ぶ場面がある Run は空）。見えていない罠は無い物として回す。
     pub def preview(ctx: Ctx, runState: Run.State): List[(Input, Summary)] =
+        let seen = Run.asSeen(runState);
         if (Run.statusOf(runState) != Run.Status.Playing or not List.isEmpty(Run.pendingOf(runState))) Nil
-        else Run.inputs() |> List.map(input -> (input, summarize(snd(Step.step(ctx, runState, input)))))
+        else Run.inputs() |> List.map(input -> (input, summarize(snd(Step.step(ctx, seen, input)))))
 
     /// 敵の予告: 主人公の手の後にそこへ立っていたら、この手で敵の攻撃が届きうるマス。
     /// 起きた敵は 8 近傍の隣（角で遮られるマスは除く）と、弓兵なら射線（距離 arrowMin..arrowMax・矢を止めるマスまで。敵では止めない）。
