@@ -190,6 +190,16 @@
       "min": 1,
       "max": 9,
       "default": 2
+    },
+    "trapDamage": {
+      "kind": "field",
+      "type": "int",
+      "label": "毒矢の罠のダメージ（盾は効かない）",
+      "group": "階",
+      "order": 31,
+      "min": 0,
+      "max": 20,
+      "default": 2
     }
   }
 }

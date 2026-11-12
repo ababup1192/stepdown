@@ -1,5 +1,5 @@
 // Step — 1 手を Run に当てる（純粋）。
-//   1. 主人公の手（8 方向。角は抜けない）: 敵がいれば殴る（移動しない）・歩けないか角なら何も起きない（手は進まない）・それ以外は動いて拾う。
+//   1. 主人公の手（8 方向。角は抜けない）: 敵がいれば殴る（移動しない）・歩けないか角なら何も起きない（手は進まない）・それ以外は動いて罠を踏み（倒れたらそこで終わり）、拾う。
 //      待つは「その場に動いた」とみなし、階段の上なら降りる（その手はそこで終わる。最後の階なら Cleared）。
 //   2. 動いたか待った後、その位置で 1 つだけ判定する: 爆弾（攻撃できる隣の起きた敵が bombNeeds 以上）→ 矢 → 小石（直線の射程の起きた敵）
 //      → 煙玉（隣の起きた敵が bombNeeds 以上か、1 体以上で HP が smokeAt 以下）。
@@ -68,7 +68,24 @@ mod Step {
             case _ if not Board.isCornerOpen(r#hero#at, target, ctx#board) => (Run.of(r), Event.HeroBlocked(dir) :: Nil)
             case Some(e) => begin(r) |> strike(ctx, dir, e#id) |> enemyPhase(ctx) |> hunger(ctx) |> finish(ctx)
             case None if not Board.isWalkable(target, ctx#board) => (Run.of(r), Event.HeroBlocked(dir) :: Nil)
-            case None => begin(r) |> walk(target) |> pickUp(ctx) |> judge(ctx) |> enemyPhase(ctx) |> regen(ctx) |> hunger(ctx) |> finish(ctx)
+            case None => begin(r) |> walk(target) |> springTrap(ctx) |> whilePlaying(t -> t |> pickUp(ctx) |> judge(ctx) |> enemyPhase(ctx) |> regen(ctx) |> hunger(ctx)) |> finish(ctx)
+        }
+
+    /// 主人公が倒れていなければ残りを進める（罠で倒れた手は、拾う・判定・敵の番・空腹をしない）。
+    def whilePlaying(rest: Turn -> Turn, t: Turn): Turn = if (t#runState#status == Status.Playing) rest(t) else t
+
+    /// 歩いて入ったマスの罠が動く。毒矢は trapDamage（盾は効かない）。
+    def springTrap(ctx: Ctx, t: Turn): Turn =
+        let r = t#runState;
+        match Map.get(r#hero#at, r#traps) {
+            case Some(Trap.Kind.PoisonDart) =>
+                let damage = RulesDoc.rec(ctx#rules)#trapDamage;
+                t |> emit(Event.TrapSprung(Trap.Kind.PoisonDart, r#hero#at))
+                  |> withRun({ hero = { hp = r#hero#hp - damage | r#hero } | r })
+                  |> emit(Event.HeroHurt(Source.Trap(Trap.Kind.PoisonDart), damage, false))
+                  |> drinkIfLow(ctx)
+                  |> fallIfDown
+            case _ => t
         }
 
     def walk(target: Cell, t: Turn): Turn =
@@ -96,10 +113,19 @@ mod Step {
         enemyOf(id, t) |> Option.map(e -> {
             let dest = Board.step8(dir, e#at);
             let extra = CardsDoc.rec(ctx#cards)#wallDamage;
-            if (canStand(ctx, e, dest, t#runState)) t |> setEnemy({ at = dest | e }) |> emit(Event.EnemyPushed(id, e#at, dest))
+            if (canStand(ctx, e, dest, t#runState)) t |> setEnemy({ at = dest | e }) |> emit(Event.EnemyPushed(id, e#at, dest)) |> trapEnemy(ctx, id, dest)
             else if (Board.isSolid(dest, ctx#board) and extra > 0) t |> emit(Event.PushedIntoWall(id, extra)) |> hurt(ctx, id, extra)
             else t
         }) |> Option.getWithDefault(t)
+
+    /// 押し出された敵が乗ったマスの罠が動く（自分で歩いて乗った敵には動かない）。毒矢は trapDamage。
+    def trapEnemy(ctx: Ctx, id: Int32, cell: Cell, t: Turn): Turn =
+        match Map.get(cell, t#runState#traps) {
+            case Some(Trap.Kind.PoisonDart) =>
+                let damage = RulesDoc.rec(ctx#rules)#trapDamage;
+                t |> emit(Event.TrapSprung(Trap.Kind.PoisonDart, cell)) |> emit(Event.EnemyTrapped(id, damage)) |> hurt(ctx, id, damage)
+            case _ => t
+        }
 
     // ══════════════════════════════════════════════════════
     // 拾う（上位互換・枠は slotCount まで）
@@ -322,10 +348,10 @@ mod Step {
             |> Option.getWithDefault(withRun(rolled, t))
 
     /// 落とし物の置き場: origin が空いた床ならそこ、違えば歩く距離の近い空いた床（同じ距離は読む順）。
-    /// 空いた床 = 床（階段・水でない）で、主人公のマスでも始まりでもなく、ほかの物が無い。無ければ None。
+    /// 空いた床 = 床（階段・水でない）で、主人公のマスでも始まりでもなく、ほかの物も罠も無い。無ければ None。
     def dropCell(ctx: Ctx, origin: Cell, r: Run.Rec): Option[Cell] =
         let b = ctx#board;
-        let free = (c: Cell) -> Board.tileAt(c, b) == Board.Tile.Floor and c != r#hero#at and c != b#start and not Map.memberOf(c, r#items);
+        let free = (c: Cell) -> Board.tileAt(c, b) == Board.Tile.Floor and c != r#hero#at and c != b#start and not Map.memberOf(c, r#items) and not Map.memberOf(c, r#traps);
         if (free(origin)) Some(origin)
         else Board.walkDistancesFrom(origin :: Nil, b) |> Map.toList |> List.filter(e -> free(fst(e)))
             |> List.map(match (c, steps) -> (steps, (snd(c), fst(c)))) |> List.minimum |> Option.map(e -> { let (_, (y, x)) = e; (x, y) })

@@ -34,6 +34,8 @@ mod TextDoc {
         case Dropped
         case Burning
         case Slammed
+        case Darted
+        case EnemyDarted
         case FloorLabel
     }
 
@@ -50,7 +52,7 @@ mod TextDoc {
         Line.Upgraded :: Line.Stacked :: Line.Discarded :: Line.Struck :: Line.Shot :: Line.Bombed ::
         Line.Defeated :: Line.Woke :: Line.Approached :: Line.Hurt :: Line.Deflected :: Line.Drank ::
         Line.Descended :: Line.Blocked ::
-        Line.Ate :: Line.Starved :: Line.Guarded :: Line.Swapped :: Line.LevelUp :: Line.Dropped :: Line.Burning :: Line.Slammed ::
+        Line.Ate :: Line.Starved :: Line.Guarded :: Line.Swapped :: Line.LevelUp :: Line.Dropped :: Line.Burning :: Line.Slammed :: Line.Darted :: Line.EnemyDarted ::
         Line.FloorLabel :: Nil
 
     /// Doc のキー。
@@ -83,6 +85,8 @@ mod TextDoc {
         case Line.Dropped => "dropped"
         case Line.Burning => "burning"
         case Line.Slammed => "slammed"
+        case Line.Darted => "darted"
+        case Line.EnemyDarted => "enemyDarted"
         case Line.FloorLabel => "floorLabel"
     }
 
@@ -116,6 +120,8 @@ mod TextDoc {
         case Line.Dropped => "{item}が おちた"
         case Line.Burning => "{enemy}が もえはじめた"
         case Line.Slammed => "{enemy}を 壁に たたきつけた"
+        case Line.Darted => "毒矢を ふんだ！ {n} のダメージ"
+        case Line.EnemyDarted => "{enemy}に 毒矢が ささった（{n}）"
         case Line.FloorLabel => "{n}F"
     }
 

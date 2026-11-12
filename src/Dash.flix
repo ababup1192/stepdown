@@ -1,6 +1,6 @@
 // Dash — ダッシュ: 始めた時に最後まで計算する（1 歩ずつ同じ Step.step を通す）。見せる側は列を 1 歩ずつ流す。
 // 止まる（その歩で止まる）: 敵が見えた・拾った・食べた・階段に乗った・次が歩けない・分かれ道・部屋の番号が変わった・HP が減った・
-// 殴った・矢か小石か爆弾か煙玉を使った・満腹度が 0 になった・選ぶ場面が立った・部屋の中で通路の口の横に来た。
+// 殴った・矢か小石か爆弾か煙玉を使った・満腹度が 0 になった・選ぶ場面が立った・部屋の中で通路の口の横に来た・次のマスが罠。
 // 一本道の通路の角は自動で曲がる（斜めにも曲がる）。始めた時に敵が見えていれば 1 歩だけ。始める向きは上下左右。
 mod Dash {
 
@@ -50,6 +50,7 @@ mod Dash {
         case Event.HeroBlocked(_)     => true
         case Event.HeroStruck(_, _)   => true
         case Event.HeroHurt(_, _, _)  => true
+        case Event.TrapSprung(_, _)   => true
         case _                        => false
     }
 
@@ -61,7 +62,7 @@ mod Dash {
         let at = Run.heroOf(runState)#at;
         let occupied = Run.occupancy(Run.enemiesOf(runState));
         let open = (c: Cell) -> Board.isWalkable(c, b) and Board.isCornerOpen(at, c, b);
-        let free = (c: Cell) -> open(c) and not Map.memberOf(c, occupied);
+        let free = (c: Cell) -> open(c) and not Map.memberOf(c, occupied) and not Map.memberOf(c, Run.rec(runState)#traps);
         if (Board.roomAt(at, b) != 0) Some(dir) |> Option.filter(d -> free(Board.step8(d, at)))
         else {
             let exits = Board.neighbors8(at) |> List.filter(c -> open(c) and not Board.isBehind(dir, at, c));

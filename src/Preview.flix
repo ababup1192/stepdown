@@ -12,6 +12,7 @@ mod Preview {
         case Wait
         case Blocked
         case Descend
+        case Trap(Trap.Kind)
         case Arrow
         case Pebble
         case Bomb
@@ -24,12 +25,12 @@ mod Preview {
     /// 1 手の要約。
     pub type alias Summary = List[Mark]
 
-    /// 出来事の列を「手（移動・殴る・待つ・×・降りる）・矢・小石・爆弾・煙玉・薬・受けるダメージ・倒れる」に要約する。
+    /// 出来事の列を「手（移動・殴る・待つ・×・降りる）・踏んだ罠・矢・小石・爆弾・煙玉・薬・受けるダメージ・倒れる」に要約する。
     /// 弾いた攻撃も盾で減らした後のダメージとして数える。
     pub def summarize(events: List[Event]): Summary =
         let damage = events |> List.map(damageOf) |> List.sum;
         let used = (mark, f) -> if (List.exists(f, events)) mark :: Nil else Nil;
-        (actOf(events) :: Nil) ::: used(Mark.Arrow, isThrown(Item.Family.Arrow)) ::: used(Mark.Pebble, isThrown(Item.Family.Pebble))
+        (actOf(events) :: Nil) ::: (events |> List.filterMap(trapOf)) ::: used(Mark.Arrow, isThrown(Item.Family.Arrow)) ::: used(Mark.Pebble, isThrown(Item.Family.Pebble))
             ::: used(Mark.Bomb, isBomb) ::: used(Mark.Smoke, isSmoke) ::: used(Mark.Potion, isPotion)
             ::: (if (damage > 0) Mark.Damage(damage) :: Nil else Nil) ::: used(Mark.Falls, e -> e == Event.HeroDied)
 
@@ -39,6 +40,12 @@ mod Preview {
         else if (List.exists(isStrike, events)) Mark.Strike
         else if (List.exists(isMove, events)) Mark.Move
         else Mark.Wait
+
+    /// 主人公が踏んだ罠（押し出した敵が乗った罠は入れない）。
+    def trapOf(e: Event): Option[Mark] = match e {
+        case Event.HeroHurt(Run.Source.Trap(kind), _, _) => Some(Mark.Trap(kind))
+        case _ => None
+    }
 
     def damageOf(e: Event): Int32 = match e {
         case Event.HeroHurt(_, amount, _) => amount

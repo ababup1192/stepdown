@@ -69,7 +69,7 @@ mod View {
         { time = time, camera = World.cameraOf(res, w), look = lk, floor = Res.floorAt(res, r#floor, r#layout),
           flame = Kit.itemOf("FLAME", res#kit), textures = res#kit#textures,
           hand = FloorMesh.cellPoint(r#hero#at), figures = pose#figures, bursts = pose#bursts,
-          marks = if (foresight) List.append(preview |> List.flatMap(markOf(theme)), dangerMarks(theme, r#hero#at, w#foresight#danger)) else Nil,
+          marks = trapMarks(theme, r) ::: (if (foresight) List.append(preview |> List.flatMap(markOf(theme)), dangerMarks(theme, r#hero#at, w#foresight#danger)) else Nil),
           lanes = if (foresight) w#foresight#lanes |> List.map(laneOf(theme)) else Nil }
 
     /// 2D に重ねる物の値（上と下の帯・場面の上の印・カード）。
@@ -311,6 +311,7 @@ mod View {
         case Smoke
         case Potion
         case Descend
+        case Trap
     }
 
     /// 見せる予告 1 つ: 入力・マス・主な種類・受けるダメージ。
@@ -325,6 +326,7 @@ mod View {
     def actOf(summary: Preview.Summary): Option[Act] =
         let has = mark -> List.memberOf(mark, summary);
         if (has(Preview.Mark.Blocked)) None
+        else if (has(Preview.Mark.Trap(Trap.Kind.PoisonDart))) Some(Act.Trap)
         else if (has(Preview.Mark.Bomb)) Some(Act.Bomb)
         else if (has(Preview.Mark.Arrow)) Some(Act.Arrow)
         else if (has(Preview.Mark.Pebble)) Some(Act.Pebble)
@@ -356,6 +358,7 @@ mod View {
         case Act.Smoke   => t#markBomb
         case Act.Potion  => t#markDescend
         case Act.Descend => t#markDescend
+        case Act.Trap    => t#markTrap
     }
 
     def markOf(t: ThemeDoc.Rec, s: Shown): List[SceneView.Mark] =
@@ -368,6 +371,11 @@ mod View {
         let fills = Set.toList(danger) |> List.flatMap(c ->
             { at = FloorMesh.cellPoint(c), color = t#markDanger, stroke = SceneView.Stroke.Fill } :: { at = FloorMesh.cellPoint(c), color = t#markDanger, stroke = SceneView.Stroke.Dashed } :: Nil);
         if (Set.memberOf(hero, danger)) { at = FloorMesh.cellPoint(hero), color = t#markDanger, stroke = SceneView.Stroke.Frame } :: fills else fills
+
+    /// 見たマスの罠: 床に罠の色の面と枠（罠の絵ができるまでの印）。
+    def trapMarks(t: ThemeDoc.Rec, r: Run.Rec): List[SceneView.Mark] =
+        r#traps |> Map.keysOf |> Set.toList |> List.filter(c -> Set.memberOf(c, r#seen)) |> List.flatMap(c ->
+            { at = FloorMesh.cellPoint(c), color = t#markTrap, stroke = SceneView.Stroke.Fill } :: { at = FloorMesh.cellPoint(c), color = t#markTrap, stroke = SceneView.Stroke.Frame } :: Nil)
 
     def laneOf(t: ThemeDoc.Rec, lane: (Cell, Cell)): SceneView.Lane =
         let (archer, far) = (FloorMesh.cellPoint(fst(lane)), FloorMesh.cellPoint(snd(lane)));
@@ -398,6 +406,7 @@ mod View {
         case Act.Smoke   => MarkView.Glyph.Picture(Art.Icon.Smoke)
         case Act.Potion  => MarkView.Glyph.Picture(Art.Icon.Herb)
         case Act.Descend => MarkView.Glyph.Stairs
+        case Act.Trap    => MarkView.Glyph.Picture(Art.Icon.Arrow)
     }
 
     /// 斜めの向きか（予告のアイコンを小さくする）。
@@ -500,6 +509,8 @@ mod View {
             case Run.Event.EnemyWoke(id)        => say(TextDoc.Line.Woke, enemy(id) :: Nil)
             case Run.Event.HeroHurt(_, _, true) => say(TextDoc.Line.Deflected, Nil)
             case Run.Event.HeroHurt(Run.Source.Starve, n, _) => say(TextDoc.Line.Starved, ("n", "${n}") :: Nil)
+            case Run.Event.HeroHurt(Run.Source.Trap(_), n, _) => say(TextDoc.Line.Darted, ("n", "${n}") :: Nil)
+            case Run.Event.EnemyTrapped(id, n)  => say(TextDoc.Line.EnemyDarted, enemy(id) :: ("n", "${n}") :: Nil)
             case Run.Event.HeroHurt(_, 0, _)    => say(TextDoc.Line.Guarded, Nil)
             case Run.Event.HeroHurt(source, n, _) => Run.attackerOf(source) |> Option.flatMap(id -> say(TextDoc.Line.Hurt, enemy(id) :: ("n", "${n}") :: Nil))
             case Run.Event.Ate(kind, n)         => say(TextDoc.Line.Ate, item(kind) :: ("n", "${n}") :: Nil)

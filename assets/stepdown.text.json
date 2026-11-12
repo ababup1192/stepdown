@@ -29,5 +29,7 @@
   "dropped": "{item}が おちた",
   "burning": "{enemy}が もえはじめた",
   "slammed": "{enemy}を 壁に たたきつけた",
+  "darted": "毒矢を ふんだ！ {n} のダメージ",
+  "enemyDarted": "{enemy}に 毒矢が ささった（{n}）",
   "floorLabel": "{n}F"
 }

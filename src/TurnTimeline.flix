@@ -25,6 +25,7 @@ mod TurnTimeline {
         case EnemyMove     // 敵がマスの間を跳ねる・押される
         case EnemyStrike   // 敵が主人公へ踏み込んで戻る
         case EnemyArrow    // 弓兵の矢の板が飛ぶ
+        case Trap          // 罠の床が光り、毒矢が主人公へ跳ね上がる
         case Potion        // 頭の上で薬の瓶が傾いて空になる
         case Heal          // 回復の輪と緑の数
         case Eat           // 頭の上で食べ物が揺れて噛まれ、骨・かじった形になる（1 回目の「むしゃ」）
@@ -128,6 +129,8 @@ mod TurnTimeline {
                 add(row :: Nil, d)
             case Event.SmokeThrown(_)      => add(after(Beat.Smoke, pace#smoke * 0.5) :: cue(Sound.Puff, after(Beat.Puff, pace#smoke * 0.5)) :: Nil, d)
             case Event.EnemyBurned(_, _)   => add(cue(Sound.Hit, after(Beat.Flash, pace#strike)) :: Nil, d)
+            case Event.TrapSprung(_, _)    => add(cue(Sound.Arrow, after(Beat.Trap, pace#arrow)) :: Nil, d)
+            case Event.EnemyTrapped(_, _)  => add(cue(Sound.Hit, after(Beat.Flash, pace#strike)) :: Nil, d)
             case Event.EnemyPushed(_, _, _) => add(after(Beat.EnemyMove, pace#step) :: Nil, d)
             case Event.EnemyDied(_, _, _)  => add(cue(Sound.Defeat, after(Beat.Die, pace#strike * 1.6)) :: Nil, d)
             case Event.EnemyMoved(_, _, _) if not d#movesPlaced =>

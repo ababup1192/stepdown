@@ -33,6 +33,7 @@
   "markBlocked": "#8a8478",
   "markDescend": "#c9f08a",
   "markDanger": "#ff5a4f",
+  "markTrap": "#b07cff",
   "sleep": "#bcd0ff",
   "popDealt": "#ffffff",
   "popTaken": "#ff4a3d",

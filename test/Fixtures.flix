@@ -46,9 +46,9 @@ mod Fixtures {
             case None    => bug!("テストの floors の JSON が読めない: ${json}")
         }
 
-    /// 置き場から階の始めの Run（敵は全員眠っている）。
+    /// 置き場から階の始めの Run（敵は全員眠っている・罠は地図の字のまま）。
     pub def start(ctx: Run.Ctx, enemies: List[(Enemy.Kind, Cell)], items: List[(Item.Kind, Cell)]): Run.State =
-        Run.start(ctx, { floor = 1, layout = 0, seed = 1i64, rng = 1i64 }, { enemies = enemies, items = items, traps = Map.empty() })
+        Run.start(ctx, { floor = 1, layout = 0, seed = 1i64, rng = 1i64 }, { enemies = enemies, items = items, traps = ctx#board#traps })
 
     /// 1 部屋の広間（7×5 の床。主人公は左の真ん中 (1, 3)・階段は右下 (7, 5)）。
     pub def hall(): List[String] =

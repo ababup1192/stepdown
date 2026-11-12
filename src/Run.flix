@@ -170,6 +170,10 @@ mod Run {
         case LevelUp(Int32)
         /// 倒した敵が物を落とした（種類・マス）。
         case ItemDropped(Item.Kind, Cell)
+        /// 主人公が歩いて入ったマスか、敵が押し出されたマスの罠が動いた（種類・マス）。主人公へのダメージは続く HeroHurt、敵へは EnemyTrapped。
+        case TrapSprung(Trap.Kind, Cell)
+        /// 押し出された敵が罠でダメージを受けた（敵の id・ダメージ）。
+        case EnemyTrapped(Int32, Int32)
         /// 押し出しの先が壁・柱・岩で、押せずにダメージが増えた（敵の id・足したダメージ）。続く出来事で HP が減る。
         case PushedIntoWall(Int32, Int32)
         /// カードを取った。
@@ -182,10 +186,12 @@ mod Run {
     ///   Melee(id) … 隣の敵に殴られた
     ///   Arrow(id) … 弓兵の矢が当たった
     ///   Starve    … 満腹度が 0 で減った
+    ///   Trap(kind) … 罠を踏んだ
     pub enum Source with Eq, ToString {
         case Melee(Int32)
         case Arrow(Int32)
         case Starve
+        case Trap(Trap.Kind)
     }
 
     /// 出所の敵の id（空腹は None）。
@@ -193,6 +199,7 @@ mod Run {
         case Source.Melee(id) => Some(id)
         case Source.Arrow(id) => Some(id)
         case Source.Starve    => None
+        case Source.Trap(_)   => None
     }
 
     /// 主人公が敵の攻撃を受けた出来事か（弾いた攻撃も含む・空腹は入れない）。
