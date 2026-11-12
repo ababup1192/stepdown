@@ -76,13 +76,18 @@ mod BotRun {
         }
 
     /// 階段へ向かう: 階段の上なら待つ。被弾しない入力（無ければ一番被弾の少ない入力）のうち、階段に一番近づく物。
+    /// 階に着いてから stallTurns 手を過ぎたら、HP の 4 分の 1 までの被弾も候補に入れる。
+    /// WhyNot: はじめから被弾を候補に入れる — 1 手先しか見ない人が赤へ踏み込み、予告を読む人の数にならない。
     def headFor(field: Field, runState: Run.State, options: List[Candidate], rng: Int64): (Candidate, Int64) =
         let onStairs = Board.tileAt(Run.heroOf(runState)#at, field#ctx#board) == Board.Tile.Stairs;
         let moving = options |> List.filter(c -> not c#blocked);
         let safe = moving |> List.filter(c -> c#damage == 0);
         let least = moving |> List.map(c -> c#damage) |> List.minimum |> Option.getWithDefault(0);
+        let stalled = Run.rec(runState)#turns - field#arrived >= stallTurns();
+        let bearable = moving |> List.filter(c -> c#damage <= Run.heroOf(runState)#hp / 4);
         let pool = if (onStairs) options |> List.filter(c -> c#input == Input.Wait)
                    else if (List.isEmpty(safe)) moving |> List.filter(c -> c#damage == least)
+                   else if (stalled) List.append(safe, bearable)
                    else safe;
         let distOf = (c: Candidate) -> Map.getWithDefault(c#at, Int32.maxValue(), field#toStairs);
         let nearest = pool |> List.map(distOf) |> List.minimum |> Option.getWithDefault(0);
@@ -110,6 +115,9 @@ mod BotRun {
     /// 階に着いてからこの手の数ごとに、階段へ 1 歩寄る点を 1 ずつ重くする。
     /// WhyNot: 階段の点をはじめから重くする — 着いたばかりの階で、拾える物と倒せる敵に寄らずに降りる。
     def impatienceEvery(): Int32 = 25
+
+    /// 避ける人・戦う人が、赤の手前で待つのをやめて少しの被弾を受け入れ始める、階に着いてからの手の数。
+    def stallTurns(): Int32 = 120
     def levelWeight(): Int32 = 40
     def expWeight(): Int32 = 4
     def fullnessWeight(): Int32 = 1
