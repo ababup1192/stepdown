@@ -12,7 +12,7 @@ ENGINE ?= ../..
 
 # 描き出せる場面の名前（source of truth は Shots.names。ここは使い方に出す写し）。
 # 場面を足したら Shots.names と一緒にここも足す。
-SHOTS := title play dead clear quit arrow bomb dirs popups swap levelup_mid levelup chosen use_tilt use_potion use_meat smoke_fly smoke_puff pebble floor2
+SHOTS := title play dead clear quit arrow bomb dirs popups swap levelup_mid levelup chosen use_tilt use_potion use_meat smoke_fly smoke_puff pebble floor2 floor3 thunder guard alarm
 
 # ENGINE の場所が違うと include ごと落ち、make は「そんなファイルは無い」としか言わない。
 # 先に自前で見て、直し方の 1 行を出してから止める（この検査が無いと make status も塞がる）。

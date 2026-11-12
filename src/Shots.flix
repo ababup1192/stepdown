@@ -9,7 +9,7 @@ mod Shots {
     /// 場面の題と一言（Studio のギャラリーに出るラベル）は assets/stepdown.scenes.json 側で、name をここの名前とそろえる。
     /// 場面を足したら、ここと sceneOf と Makefile の SHOTS を一緒に足す。
     pub def names(): List[String] =
-        "title" :: "play" :: "dead" :: "clear" :: "quit" :: "arrow" :: "bomb" :: "dirs" :: "popups" :: "swap" :: "levelup_mid" :: "levelup" :: "chosen" :: "use_tilt" :: "use_potion" :: "use_meat" :: "smoke_fly" :: "smoke_puff" :: "pebble" :: "floor2" :: Nil
+        "title" :: "play" :: "dead" :: "clear" :: "quit" :: "arrow" :: "bomb" :: "dirs" :: "popups" :: "swap" :: "levelup_mid" :: "levelup" :: "chosen" :: "use_tilt" :: "use_potion" :: "use_meat" :: "smoke_fly" :: "smoke_puff" :: "pebble" :: "floor2" :: "floor3" :: "thunder" :: "guard" :: "alarm" :: Nil
 
     /// 名前 → 周回の種を固定した初めの World から組んだ場面の World（1 手を見せ終えた所。途中の場面はその秒の所）。
     pub def worldOf(name: String, res: Res.Res): Option[World.World] =
@@ -67,12 +67,42 @@ mod Shots {
             // 2F の始まりの部屋。右上の起きた弓兵の射線（左と下へ延びる赤）・左下の起きたゼリーの赤・右下の斜めの毒矢の罠（床の印と、踏む向きの予告）。
             case "floor2" => Some(World.snapCam(staged(res, (8, 27), Run.Held.Held(Item.Kind.IronBall, 2) :: Nil,
                 (Enemy.Kind.Archer, (12, 25)) :: (Enemy.Kind.Jelly, (5, 28)) :: Nil, secondFloor(res, World.begin(res, w0)))))
+            // 3F の広間。左上に群れの 3 体（小ゼリー）、右に左を向いた盾持ち（向きの側に盾）、下に上を向いた盾持ち。
+            case "floor3" => Some(World.snapCam(faceShields(res, staged(res, (8, 15), Run.Held.Held(Item.Kind.Thunder, 1) :: Nil,
+                (Enemy.Kind.Swarm, (4, 11)) :: (Enemy.Kind.Swarm, (5, 12)) :: (Enemy.Kind.Swarm, (4, 12)) :: (Enemy.Kind.Shield, (12, 14)) :: (Enemy.Kind.Shield, (8, 18)) :: Nil,
+                thirdFloor(res, World.begin(res, w0))))))
+            // 同じ広間で、気付いている起きた敵 4 体へ待った手でかみなりの書を使い、画面が白く光って稲妻が落ちている所。
+            case "thunder" => Some(turnAt(res, Run.Input.Wait, lk#arrowSeconds * 0.5, faceShields(res, staged(res, (8, 15), Run.Held.Held(Item.Kind.Thunder, 1) :: Nil,
+                (Enemy.Kind.Swarm, (4, 11)) :: (Enemy.Kind.Swarm, (5, 12)) :: (Enemy.Kind.Swarm, (4, 12)) :: (Enemy.Kind.Shield, (12, 14)) :: Nil,
+                thirdFloor(res, World.begin(res, w0))))))
+            // 右隣の左を向いた眠った盾持ちを正面から殴って灰色の 0 と盾の絵が出て、左へ 1 歩下がった所（起きた盾持ちが寄ってくる）。
+            case "guard" => Some(turnAt(res, Run.Input.Move(Board.Dir8.Left), 0.3, World.skipShow(World.seekShow(lk#strikeSeconds * 1.2,
+                World.play(res, Run.Input.Move(Board.Dir8.Right), sleeping(res, faceShields(res, staged(res, (11, 15), Nil,
+                    (Enemy.Kind.Shield, (12, 15)) :: Nil, thirdFloor(res, World.begin(res, w0))))))))))
+            // 見えている警報の罠へ下に踏み込み、眠っていた敵の頭に「!」が跳ねて出た所。
+            case "alarm" => Some(turnAt(res, Run.Input.Move(Board.Dir8.Down), lk#stepSeconds + lk#arrowSeconds + lk#strikeSeconds * 0.6,
+                withRec(res, r -> { traps = Map#{ (8, 16) => Trap.Kind.Alarm }, revealed = Set#{ (8, 16) } | r }, sleeping(res,
+                    staged(res, (8, 15), Nil, (Enemy.Kind.Swarm, (5, 18)) :: (Enemy.Kind.Jelly, (11, 13)) :: (Enemy.Kind.Shield, (11, 18)) :: Nil,
+                        thirdFloor(res, World.begin(res, w0)))))))
             case _       => sceneOf(name, res, w0) |> Option.map(w -> World.snapCam(World.skipShow(w)))
         }
 
     /// 遊んでいる 1F から 2F へ降りた所（周回の種で決まる 2F の地図）。
     def secondFloor(res: Res.Res, w: World.World): World.World =
         World.withState(res, Floor.enter(Res.floorDocs(res), res#layouts, w#runState, 2), w)
+
+    /// 遊んでいる 1F から 3F へ降りた所（周回の種で決まる 3F の地図）。
+    def thirdFloor(res: Res.Res, w: World.World): World.World =
+        World.withState(res, Floor.enter(Res.floorDocs(res), res#layouts, w#runState, 3), w)
+
+    /// 敵を全員、階の始めの眠りにする。
+    def sleeping(res: Res.Res, w: World.World): World.World =
+        withRec(res, r -> { enemies = r#enemies |> List.map(e -> { rest = Enemy.Rest.Dormant | e }) | r }, w)
+
+    /// 盾持ちを主人公の方へ向ける（正面がどこかを見せる）。
+    def faceShields(res: Res.Res, w: World.World): World.World =
+        let hero = Run.heroOf(w#runState)#at;
+        withRec(res, r -> { enemies = r#enemies |> List.map(e -> { facing = Board.headingTo(e#at, hero) |> Option.getWithDefault(e#facing) | e }) | r }, w)
 
     /// 決まりの状態を f で直す。
     def withRec(res: Res.Res, f: Run.Rec -> Run.Rec, w: World.World): World.World =
