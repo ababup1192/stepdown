@@ -24,14 +24,16 @@ mod Item {
         case Meat
         case Pebble
         case Smoke
+        case IronBall
     }
 
-    /// 系統。剣と盾は数なし（枠の外の装備）。矢・小石・爆弾・煙玉・薬は数ありで持ち物の枠に入る。食べ物は持たずに止まったマスで食べる。
+    /// 系統。剣と盾は数なし（枠の外の装備）。矢・小石・鉄球・爆弾・煙玉・薬は数ありで持ち物の枠に入る。食べ物は持たずに止まったマスで食べる。
     pub enum Family with Eq, Order, ToString {
         case Sword
         case Shield
         case Arrow
         case Pebble
+        case IronBall
         case Bomb
         case Smoke
         case Potion
@@ -66,7 +68,7 @@ mod Item {
     pub def all(): List[Kind] =
         Kind.WoodSword :: Kind.IronSword :: Kind.SilverSword :: Kind.WoodShield :: Kind.IronShield :: Kind.SilverShield ::
         Kind.WoodArrow :: Kind.IronArrow :: Kind.SilverArrow :: Kind.FireArrow ::
-        Kind.SmallBomb :: Kind.BigBomb :: Kind.SleepBomb :: Kind.Herb :: Kind.Tonic :: Kind.Elixir :: Kind.Bread :: Kind.Meat :: Kind.Pebble :: Kind.Smoke :: Nil
+        Kind.SmallBomb :: Kind.BigBomb :: Kind.SleepBomb :: Kind.Herb :: Kind.Tonic :: Kind.Elixir :: Kind.Bread :: Kind.Meat :: Kind.Pebble :: Kind.Smoke :: Kind.IronBall :: Nil
 
     /// Doc に書いた名前（enum の名前のまま）から種類へ。
     pub def fromName(name: String): Option[Kind] = all() |> List.find(kind -> "${kind}" == name)
@@ -92,6 +94,7 @@ mod Item {
         case Kind.Meat         => Family.Food
         case Kind.Pebble       => Family.Pebble
         case Kind.Smoke        => Family.Smoke
+        case Kind.IronBall     => Family.IronBall
     }
 
     /// 系統の中の段（下から 0, 1, 2, …）。
@@ -116,6 +119,7 @@ mod Item {
         case Kind.Meat         => 1
         case Kind.Pebble       => 0
         case Kind.Smoke        => 0
+        case Kind.IronBall     => 0
     }
 
     /// 持ち物の枠に入る系統か（剣・盾・食べ物は入らない）。
@@ -125,6 +129,9 @@ mod Item {
         case Family.Food   => false
         case _             => true
     }
+
+    /// 山なりに投げる石の系統か（小石と鉄球。届く距離は items の range、飛ぶ絵は石）。
+    pub def isStone(family: Family): Bool = family == Family.Pebble or family == Family.IronBall
 
     /// その段だけが持つ効果。
     pub def effectOf(kind: Kind): Option[Effect] = match kind {

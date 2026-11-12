@@ -259,7 +259,7 @@ mod View {
                 { tail = along(Float64.max(0.0, progress - 0.45)), head = along(progress), color = color }
             }));
         turn#events |> List.filterMap(ie -> match ie {
-            case (_, Run.Event.ArrowShot(_, kind, _)) if Item.familyOf(kind) == Item.Family.Pebble => None
+            case (_, Run.Event.ArrowShot(_, kind, _)) if Item.isStone(Item.familyOf(kind)) => None
             case (i, Run.Event.ArrowShot(_, _, end)) => line(turn#progress((i, TurnTimeline.Beat.Arrow)), hero, end, t#popDealt)
             case (i, Run.Event.EnemyShot(_, start, end)) => line(turn#progress((i, TurnTimeline.Beat.EnemyArrow)), start, end, t#popTaken)
             case _ => None
@@ -329,7 +329,7 @@ mod View {
         else if (has(Preview.Mark.Trap(Trap.Kind.PoisonDart))) Some(Act.Trap)
         else if (has(Preview.Mark.Bomb)) Some(Act.Bomb)
         else if (has(Preview.Mark.Arrow)) Some(Act.Arrow)
-        else if (has(Preview.Mark.Pebble)) Some(Act.Pebble)
+        else if (has(Preview.Mark.IronBall) or has(Preview.Mark.Pebble)) Some(Act.Pebble)
         else if (has(Preview.Mark.Smoke)) Some(Act.Smoke)
         else if (has(Preview.Mark.Descend)) Some(Act.Descend)
         else if (has(Preview.Mark.Strike)) Some(Act.Strike)
@@ -457,6 +457,7 @@ mod View {
             case Item.Family.Smoke  => PartsView.Cue.Surround(rules#bombNeeds)
             case Item.Family.Potion => PartsView.Cue.LowHp(rules#potionAt)
             case Item.Family.Pebble => PartsView.Cue.Line(1)
+            case Item.Family.IronBall => PartsView.Cue.Line(1)
             case _                  => PartsView.Cue.Line(2)
         }
 

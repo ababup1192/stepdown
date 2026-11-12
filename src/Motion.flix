@@ -268,7 +268,7 @@ mod Motion {
     def arrows(turn: Turn): List[SceneView.Figure] =
         let hero = point(turn#after#hero#at);
         turn#events |> List.flatMap(ie -> match ie {
-            case (i, Event.ArrowShot(_, kind, end)) if Item.familyOf(kind) == Item.Family.Pebble => pebbleFigure(hero, point(end), progressOf(turn, i, Beat.Arrow))
+            case (i, Event.ArrowShot(_, kind, end)) if Item.isStone(Item.familyOf(kind)) => pebbleFigure(hero, point(end), progressOf(turn, i, Beat.Arrow))
             case (i, Event.ArrowShot(_, _, end))  => arrowFigure(hero, point(end), progressOf(turn, i, Beat.Arrow))
             case (i, Event.EnemyShot(_, fromCell, to)) => arrowFigure(point(fromCell), point(to), progressOf(turn, i, Beat.EnemyArrow))
             case _                                 => Nil

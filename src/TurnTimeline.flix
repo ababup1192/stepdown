@@ -119,7 +119,7 @@ mod TurnTimeline {
             case Event.Picked(_, _)        => add(cue(Sound.Pick, after(Beat.Pick, pace#step)) :: Nil, d)
             case Event.HeroStruck(_, _)    =>
                 add(cue(Sound.Strike, after(Beat.HeroStrike, pace#strike)) :: flashOn(pace, (i, Beat.HeroStrike), pace#strike * 0.45, i, Sound.Hit) :: Nil, d)
-            case Event.ArrowShot(_, kind, _) if Item.familyOf(kind) == Item.Family.Pebble => { pebble = true | add(after(Beat.Arrow, pace#pebble) :: Nil, d) }
+            case Event.ArrowShot(_, kind, _) if Item.isStone(Item.familyOf(kind)) => { pebble = true | add(after(Beat.Arrow, pace#pebble) :: Nil, d) }
             case Event.ArrowShot(_, _, _)  => { pebble = false | add(cue(Sound.Arrow, after(Beat.Arrow, pace#arrow)) :: Nil, d) }
             case Event.ArrowHit(_, _)      => add(cue(if (d#pebble) Sound.Clink else Sound.Hit, after(Beat.Flash, pace#strike)) :: Nil, d)
             case Event.BombThrown(_, _)    => { bomb = Some((i, Beat.Bomb)) | add(cue(Sound.Bomb, after(Beat.Bomb, pace#arrow * 2.5)) :: Nil, d) }

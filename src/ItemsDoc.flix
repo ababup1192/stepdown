@@ -69,6 +69,7 @@ mod ItemsDoc {
         case Item.Kind.Meat         => { food = 60 | zero("肉") }
         case Item.Kind.Pebble       => { damage = 1, range = 3, count = 6, cap = 12 | zero("小石") }
         case Item.Kind.Smoke        => { sleep = 2, count = 2, cap = 3 | zero("煙玉") }
+        case Item.Kind.IronBall     => { damage = 3, range = 3, count = 2, cap = 4 | zero("鉄球") }
     }
 
     pub def defaults(): Doc =

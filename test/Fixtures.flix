@@ -50,6 +50,14 @@ mod Fixtures {
     pub def start(ctx: Run.Ctx, enemies: List[(Enemy.Kind, Cell)], items: List[(Item.Kind, Cell)]): Run.State =
         Run.start(ctx, { floor = 1, layout = 0, seed = 1i64, rng = 1i64 }, { enemies = enemies, items = items, traps = ctx#board#traps })
 
+    /// 敵を全員起こした Run（その手の敵の番から動く）。
+    pub def awake(runState: Run.State): Run.State =
+        let r = Run.rec(runState);
+        Run.of({ enemies = r#enemies |> List.map(e -> { rest = Enemy.Rest.Awake | e }) | r })
+
+    /// 持ち物の枠を pack にした Run。
+    pub def holding(pack: Run.Pack, runState: Run.State): Run.State = Run.of({ pack = pack | Run.rec(runState) })
+
     /// 1 部屋の広間（7×5 の床。主人公は左の真ん中 (1, 3)・階段は右下 (7, 5)）。
     pub def hall(): List[String] =
         "#########" ::

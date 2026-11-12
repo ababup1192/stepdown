@@ -29,12 +29,12 @@
         },
         "damage": {
           "type": "int",
-          "label": "ダメージ（矢・小石・爆弾）",
+          "label": "ダメージ（矢・小石・鉄球・爆弾）",
           "order": 5
         },
         "range": {
           "type": "int",
-          "label": "届く最長の距離（小石）",
+          "label": "届く最長の距離（小石・鉄球）",
           "order": 6
         },
         "pierce": {

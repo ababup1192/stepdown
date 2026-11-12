@@ -1,7 +1,7 @@
 // Step — 1 手を Run に当てる（純粋）。
 //   1. 主人公の手（8 方向。角は抜けない）: 敵がいれば殴る（移動しない）・歩けないか角なら何も起きない（手は進まない）・それ以外は動いて罠を踏み（倒れたらそこで終わり）、拾う。
 //      待つは「その場に動いた」とみなし、階段の上なら降りる（その手はそこで終わる。最後の階なら Cleared）。
-//   2. 動いたか待った後、その位置で 1 つだけ判定する: 爆弾（攻撃できる隣の起きた敵が bombNeeds 以上）→ 矢 → 小石（直線の射程の起きた敵）
+//   2. 動いたか待った後、その位置で 1 つだけ判定する: 爆弾（攻撃できる隣の起きた敵が bombNeeds 以上）→ 矢 → 鉄球（当たると 1 マス押す）→ 小石（直線の射程の起きた敵）
 //      → 煙玉（隣の起きた敵が bombNeeds 以上か、1 体以上で HP が smokeAt 以下）。
 //   拾う: 枠は slotCount まで。埋まっていて 4 種類目なら床に残して捨てるカード（pending）を積む。手は最後まで進め、Choose で答える。
 //   3. 気付いた敵が起きる → 敵の手番（主人公への歩く距離の近い順 → 作った順）。受けるたびに薬・倒れるを見る。
@@ -216,7 +216,7 @@ mod Step {
         })
 
     // ══════════════════════════════════════════════════════
-    // 立ち位置の判定（1 手に 1 つ: 爆弾 → 矢 → 小石 → 煙玉）
+    // 立ち位置の判定（1 手に 1 つ: 爆弾 → 矢 → 鉄球 → 小石 → 煙玉）
     // ══════════════════════════════════════════════════════
 
     def judge(ctx: Ctx, t: Turn): Turn =
@@ -229,12 +229,13 @@ mod Step {
         let shots = (family: Item.Family) -> if (usable(family)) lineTarget(ctx, family, r) else None;
         if (around >= needs and usable(Item.Family.Bomb)) throwBomb(ctx, t)
         else shots(Item.Family.Arrow) |> Option.map(dir -> shoot(ctx, Item.Family.Arrow, dir, t))
+            |> Option.withDefault(default = shots(Item.Family.IronBall) |> Option.map(dir -> shoot(ctx, Item.Family.IronBall, dir, t)))
             |> Option.withDefault(default = shots(Item.Family.Pebble) |> Option.map(dir -> shoot(ctx, Item.Family.Pebble, dir, t)))
             |> Option.getWithDefault(if (smoky and usable(Item.Family.Smoke)) throwSmoke(ctx, t) else t)
 
-    /// 矢・小石の届く最長の距離（矢は rules の arrowMax、小石は items の range。どちらも届く距離のカードの分だけ延びる）。
+    /// 矢・石の届く最長の距離（矢は rules の arrowMax、小石と鉄球は items の range。どれも届く距離のカードの分だけ延びる）。
     def farthestOf(ctx: Ctx, family: Item.Family, r: Run.Rec): Int32 =
-        let base = if (family == Item.Family.Pebble) Run.heldOf(family, r#pack) |> Option.map(h -> ItemsDoc.statsOf(Run.kindOfHeld(h), ctx#items)#range) |> Option.getWithDefault(0)
+        let base = if (Item.isStone(family)) Run.heldOf(family, r#pack) |> Option.map(h -> ItemsDoc.statsOf(Run.kindOfHeld(h), ctx#items)#range) |> Option.getWithDefault(0)
             else RulesDoc.rec(ctx#rules)#arrowMax;
         base + Run.perkCount(Run.Perk.Reach, r) * CardsDoc.rec(ctx#cards)#reach
 
@@ -265,8 +266,9 @@ mod Step {
                 let (hits, end) = flight(ctx, Run.occupancy(r#enemies), flying, dir, r#hero#at, 1, Nil);
                 let shot = t |> withRun({ pack = Run.spend(family, r#pack) | r })
                     |> emit(Event.ArrowShot(dir, kind, end));
+                let knock = (id: Int32, acc: Turn) -> if (family == Item.Family.IronBall) push(ctx, Board.toDir8(dir), id, acc) else acc;
                 hits |> List.foldLeft((acc, id) ->
-                    acc |> emit(Event.ArrowHit(id, stats#damage)) |> hurt(ctx, id, stats#damage) |> setBurn(id, stats#burn), shot)
+                    acc |> emit(Event.ArrowHit(id, stats#damage)) |> hurt(ctx, id, stats#damage) |> setBurn(id, stats#burn) |> knock(id), shot)
             case None => t
         }
 
