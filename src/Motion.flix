@@ -291,22 +291,28 @@ mod Motion {
         else { picture = Art.icon(Art.Icon.Arrow), at = Vec3.add(lerp(fromCell, to, p), up(0.32)), height = 0.42,
                tint = Color.rgb(1.3, 1.25, 1.15), lit = false, shadow = 0.08 } :: Nil
 
-    /// 小石: 石 1 つの板が低い山なりで飛び、着いた所で小さく 1 回跳ねる（進みの 7 割で着く）。持ち物の枠と床の板は 3 つの塊の絵のまま。
-    def pebbleFigure(fromCell: Vec3.Vec3, to: Vec3.Vec3, p: Float64): List[SceneView.Figure] =
+    /// 投げた石: 板が低い山なりで飛び、着いた所で跳ねる（進みの 7 割で着く）。
+    /// 小石は持ち物の枠と床の板が 3 つの塊の絵なので、飛ぶのは 1 つの絵にする。鉄球は重く大きいので、跳ねを小さく板を大きくする。
+    def stoneFigure(family: Item.Family, fromCell: Vec3.Vec3, to: Vec3.Vec3, p: Float64): List[SceneView.Figure] =
         if (not isActive(p)) Nil
         else {
+            let heavy = family == Item.Family.IronBall;
             let land = 0.7;
-            let travel = Curve.pieces((0.0, 0.0) :: (land, 1.0) :: (1.0, 1.25) :: Nil, p);
-            let hop = if (p < land) 0.45 * Curve.arch01(p / land) else 0.15 * Curve.arch01((p - land) / (1.0 - land));
+            let bounce = if (heavy) 1.08 else 1.25;
+            let travel = Curve.pieces((0.0, 0.0) :: (land, 1.0) :: (1.0, bounce) :: Nil, p);
+            let rebound = if (heavy) 0.05 else 0.15;
+            let hop = if (p < land) 0.45 * Curve.arch01(p / land) else rebound * Curve.arch01((p - land) / (1.0 - land));
             let at = Vec3.add(lerp(fromCell, to, travel), up(0.3 + hop));
-            { picture = Art.icon(Art.Icon.PebbleOne), at = at, height = 0.45, tint = white(), lit = false, shadow = 0.06 } :: Nil
+            let picture = if (heavy) Art.icon(Art.Icon.IronBall) else Art.icon(Art.Icon.PebbleOne);
+            let height = if (heavy) 0.6 else 0.45;
+            { picture = picture, at = at, height = height, tint = white(), lit = false, shadow = 0.06 } :: Nil
         }
 
     /// 飛んでいる矢と小石（主人公の矢・小石と弓兵の矢）。
     def arrows(turn: Turn): List[SceneView.Figure] =
         let hero = point(turn#after#hero#at);
         turn#events |> List.flatMap(ie -> match ie {
-            case (i, Event.ArrowShot(_, kind, end)) if Item.isStone(Item.familyOf(kind)) => pebbleFigure(hero, point(end), progressOf(turn, i, Beat.Arrow))
+            case (i, Event.ArrowShot(_, kind, end)) if Item.isStone(Item.familyOf(kind)) => stoneFigure(Item.familyOf(kind), hero, point(end), progressOf(turn, i, Beat.Arrow))
             case (i, Event.ArrowShot(_, _, end))  => arrowFigure(hero, point(end), progressOf(turn, i, Beat.Arrow))
             case (i, Event.EnemyShot(_, fromCell, to)) => arrowFigure(point(fromCell), point(to), progressOf(turn, i, Beat.EnemyArrow))
             case _                                 => Nil
