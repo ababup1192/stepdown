@@ -40,7 +40,7 @@ mod Preview {
 
     def actOf(events: List[Event]): Mark =
         if (List.exists(isBlocked, events)) Mark.Blocked
-        else if (List.memberOf(Event.Descended, events)) Mark.Descend
+        else if (List.memberOf(Event.Descended, events) or List.memberOf(Event.FellThrough, events)) Mark.Descend
         else if (List.exists(isStrike, events)) Mark.Strike
         else if (List.exists(isMove, events)) Mark.Move
         else Mark.Wait

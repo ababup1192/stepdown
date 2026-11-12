@@ -111,6 +111,7 @@ mod Motion {
     def heroState(turn: Turn): HeroState =
         turn#events |> List.foldLeft((acc, ie) -> match ie {
             case (i, Event.Descended)        => { descend = progressOf(turn, i, Beat.Descend) | acc }
+            case (i, Event.FellThrough)      => { descend = progressOf(turn, i, Beat.Descend) | acc }
             case (i, Event.HeroDied)         => { fall = progressOf(turn, i, Beat.Fall) | acc }
             case (i, Event.PotionUsed(_, _)) => { potion = pulse(progressOf(turn, i, Beat.Heal)) | acc }
             case (i, Event.DollSaved(_))     => { potion = pulse(progressOf(turn, i, Beat.Heal)) | acc }
@@ -172,6 +173,7 @@ mod Motion {
             case (i, Event.EnemyBurned(id, _)) => flashed(id, i, acc)
             case (i, Event.EnemyDied(id, _, _)) => dies(id, i, Beat.Die, acc)
             case (i, Event.EnemyExploded(id, _)) => dies(id, i, Beat.Bomb, acc)
+            case (i, Event.EnemyFell(id, _)) => dies(id, i, Beat.Die, acc)
             case (i, Event.HeroHurt(Run.Source.Melee(id), _, _)) => lunged(id, i, acc)
             case _ => acc
         }, Map.empty())

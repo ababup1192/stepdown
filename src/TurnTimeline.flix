@@ -63,6 +63,7 @@ mod TurnTimeline {
         case Windup
         case Charge
         case Doll
+        case Pit
     }
 
     /// 音の論理名（project.json の sounds の name）。
@@ -86,6 +87,7 @@ mod TurnTimeline {
         case Sound.Windup  => "sd_windup"
         case Sound.Charge  => "sd_charge"
         case Sound.Doll    => "sd_doll"
+        case Sound.Pit     => "sd_pit"
     }
 
     /// 見せる秒（look の Doc から。dash = ダッシュの 1 歩の時は移動を短くする）。
@@ -148,6 +150,9 @@ mod TurnTimeline {
                 add(row :: Nil, d)
             case Event.SmokeThrown(_)      => add(after(Beat.Smoke, pace#smoke * 0.5) :: cue(Sound.Puff, after(Beat.Puff, pace#smoke * 0.5)) :: Nil, d)
             case Event.EnemyBurned(_, _)   => add(cue(Sound.Hit, after(Beat.Flash, pace#strike)) :: Nil, d)
+            case Event.TrapSprung(Trap.Kind.Pit, _) => add(cue(Sound.Pit, after(Beat.Trap, pace#arrow)) :: Nil, d)
+            case Event.FellThrough         => add(after(Beat.Descend, pace#strike * 3.0) :: Nil, d)
+            case Event.EnemyFell(_, _)     => add(after(Beat.Die, pace#strike * 1.6) :: Nil, d)
             case Event.TrapSprung(Trap.Kind.Alarm, _) => add(cue(Sound.Clink, after(Beat.Trap, pace#arrow)) :: Nil, d)
             case Event.TrapSprung(_, _)    => add(cue(Sound.Arrow, after(Beat.Trap, pace#arrow)) :: Nil, d)
             case Event.Guarded(_)          => add(cue(Sound.Guard, after(Beat.Flash, pace#strike)) :: Nil, d)

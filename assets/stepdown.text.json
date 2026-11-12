@@ -38,5 +38,7 @@
   "fused": "{enemy}の 導火線に 火が ついた！",
   "exploded": "{enemy}が はじけた！",
   "dollBroke": "身代わり人形が くだけた！",
+  "pitfall": "落とし穴に おちた！ {n} のダメージ",
+  "enemyFell": "{enemy}が 穴に おちた",
   "floorLabel": "{n}F"
 }

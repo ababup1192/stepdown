@@ -175,7 +175,7 @@ mod Run {
         case LevelUp(Int32)
         /// 倒した敵が物を落とした（種類・マス）。
         case ItemDropped(Item.Kind, Cell)
-        /// 主人公か敵が入ったマスの罠が動いた（種類・マス）。そのマスの罠はこの後ずっと見える。主人公へのダメージは続く HeroHurt、敵へは EnemyTrapped、警報は AlarmRang。
+        /// 主人公か敵が入ったマスの罠が動いた（種類・マス）。そのマスの罠はこの後ずっと見える。主人公へのダメージは続く HeroHurt、敵へは EnemyTrapped、警報は AlarmRang、落とし穴は FellThrough・EnemyFell。
         case TrapSprung(Trap.Kind, Cell)
         /// 敵が罠でダメージを受けた（敵の id・ダメージ）。
         case EnemyTrapped(Int32, Int32)
@@ -191,6 +191,10 @@ mod Run {
         case EnemyExploded(Int32, Cell)
         /// HP が 0 以下になった主人公の身代わりに人形が砕け、HP がこの値になった（倒れない）。
         case DollSaved(Int32)
+        /// 主人公が落とし穴から次の階へ落ちた（その手はここで終わる。最後の階なら Cleared）。
+        case FellThrough
+        /// 敵が落とし穴に落ちて階から消えた（敵の id・マス）。経験値は入り、物は落とさない。
+        case EnemyFell(Int32, Cell)
         /// 押し出しの先が壁・柱・岩で、押せずにダメージが増えた（敵の id・足したダメージ）。続く出来事で HP が減る。
         case PushedIntoWall(Int32, Int32)
         /// カードを取った。

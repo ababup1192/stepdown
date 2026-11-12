@@ -111,6 +111,35 @@ mod TestTrap {
             (List.memberOf(Event.AlarmRang(1 :: Nil), events), Run.rec(after)#revealed, Fixtures.enemyRests(after)))
 
     // ══════════════════════════════════════════════════════
+    // 落とし穴
+    // ══════════════════════════════════════════════════════
+
+    def pitDamage(): Int32 = RulesDoc.rec(RulesDoc.defaults())#pitDamage
+
+    /// 落とし穴を踏むと pitDamage を受けて次の階へ落ちる（その手はそこで終わり、隣の眠った敵は起きない）。
+    @Test
+    def testFallingThroughThePit(): Unit \ Assert =
+        let c = ctx("#######" :: "#@o..>#" :: "#######" :: Nil);
+        let (after, events) = Step.step(c, start(c, (Enemy.Kind.Jelly, (3, 1)) :: Nil, Nil), Input.Move(Dir8.Right));
+        Assert.assertEq(expected = (Run.Status.Descended, RulesDoc.rec(RulesDoc.defaults())#maxHp - pitDamage(), Fixtures.enemyRests(start(c, (Enemy.Kind.Jelly, (3, 1)) :: Nil, Nil)), Mark.Descend :: Mark.Trap(Trap.Kind.Pit) :: Mark.Damage(pitDamage()) :: Nil),
+            (Run.statusOf(after), Run.heroOf(after)#hp, Fixtures.enemyRests(after), Preview.summarize(events)))
+
+    /// 最後の階の落とし穴は、階段と同じくクリア。
+    @Test
+    def testPitOnTheLastFloorClears(): Unit \ Assert =
+        let c = Fixtures.ctxWith(Fixtures.rulesWith("{\"lastFloor\": 1}"), "######" :: "#@o.>#" :: "######" :: Nil);
+        Assert.assertEq(expected = Run.Status.Cleared, Run.statusOf(fst(Step.step(c, start(c, Nil, Nil), Input.Move(Dir8.Right)))))
+
+    /// 敵が歩いて落とし穴に乗ると階から消え、経験値が入る（物は落とさない）。
+    @Test
+    def testEnemyFallsIntoThePit(): Unit \ Assert =
+        let c = ctx("#######" :: "#@.o..#" :: "##>####" :: "#######" :: Nil);
+        let (after, events) = Step.steps(c, start(c, (Enemy.Kind.Jelly, (5, 1)) :: Nil, Nil), Input.Wait :: Input.Wait :: Nil);
+        Assert.assertEq(expected = (Nil, true, Map#{}, true),
+            (Fixtures.enemyCells(after), List.memberOf(Event.EnemyFell(0, (3, 1)), events), Run.rec(after)#items,
+             List.memberOf(Event.ExpGained(EnemiesDoc.statsOf(Enemy.Kind.Jelly, EnemiesDoc.defaults())#exp), events)))
+
+    // ══════════════════════════════════════════════════════
     // ダッシュ
     // ══════════════════════════════════════════════════════
 

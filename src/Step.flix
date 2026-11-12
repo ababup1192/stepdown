@@ -91,8 +91,19 @@ mod Step {
                   |> drinkIfLow(ctx)
                   |> fallIfDown
             case Trap.Kind.Alarm => ringAlarm(t)
-            case Trap.Kind.Pit   => t
+            case Trap.Kind.Pit   =>
+                let damage = RulesDoc.rec(ctx#rules)#pitDamage;
+                t |> withRun({ hero = { hp = r#hero#hp - damage | r#hero } | r })
+                  |> emit(Event.HeroHurt(Source.Trap(Trap.Kind.Pit), damage, false))
+                  |> drinkIfLow(ctx)
+                  |> fallIfDown
+                  |> whilePlaying(fallThrough(ctx))
         }
+
+    /// 落とし穴から次の階へ落ちる（階段で降りた手と同じく、拾う・判定・敵の番・空腹をしない。最後の階なら Cleared）。
+    def fallThrough(ctx: Ctx, t: Turn): Turn =
+        let r = t#runState;
+        t |> withRun({ status = if (r#floor >= RulesDoc.rec(ctx#rules)#lastFloor) Status.Cleared else Status.Descended | r }) |> emit(Event.FellThrough)
 
     /// 罠が動いた出来事を出し、そのマスの罠を見えるようにする。
     def reveal(kind: Trap.Kind, cell: Cell, t: Turn): Turn =
@@ -153,8 +164,14 @@ mod Step {
             let damage = RulesDoc.rec(ctx#rules)#trapDamage;
             t |> emit(Event.EnemyTrapped(id, damage)) |> hurt(ctx, id, damage)
         case Trap.Kind.Alarm => ringAlarm(t)
-        case Trap.Kind.Pit   => t
+        case Trap.Kind.Pit   => dropIntoPit(ctx, id, t)
     }
+
+    /// 敵が落とし穴に落ちて階から消える（経験値は入り、物は落とさない）。
+    def dropIntoPit(ctx: Ctx, id: Int32, t: Turn): Turn =
+        enemyOf(id, t) |> Option.map(e ->
+            t |> withRun({ enemies = List.filter(x -> x#id != id, t#runState#enemies) | t#runState }) |> emit(Event.EnemyFell(id, e#at))
+              |> gainExp(ctx, EnemiesDoc.statsOf(e#kind, ctx#enemies)#exp)) |> Option.getWithDefault(t)
 
     // ══════════════════════════════════════════════════════
     // 拾う（上位互換・枠は slotCount まで）
