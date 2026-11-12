@@ -71,6 +71,7 @@
   "levelUpSeconds": 0.5,
   "cardSlideSeconds": 0.3,
   "chosenSeconds": 0.3,
+  "descendSeconds": 0.8,
   "diagonalBadgeScale": 0.78,
   "badgeScale": 1.35,
   "badgeAlpha": 0.72,

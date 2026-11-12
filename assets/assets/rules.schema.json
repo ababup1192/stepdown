@@ -180,6 +180,26 @@
       "min": 0.0,
       "max": 80.0,
       "default": 12.0
+    },
+    "lastFloor": {
+      "kind": "field",
+      "type": "int",
+      "label": "最後の階（ここの階段で降りたらクリア）",
+      "group": "階",
+      "order": 30,
+      "min": 1,
+      "max": 9,
+      "default": 2
+    },
+    "trapDamage": {
+      "kind": "field",
+      "type": "int",
+      "label": "毒矢の罠のダメージ（盾は効かない）",
+      "group": "階",
+      "order": 31,
+      "min": 0,
+      "max": 20,
+      "default": 2
     }
   }
 }

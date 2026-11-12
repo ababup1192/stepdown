@@ -14,7 +14,7 @@
         },
         "rows": {
           "type": "grid",
-          "label": "文字の地図（# 壁 t 松明 . 部屋 , 通路 @ 始まり P 柱 r 岩 ~ 水 > 階段）",
+          "label": "文字の地図（# 壁 t 松明 . 部屋 , 通路 @ 始まり P 柱 r 岩 ~ 水 > 階段 ^ 毒矢 ! 警報 o 落とし穴 % 食べ物の候補 $ 物の候補 & 銀の剣か盾）",
           "order": 2,
           "required": true
         }
@@ -80,7 +80,8 @@
                 "Bread",
                 "Meat",
                 "Pebble",
-                "Smoke"
+                "Smoke",
+                "IronBall"
               ]
             }
           },

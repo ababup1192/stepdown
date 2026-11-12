@@ -250,6 +250,14 @@
       "group": "予告",
       "required": true
     },
+    "markTrap": {
+      "kind": "field",
+      "type": "color",
+      "label": "罠の印と罠を踏む予告",
+      "order": 31,
+      "group": "予告",
+      "required": true
+    },
     "sleep": {
       "kind": "field",
       "type": "color",

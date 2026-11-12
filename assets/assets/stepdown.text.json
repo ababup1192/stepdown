@@ -4,7 +4,7 @@
   "note": "画面と記録の文言。{enemy} は敵の名前、{item} はアイテムの名前、{n} は数、{old} は捨てた物の名前に置き換わる。どの出来事にどの文言を当てるかはコード。字を足したらフォントの subset に入っているか確かめる。 floorLabel は上の帯の階。剣と盾・持ち物の発動の条件・方向の予告は字でなく絵で出す。",
   "startPrompt": "タップか Enter で はじめる",
   "dead": "たおれてしまった…",
-  "cleared": "1F を ぬけた！",
+  "cleared": "迷宮を ぬけた！",
   "retry": "タップか Enter で もう一度",
   "quitPrompt": "やめますか?  Enter: はい  /  Esc: いいえ",
   "upgraded": "{item}を ひろった！ 手持ちが {item}に なった",
@@ -29,5 +29,7 @@
   "dropped": "{item}が おちた",
   "burning": "{enemy}が もえはじめた",
   "slammed": "{enemy}を 壁に たたきつけた",
+  "darted": "毒矢を ふんだ！ {n} のダメージ",
+  "enemyDarted": "{enemy}に 毒矢が ささった（{n}）",
   "floorLabel": "{n}F"
 }
