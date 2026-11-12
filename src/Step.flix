@@ -467,7 +467,14 @@ mod Step {
         Enemy.cellsOf(e) |> Set.forAll(c -> Board.isCornerOpen(c, (fst(c) + dx, snd(c) + dy), ctx#board)) and Enemy.cellsAt(dest, e#size) |> Set.forAll(c ->
             passable(c) and c != r#hero#at and Map.get(c, occupied) |> Option.forAll(other -> other#id == e#id))
 
-    /// 敵が自分で動く（向きを動いた向きにする）。歩く敵は入ったマスの罠を踏む（見えている罠もよけない）。
+    /// 盾持ちが歩く・待つ手番の終わりに、手番の前の向きから、動いた後のマスから主人公への大まかな向きへ 45° だけ回る。
+    /// WhyNot: 歩いた向きへ一気に向ける — 隣で横・後ろへ回り込んでも次の手番には正面に捉えられ、盾の横を突く手が無くなる。
+    def turnShield(before: Enemy.Enemy, t: Turn): Turn =
+        enemyOf(before#id, t) |> Option.filter(e -> e#kind == Enemy.Kind.Shield)
+            |> Option.flatMap(e -> Board.headingTo(e#at, t#runState#hero#at) |> Option.map(d -> setEnemy({ facing = Board.turnToward(before#facing, d) | e }, t)))
+            |> Option.getWithDefault(t)
+
+    /// 敵が自分で動く（向きを動いた向きにする。盾持ちの向きは turnShield が決める）。歩く敵は入ったマスの罠を踏む（見えている罠もよけない）。
     /// WhyNot: 飛ぶ敵にも罠を効かせる — 床の板を踏まずに飛び越える絵と合わない。
     /// WhyNot: ボスにも罠を効かせる — 落とし穴で消えると戦わずに潜りが終わり、2×2 のどのマスで踏むかも見せきれない。
     def moveEnemy(ctx: Ctx, e: Enemy.Enemy, dest: Cell, t: Turn): Turn =
@@ -529,7 +536,7 @@ mod Step {
                 Run.attackOn(ctx, blockers, e, t#runState#hero#at)
                     |> Option.map(attack -> attackHero(ctx, e, attack, t))
                     |> Option.withDefault(default = windupOf(ctx, blockers, e, t#runState#hero#at) |> Option.map(intent -> windup(e, intent, t)))
-                    |> Option.getWithDefault(moveBy(ctx, dist, e, t))
+                    |> Option.getWithDefault(moveBy(ctx, dist, e, t) |> turnShield(e))
             case _                        => smash(ctx, e, t)
         }
 

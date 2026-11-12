@@ -276,6 +276,13 @@ mod Board {
         let ((ax, ay), (bx, by)) = (a, b);
         dirTo(a, (ax + Int32.signum(bx - ax), ay + Int32.signum(by - ay)))
 
+    /// 向き now を、向き target の方へ 8 方向の輪で 1 歩（45°）だけ回した向き（同じなら now のまま。真後ろなら時計回り）。
+    pub def turnToward(now: Dir8, target: Dir8): Dir8 =
+        let index = (d: Dir8) -> List.indexOf(d, dirs8()) |> Option.getWithDefault(0);
+        let k = Int32.modulo(index(target) - index(now), 8);
+        let delta = if (k == 0) 0 else if (k <= 4) 1 else -1;
+        List.nth(Int32.modulo(index(now) + delta, 8), dirs8()) |> Option.getWithDefault(now)
+
     /// 2 つの向きが 8 方向の輪で何歩離れているか（0..4）。
     pub def turnsBetween(a: Dir8, b: Dir8): Int32 =
         let index = (d: Dir8) -> List.indexOf(d, dirs8()) |> Option.getWithDefault(0);

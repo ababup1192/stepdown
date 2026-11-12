@@ -1,4 +1,4 @@
-// 盾持ち: 向き（最後に歩いた向き）の前の 3 方向からの殴る・矢・石を盾で防ぐ（0 でも当たったので眠っていれば起きかける）・
+// 盾持ち: 向き（歩く・待つ手番ごとに主人公の方へ 45° ずつ回る）の前の 3 方向からの殴る・矢・石を盾で防ぐ（0 でも当たったので眠っていれば起きかける）・
 // 横や後ろからは通る・爆弾は防がない・殴る時は向きを変えない・正面の盾持ちには矢を撃たない。盤は既定の広間（主人公 (1, 3)）。
 mod TestShield {
 
@@ -42,6 +42,27 @@ mod TestShield {
         let (after, events) = Step.step(c, first, Input.Wait);
         Assert.assertEq(expected = (true, Some(Dir8.Up)),
             (List.exists(Run.hurtsHero, events), Run.enemiesOf(after) |> List.head |> Option.map(e -> e#facing)))
+
+    /// 歩く手番は、主人公への大まかな向きへ 45° だけ回る（右を向いた盾持ちが左下へ歩き、左上の主人公の方へ右上まで）。
+    @Test
+    def testWalkingTurnsOnlyOneStep(): Unit \ Assert =
+        let c = ctx(hall());
+        let first = Fixtures.awake(facing(0, Dir8.Right, start(c, (Enemy.Kind.Shield, (5, 3)) :: Nil, Nil)));
+        let (after, _) = Step.step(c, first, Input.Wait);
+        Assert.assertEq(expected = Some(((4, 4), Dir8.UpRight)), Run.enemiesOf(after) |> List.head |> Option.map(e -> (e#at, e#facing)))
+
+    /// 真後ろへは時計回りに 45° だけ回る（右を向いて、左へは右下）。
+    @Test
+    def testTurnTowardBehindIsOneStepClockwise(): Unit \ Assert =
+        Assert.assertEq(expected = Dir8.DownRight, Board.turnToward(Dir8.Right, Dir8.Left))
+
+    /// 正面の隣から上・右と 2 歩で真上へ回り込むと（その間の 2 手番は殴られ、向きは左のまま）、上から殴って防がれずに当たる。
+    @Test
+    def testCirclingTwoStepsHitsFromTheSide(): Unit \ Assert =
+        let c = ctx(hall());
+        let first = Run.of({ hero = { at = (2, 3) | Run.heroOf(start(c, Nil, Nil)) } | Run.rec(Fixtures.awake(facing(0, Dir8.Left, start(c, (Enemy.Kind.Shield, (3, 3)) :: Nil, Nil)))) });
+        let (after, events) = Step.steps(c, first, Input.Move(Dir8.Up) :: Input.Move(Dir8.Right) :: Input.Move(Dir8.Down) :: Nil);
+        Assert.assertEq(expected = (Some(shieldHp() - baseAttack()), false), (hpOf(after), List.memberOf(Event.Guarded(0), events)))
 
     // ══════════════════════════════════════════════════════
     // 矢と爆弾
