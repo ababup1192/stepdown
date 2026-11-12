@@ -20,3 +20,7 @@ __pycache__/
 
 # gptcli で作った元絵（大きい・作り直せる）。切り出した assets/chars と assets/icons だけ追跡する
 art/source/
+
+# engine の道具の本体（機械ごとに作る。bin/fge が起動役）
+bin/fge-go
+bin/fge-go.exe
