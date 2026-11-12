@@ -64,8 +64,8 @@
     },
     "Charger": {
       "name": "突進",
-      "hp": 7,
-      "attack": 4,
+      "hp": 9,
+      "attack": 6,
       "exp": 6,
       "dropChance": 0.3,
       "drops": [
@@ -87,7 +87,7 @@
         "Bread",
         "Coin"
       ],
-      "blastDamage": 6
+      "blastDamage": 8
     }
   }
 }

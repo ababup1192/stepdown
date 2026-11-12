@@ -364,8 +364,8 @@
         "3b"
       ],
       "enemies": {
-        "Jelly": 3,
-        "Archer": 2,
+        "Jelly": 4,
+        "Archer": 3,
         "Swarm": 3,
         "Shield": 2
       },
@@ -396,9 +396,9 @@
       ],
       "enemies": {
         "Archer": 1,
-        "Swarm": 1,
-        "Charger": 2,
-        "Bomber": 2
+        "Swarm": 2,
+        "Charger": 3,
+        "Bomber": 3
       },
       "items": [
         "Doll",
