@@ -20,6 +20,7 @@ mod Preview {
         case Thunder
         case Smoke
         case Potion
+        case Doll
         case Guarded
         case Damage(Int32)
         case Falls
@@ -28,13 +29,13 @@ mod Preview {
     /// 1 手の要約。
     pub type alias Summary = List[Mark]
 
-    /// 出来事の列を「手（移動・殴る・待つ・×・降りる）・踏んだ罠・矢・鉄球・小石・爆弾・かみなり・煙玉・薬・盾で防がれる・受けるダメージ・倒れる」に要約する。
+    /// 出来事の列を「手（移動・殴る・待つ・×・降りる）・踏んだ罠・矢・鉄球・小石・爆弾・かみなり・煙玉・薬・身代わり人形・盾で防がれる・受けるダメージ・倒れる」に要約する。
     /// 弾いた攻撃も盾で減らした後のダメージとして数える。
     pub def summarize(events: List[Event]): Summary =
         let damage = events |> List.map(damageOf) |> List.sum;
         let used = (mark, f) -> if (List.exists(f, events)) mark :: Nil else Nil;
         (actOf(events) :: Nil) ::: trapsOf(events) ::: used(Mark.Arrow, isThrown(Item.Family.Arrow)) ::: used(Mark.IronBall, isThrown(Item.Family.IronBall)) ::: used(Mark.Pebble, isThrown(Item.Family.Pebble))
-            ::: used(Mark.Bomb, isBomb) ::: used(Mark.Thunder, isThunder) ::: used(Mark.Smoke, isSmoke) ::: used(Mark.Potion, isPotion) ::: used(Mark.Guarded, isGuarded)
+            ::: used(Mark.Bomb, isBomb) ::: used(Mark.Thunder, isThunder) ::: used(Mark.Smoke, isSmoke) ::: used(Mark.Potion, isPotion) ::: used(Mark.Doll, isDoll) ::: used(Mark.Guarded, isGuarded)
             ::: (if (damage > 0) Mark.Damage(damage) :: Nil else Nil) ::: used(Mark.Falls, e -> e == Event.HeroDied)
 
     def actOf(events: List[Event]): Mark =
@@ -97,6 +98,11 @@ mod Preview {
 
     def isGuarded(e: Event): Bool = match e {
         case Event.Guarded(_) => true
+        case _ => false
+    }
+
+    def isDoll(e: Event): Bool = match e {
+        case Event.DollSaved(_) => true
         case _ => false
     }
 

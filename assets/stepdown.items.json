@@ -127,6 +127,11 @@
       "damage": 2,
       "count": 1,
       "cap": 2
+    },
+    "Doll": {
+      "name": "身代わり人形",
+      "count": 1,
+      "cap": 1
     }
   }
 }

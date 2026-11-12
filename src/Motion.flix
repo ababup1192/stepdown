@@ -113,6 +113,7 @@ mod Motion {
             case (i, Event.Descended)        => { descend = progressOf(turn, i, Beat.Descend) | acc }
             case (i, Event.HeroDied)         => { fall = progressOf(turn, i, Beat.Fall) | acc }
             case (i, Event.PotionUsed(_, _)) => { potion = pulse(progressOf(turn, i, Beat.Heal)) | acc }
+            case (i, Event.DollSaved(_))     => { potion = pulse(progressOf(turn, i, Beat.Heal)) | acc }
             case _                           => acc
         }, { descend = 0.0, fall = 0.0, potion = 0.0 })
 

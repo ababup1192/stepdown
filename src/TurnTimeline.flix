@@ -62,6 +62,7 @@ mod TurnTimeline {
         case Fall
         case Windup
         case Charge
+        case Doll
     }
 
     /// 音の論理名（project.json の sounds の name）。
@@ -84,6 +85,7 @@ mod TurnTimeline {
         case Sound.Fall    => "sd_fall"
         case Sound.Windup  => "sd_windup"
         case Sound.Charge  => "sd_charge"
+        case Sound.Doll    => "sd_doll"
     }
 
     /// 見せる秒（look の Doc から。dash = ダッシュの 1 歩の時は移動を短くする）。
@@ -168,6 +170,7 @@ mod TurnTimeline {
                 let sound = if (guarded) Sound.Guard else Sound.Hit;
                 add(cue(Sound.Strike, after(Beat.EnemyStrike, pace#strike)) :: flashOn(pace, (i, Beat.EnemyStrike), pace#strike * 0.45, i, sound) :: Nil, d)
             case Event.HeroHurt(_, _, guarded) => add(cue(if (guarded) Sound.Guard else Sound.Hit, after(Beat.Flash, pace#strike)) :: Nil, d)
+            case Event.DollSaved(_)        => add(cue(Sound.Doll, after(Beat.Heal, pace#strike * 2.5)) :: Nil, d)
             case Event.PotionUsed(_, _)    => add(cue(Sound.Potion, after(Beat.Potion, pace#potion)) :: after(Beat.Heal, pace#strike * 1.5) :: Nil, d)
             case Event.Ate(_, _)           =>
                 let bite = (beat: Beat, at: Float64) -> Timeline.atStartOf((i, Beat.Eat), (i, beat), secs(pace#eat * 0.15)) |> Timeline.withDelay(secs(pace#eat * at)) |> cue(Sound.Munch);

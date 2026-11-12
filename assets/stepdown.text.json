@@ -37,5 +37,6 @@
   "braced": "{enemy}が 身がまえた！",
   "fused": "{enemy}の 導火線に 火が ついた！",
   "exploded": "{enemy}が はじけた！",
+  "dollBroke": "身代わり人形が くだけた！",
   "floorLabel": "{n}F"
 }

@@ -189,6 +189,8 @@ mod Run {
         case EnemyCharged(Int32, Cell, Cell)
         /// 自爆虫が弾けて消えた（敵の id・マス）。続く BombHit が巻き込まれた敵、HeroHurt が主人公への当たり。経験値は入らない。
         case EnemyExploded(Int32, Cell)
+        /// HP が 0 以下になった主人公の身代わりに人形が砕け、HP がこの値になった（倒れない）。
+        case DollSaved(Int32)
         /// 押し出しの先が壁・柱・岩で、押せずにダメージが増えた（敵の id・足したダメージ）。続く出来事で HP が減る。
         case PushedIntoWall(Int32, Int32)
         /// カードを取った。

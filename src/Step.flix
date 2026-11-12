@@ -638,8 +638,14 @@ mod Step {
             case _ => t
         }
 
+    /// HP が 0 以下なら倒れる。身代わり人形があれば、倒れる代わりに人形が砕けて HP が最大の半分になる（薬の後に見る）。
     def fallIfDown(t: Turn): Turn =
-        if (t#runState#hero#hp > 0) t else t |> withRun({ status = Status.Dead | t#runState }) |> emit(Event.HeroDied)
+        let r = t#runState;
+        let saved = Int32.max(1, r#hero#maxHp / 2);
+        if (r#hero#hp > 0) t
+        else if (Run.countOf(Run.heldOf(Item.Family.Doll, r#pack)) >= 1)
+            t |> withRun({ hero = { hp = saved | r#hero }, pack = Run.spend(Item.Family.Doll, r#pack) | r }) |> emit(Event.DollSaved(saved))
+        else t |> withRun({ status = Status.Dead | r }) |> emit(Event.HeroDied)
 
     /// 移動した手の数が regenEvery の倍数になったら HP +1（最大まで。満腹度 0 の手は飛ばす）。
     def regen(ctx: Ctx, t: Turn): Turn =

@@ -356,6 +356,7 @@ mod View {
         case Trap(Trap.Kind)
         case Guarded
         case Thunder
+        case Doll
     }
 
     /// 見せる予告 1 つ: 入力・マス・主な種類・受けるダメージ。
@@ -370,6 +371,7 @@ mod View {
     def actOf(summary: Preview.Summary): Option[Act] =
         let has = mark -> List.memberOf(mark, summary);
         if (has(Preview.Mark.Blocked)) None
+        else if (has(Preview.Mark.Doll)) Some(Act.Doll)
         else if (Option.nonEmpty(trapIn(summary))) trapIn(summary) |> Option.map(Act.Trap)
         else if (has(Preview.Mark.Bomb)) Some(Act.Bomb)
         else if (has(Preview.Mark.Thunder)) Some(Act.Thunder)
@@ -413,6 +415,7 @@ mod View {
         case Act.Trap(_) => t#markTrap
         case Act.Guarded => t#markBlocked
         case Act.Thunder => t#markBomb
+        case Act.Doll    => t#markDanger
     }
 
     def markOf(t: ThemeDoc.Rec, s: Shown): List[SceneView.Mark] =
@@ -462,6 +465,7 @@ mod View {
         case Act.Trap(kind) => MarkView.Glyph.Picture(Art.iconOfTrap(kind))
         case Act.Guarded => MarkView.Glyph.Picture(Art.Icon.Shield)
         case Act.Thunder => MarkView.Glyph.Bolt
+        case Act.Doll    => MarkView.Glyph.Picture(Art.Icon.Doll)
     }
 
     /// 斜めの向きか（予告のアイコンを小さくする）。
@@ -512,6 +516,7 @@ mod View {
             case Item.Family.Smoke  => PartsView.Cue.Surround(rules#bombNeeds)
             case Item.Family.Thunder => PartsView.Cue.Surround(rules#thunderNeeds)
             case Item.Family.Potion => PartsView.Cue.LowHp(rules#potionAt)
+            case Item.Family.Doll   => PartsView.Cue.LowHp(0.0)
             case Item.Family.Pebble => PartsView.Cue.Line(1)
             case Item.Family.IronBall => PartsView.Cue.Line(1)
             case _                  => PartsView.Cue.Line(2)
@@ -584,6 +589,7 @@ mod View {
             case Run.Event.PushedIntoWall(id, _) => say(TextDoc.Line.Slammed, enemy(id) :: Nil)
             case Run.Event.SmokeThrown(_)       => say(TextDoc.Line.Bombed, item(Item.Kind.Smoke) :: Nil)
             case Run.Event.PotionUsed(kind, n)  => say(TextDoc.Line.Drank, item(kind) :: ("n", "${n}") :: Nil)
+            case Run.Event.DollSaved(_)         => say(TextDoc.Line.DollBroke, Nil)
             case Run.Event.Descended            => say(TextDoc.Line.Descended, Nil)
             case Run.Event.HeroBlocked(_)       => say(TextDoc.Line.Blocked, Nil)
             case _                              => None

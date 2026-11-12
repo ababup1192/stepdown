@@ -47,6 +47,7 @@ mod Popup {
         case Event.ThunderHit(_, _)  => Some(Beat.Flash)
         case Event.HeroHurt(_, _, _) => Some(Beat.Flash)
         case Event.PotionUsed(_, _)  => Some(Beat.Heal)
+        case Event.DollSaved(_)      => Some(Beat.Heal)
         case Event.Ate(_, _)         => Some(Beat.Full)
         case Event.EnemyDied(_, _, _) => Some(Beat.Die)
         case _                       => None
@@ -64,6 +65,7 @@ mod Popup {
         case Event.HeroHurt(Run.Source.Starve, n, _) => Some((Kind.Starved, n, None))
         case Event.HeroHurt(_, n, guarded) => if (guarded or n <= 0) Some((Kind.Blocked, 0, None)) else Some((Kind.Taken, n, None))
         case Event.PotionUsed(kind, n) => Some((Kind.Healed, n, Some(kind)))
+        case Event.DollSaved(n)      => Some((Kind.Healed, n, Some(Item.Kind.Doll)))
         case Event.Ate(kind, n)      => Some((Kind.Fed, n, Some(kind)))
         case Event.ExpGained(n)      => Some((Kind.Exp, n, None))
         case _                       => None

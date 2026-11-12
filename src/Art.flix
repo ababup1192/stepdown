@@ -113,6 +113,7 @@ mod Art {
         case Item.Family.IronBall => Icon.IronBall
         case Item.Family.Smoke  => Icon.Smoke
         case Item.Family.Thunder => Icon.Thunder
+        case Item.Family.Doll   => Icon.Doll
     }
 
     /// アイテムの種類の絵（食べ物と、木と鉄の盾は種類で絵が分かれる）。
