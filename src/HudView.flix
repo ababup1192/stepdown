@@ -24,6 +24,9 @@ mod HudView {
     /// 満腹度の棒: 今と最大・食べた光（0..1）・空腹で減った赤い点滅（0..1）。
     pub type alias Fullness = { now = Int32, max = Int32, glow = Float64, alarm = Float64 }
 
+    /// ボスの HP の棒: 名前・今と最大（ボスが起きている間だけ出す）。
+    pub type alias BossBar = { name = String, now = Int32, max = Int32 }
+
     /// 経験値の棒: レベル・今のレベルで貯めた数・次までに要る数。
     pub type alias Exp = { level = Int32, now = Int32, need = Int32 }
 
@@ -38,6 +41,7 @@ mod HudView {
         exp = Exp,
         gear = List[Gear],
         coins = Int32,
+        boss = Option[BossBar],
         minimap = Minimap,
         log = String,
         slots = List[Option[Slot]],
@@ -67,7 +71,19 @@ mod HudView {
         List.flatten(
             (band(Vec2.zero(), p(width(), 180.0), t#shade, { top = 0.85, bottom = 0.0 }, 0)
                 :: text(atlas, w#floorLabel, p(18.0, 14.0), 34.0, t#ink, 3) :: Nil)
-            :: expBar(atlas, t, w#exp) :: hpBar(atlas, t, w#hp) :: fullnessBar(t, w#time, w#fullness) :: gear :: coinCount(atlas, t, w#coins) :: Nil)
+            :: expBar(atlas, t, w#exp) :: hpBar(atlas, t, w#hp) :: fullnessBar(t, w#time, w#fullness) :: gear :: coinCount(atlas, t, w#coins) :: bossBar(atlas, t, w#boss) :: Nil)
+
+    /// ボスの HP: 上の帯の下に、名前と横に長い赤い棒（減った分は暗い溝が見える）。
+    def bossBar(atlas: FontAtlas, t: ThemeDoc.Rec, boss: Option[BossBar]): List[Render.PlacedItem] = match boss {
+        case None    => Nil
+        case Some(b) =>
+            let at = p(70.0, 196.0);
+            let length = width() - 140.0;
+            let ratio = Int32.toFloat64(Int32.max(0, b#now)) / Int32.toFloat64(Int32.max(1, b#max));
+            List.flatten((text(atlas, b#name, p(at#x, at#y - 26.0), 20.0, t#ink, 3) :: Nil)
+                :: bar(at, p(length, 14.0), { edge = t#hpEdge, back = t#hpBack }, 1)
+                :: fill(at, length * Float64.min(1.0, ratio), 14.0, { top = Color.mix(t#popTaken, t#ink, 0.3), bottom = t#popTaken }, 3) :: Nil)
+    }
 
     /// ちいさなコイン: 剣と盾の枠の右に、コインの絵と枚数（字は数だけ）。
     def coinCount(atlas: FontAtlas, t: ThemeDoc.Rec, coins: Int32): List[Render.PlacedItem] =

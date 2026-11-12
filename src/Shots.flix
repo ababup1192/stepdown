@@ -9,7 +9,7 @@ mod Shots {
     /// 場面の題と一言（Studio のギャラリーに出るラベル）は assets/stepdown.scenes.json 側で、name をここの名前とそろえる。
     /// 場面を足したら、ここと sceneOf と Makefile の SHOTS を一緒に足す。
     pub def names(): List[String] =
-        "title" :: "play" :: "dead" :: "clear" :: "quit" :: "arrow" :: "bomb" :: "dirs" :: "popups" :: "swap" :: "levelup_mid" :: "levelup" :: "chosen" :: "use_tilt" :: "use_potion" :: "use_meat" :: "smoke_fly" :: "smoke_puff" :: "pebble" :: "floor2" :: "floor3" :: "thunder" :: "guard" :: "alarm" :: "floor4" :: "charge" :: "blast" :: "doll" :: Nil
+        "title" :: "play" :: "dead" :: "clear" :: "quit" :: "arrow" :: "bomb" :: "dirs" :: "popups" :: "swap" :: "levelup_mid" :: "levelup" :: "chosen" :: "use_tilt" :: "use_potion" :: "use_meat" :: "smoke_fly" :: "smoke_puff" :: "pebble" :: "floor2" :: "floor3" :: "thunder" :: "guard" :: "alarm" :: "floor4" :: "charge" :: "blast" :: "doll" :: "floor5" :: "boss_windup" :: "boss_slam" :: "boss_sweep" :: "boss_down" :: Nil
 
     /// 名前 → 周回の種を固定した初めの World から組んだ場面の World（1 手を見せ終えた所。途中の場面はその秒の所）。
     pub def worldOf(name: String, res: Res.Res): Option[World.World] =
@@ -98,6 +98,22 @@ mod Shots {
             // HP 3 で自爆虫の弾けを受け、倒れる代わりに身代わり人形が砕けて HP が戻る所。
             case "doll" => Some(turnAt(res, Run.Input.Wait, lk#arrowSeconds * 2.0 + lk#strikeSeconds * 1.2, windups(res, (0, Enemy.Intent.Fuse) :: Nil,
                 withRec(res, r -> { hero = { hp = 3 | r#hero } | r }, staged(res, (8, 12), Run.Held.Held(Item.Kind.Doll, 1) :: Nil, (Enemy.Kind.Bomber, (9, 12)) :: Nil, fourthFloor(res, World.begin(res, w0)))))))
+            // 5F のボスの広間。入ってきた主人公へ、ボスが帯を溜めた所（主人公の行と、ボスに近い行の 2 行が赤い。柱の陰は赤くない）。
+            case "floor5" => Some(World.snapCam(windups(res, (0, Enemy.Intent.Sweep(19)) :: Nil,
+                withRec(res, r -> { coins = 9 | r }, staged(res, (8, 19), Run.Held.Held(Item.Kind.Tonic, 1) :: Nil, (Enemy.Kind.Boss, (8, 21)) :: Nil, fifthFloor(res, World.begin(res, w0)))))))
+            // 体の左隣の主人公へ、HP の減ったボスが叩きつけを溜めた所（体の周り 12 マスが赤く、体の上に赤い光・小刻みに揺れる）。
+            case "boss_windup" => Some(World.snapCam(windups(res, (0, Enemy.Intent.Slam) :: Nil,
+                withRec(res, r -> { enemies = r#enemies |> List.map(e -> { hp = 26 | e }) | r }, staged(res, (7, 21), Nil, (Enemy.Kind.Boss, (8, 21)) :: Nil, fifthFloor(res, World.begin(res, w0)))))))
+            // 赤の外へ 2 歩下がって待ち、ボスが床を叩いて土煙の輪と橙の閃きが広がった所。
+            case "boss_slam" => Some(turnAt(res, Run.Input.Wait, lk#arrowSeconds * 2.0 * 0.62, windups(res, (0, Enemy.Intent.Slam) :: Nil,
+                staged(res, (5, 21), Nil, (Enemy.Kind.Boss, (8, 21)) :: Nil, fifthFloor(res, World.begin(res, w0))))))
+            // 帯の 1 段上へ下がって待ち、ボスの帯の光が体から外へ走っている所（柱の向こうの行には走らない）。
+            case "boss_sweep" => Some(turnAt(res, Run.Input.Wait, lk#arrowSeconds * 2.0 * 0.55, windups(res, (0, Enemy.Intent.Sweep(19)) :: Nil,
+                staged(res, (6, 18), Nil, (Enemy.Kind.Boss, (8, 21)) :: Nil, fifthFloor(res, World.begin(res, w0))))))
+            // HP 2 のボスを殴って倒し、震えながら沈んで土煙が上がっている所。
+            case "boss_down" => Some(turnAt(res, Run.Input.Move(Board.Dir8.Right), lk#strikeSeconds * (1.0 + 6.0 * 0.5),
+                withRec(res, r -> { enemies = r#enemies |> List.map(e -> { hp = 2, cooldown = 3 | e }) | r },
+                    staged(res, (7, 21), Nil, (Enemy.Kind.Boss, (8, 21)) :: Nil, fifthFloor(res, World.begin(res, w0))))))
             case _       => sceneOf(name, res, w0) |> Option.map(w -> World.snapCam(World.skipShow(w)))
         }
 
@@ -112,6 +128,10 @@ mod Shots {
     /// 4F の 1 枚目の地図（広い広間）の始まり。
     def fourthFloor(res: Res.Res, w: World.World): World.World =
         World.withState(res, Floor.createOn(Res.floorDocs(res), res#layouts, { seed = w#seed, floor = 4, layout = 0 }, w#seed), w)
+
+    /// 5F の 1 枚目の地図（下の広間にボス）の始まり。
+    def fifthFloor(res: Res.Res, w: World.World): World.World =
+        World.withState(res, Floor.createOn(Res.floorDocs(res), res#layouts, { seed = w#seed, floor = 5, layout = 0 }, w#seed), w)
 
     /// (敵の id, 溜め) の敵に溜めを持たせる。
     def windups(res: Res.Res, intents: List[(Int32, Enemy.Intent)], w: World.World): World.World =

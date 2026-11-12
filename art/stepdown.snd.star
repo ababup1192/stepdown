@@ -1,4 +1,4 @@
-# 石のダンジョンの効果音 25 個（1 手の時刻表の Cue で鳴らす。名前は TurnTimeline.Sound と同じ sd_*）。
+# 石のダンジョンの効果音 30 個（1 手の時刻表の Cue で鳴らす。名前は TurnTimeline.Sound と同じ sd_*）。
 # bin/fge snd build art/stepdown.snd.star で art/sfx/*.sndsrc.json を書き、検査を通った物を atelier/sfx/<名前>.wav へ書く
 # （採用した物を assets/sfx へ移し、project.json の sounds に載せる）。
 # 石の部屋なので短い響きを少し足す。1 手は 0.1〜0.2 秒で回るので、どれも 0.25 秒以内に収め、続けて鳴っても濁らない長さにする。
@@ -98,4 +98,20 @@ def main():
     # ちいさなコインを拾う: 明るい金属の「チャリン」（高い 2 音を短くずらして重ね、きらめきを少し）。小石の「コツン」より高く長い。
     sound("sd_coin", [tone(1760, 120, amp = 0.2, decay = 60, duty = 0.25, cut = 3.0), tone(2640, 180, at = 70, amp = 0.18, decay = 100, duty = 0.25, cut = 3.0),
                       hiss(80, at = 70, amp = 0.05, hz = 8000, decay = 40)], room = 0.35, wet = 0.15, lufs = -23)
+    # ボスが大技を溜める: 岩がきしむ低いうなり（上がりながら太る 2 音）と、砂の落ちる雑音。突進の溜めより低く長い。
+    sound("sd_boss_windup", [tone(70, 240, amp = 0.4, decay = 120, to_hz = 120, attack = 30), tone(105, 220, at = 30, amp = 0.2, decay = 110, to_hz = 180, attack = 30),
+                             sweep(240, amp = 0.12, hz = 1800, to_hz = 600, attack = 40, decay = 120, mode = "band")], room = 0.45, wet = 0.18, lufs = -21)
+    # ボスの叩きつけ: 重い一撃の「ドン」（低い破裂）と、床の割れる雑音。
+    sound("sd_slam", [tone(55, 240, amp = 0.7, decay = 100, to_hz = 32), hiss(200, amp = 0.5, hz = 900, decay = 70, attack = 2),
+                      tone(160, 60, amp = 0.3, decay = 20, to_hz = 80)], room = 0.55, wet = 0.22, lufs = -17)
+    # ボスの帯: 腕が横に払う太い風切り（低い所から高い所へ抜ける）と、低い唸り。
+    sound("sd_sweep", [sweep(240, amp = 0.45, hz = 300, to_hz = 1800, attack = 15, decay = 110), tone(80, 200, amp = 0.25, decay = 90, to_hz = 60)],
+          room = 0.4, wet = 0.15, lufs = -19)
+    # ボスが倒れる: 崩れる岩の雑音が長く尾を引き、低い音が沈む。
+    sound("sd_boss_fall", [hiss(250, amp = 0.5, hz = 700, decay = 140, attack = 4), tone(90, 250, amp = 0.45, decay = 140, to_hz = 35),
+                           tone(60, 120, at = 120, amp = 0.35, decay = 70, to_hz = 30), hiss(120, at = 130, amp = 0.3, hz = 500, decay = 70)],
+          room = 0.6, wet = 0.25, lufs = -18)
+    # 鉄球が床を転がる: 低い「ゴロゴロ」（低い短音を細かく 5 つ並べ、少しずつ下げて弱める）。小石の「コツン」より低く重い。
+    sound("sd_roll", [tone(85 - 4 * i, 40, at = 42 * i, amp = 0.32 - 0.04 * i, decay = 18, to_hz = 65 - 3 * i) for i in range(5)] +
+                     [hiss(220, amp = 0.12, hz = 400, decay = 120, attack = 10)], room = 0.3, wet = 0.1, lufs = -22)
 main()

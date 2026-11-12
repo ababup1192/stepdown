@@ -53,8 +53,8 @@ mod View {
     pub def inputOf(res: Res.Res, w: World.World): In = { scene = sceneOf(res, w), hud = hudOf(res, w), clear = clearColor() }
 
     /// 1 手の見せ方の材料（時刻表 tl は遊びの時計 clock で読む）。
-    def turnOf(tl: Timeline.Timeline[TurnTimeline.Tag], clock: Clock.Clock[World.Play], shown: World.Shown, now: Run.State): Motion.Turn =
-        { before = Run.rec(shown#before), after = Run.rec(now), events = List.zipWithIndex(shown#events),
+    def turnOf(board: Board.Board, tl: Timeline.Timeline[TurnTimeline.Tag], clock: Clock.Clock[World.Play], shown: World.Shown, now: Run.State): Motion.Turn =
+        { board = board, before = Run.rec(shown#before), after = Run.rec(now), events = List.zipWithIndex(shown#events),
           progress = tag -> Timeline.progressOn(clock, shown#startedAt, tag, tl) }
 
     /// 3D の場面の値。
@@ -63,19 +63,24 @@ mod View {
         let time = Clock.secondsOf(w#realNow);
         let r = Run.rec(w#runState);
         let theme = ThemeDoc.rec(res#theme);
-        let pose = Motion.poseOf(turnOf(World.timelineOf(res, w), w#clock, w#shown, w#runState), time, w#screen == World.Screen.Dead, lk#figureLight);
+        let turn = turnOf(World.ctx(res, w)#board, World.timelineOf(res, w), w#clock, w#shown, w#runState);
+        let pose = Motion.poseOf(turn, time, w#screen == World.Screen.Dead, lk#figureLight);
         let foresight = w#screen == World.Screen.Play and not World.isBusy(res, w);
         let preview = if (foresight) w#foresight#moves |> List.filterMap(e -> shownOf(r#hero#at, e)) else Nil;
-        { time = time, camera = World.cameraOf(res, w), look = lk, floor = Res.floorAt(res, r#floor, r#layout),
+        { time = time, camera = shaken(turn, World.cameraOf(res, w)), look = lk, floor = Res.floorAt(res, r#floor, r#layout),
           flame = Kit.itemOf("FLAME", res#kit), textures = res#kit#textures,
           hand = FloorMesh.cellPoint(r#hero#at), figures = pose#figures, bursts = pose#bursts,
           marks = trapMarks(theme, r) ::: (if (foresight) preview |> List.flatMap(markOf(theme)) ::: dangerMarks(theme, r#hero#at, w#foresight#danger) ::: shieldMarks(theme, r) else Nil),
           lanes = if (foresight) w#foresight#lanes |> List.map(laneOf(theme)) else Nil }
 
+    /// 画面の揺れ（ボスの叩きつけ・倒れる）の分だけ目をずらしたカメラ（場面と、場面の上の印が同じ物を使う）。
+    def shaken(turn: Motion.Turn, camera: Camera3d.Camera3d): Camera3d.Camera3d = { eye = Vec3.add(camera#eye, Motion.shakeOf(turn)) | camera }
+
     /// 2D に重ねる物の値（上と下の帯・場面の上の印・カード）。
     def hudOf(res: Res.Res, w: World.World): Overlay =
         let lk = LookDoc.rec(res#look);
-        let camera = World.cameraOf(res, w);
+        let turn = turnOf(World.ctx(res, w)#board, World.timelineOf(res, w), w#clock, w#shown, w#runState);
+        let camera = shaken(turn, World.cameraOf(res, w));
         let time = Clock.secondsOf(w#realNow);
         let r = Run.rec(w#runState);
         let screen = (q: Vec3.Vec3) -> Camera3d.worldToScreen(camera, size(), q);
@@ -83,7 +88,6 @@ mod View {
         let busy = World.isBusy(res, w);
         let foresight = w#screen == World.Screen.Play and not busy;
         let preview = if (foresight) w#foresight#moves |> List.filterMap(e -> shownOf(r#hero#at, e)) else Nil;
-        let turn = turnOf(World.timelineOf(res, w), w#clock, w#shown, w#runState);
         let glow = if (busy) Motion.poseOf(turn, time, false, 1.0)#slotGlow else Map.empty();
         let aged = w#popups |> List.map(pop -> (pop, Clock.since(pop#startedAt, w#realNow))) |> List.filter(e -> snd(e) >= 0.0);
         let hpBar = Popup.barOf(World.timingOf(res), w#realNow, w#trail);
@@ -96,6 +100,8 @@ mod View {
           exp = { level = r#level, now = r#exp, need = RulesDoc.expToNext(r#level, res#rules) },
           gear = gearOf(theme, r#hero),
           coins = r#coins,
+          boss = r#enemies |> List.find(e -> Enemy.isBoss(e#kind) and Enemy.isAwake(e)) |> Option.map(e ->
+              { name = EnemiesDoc.statsOf(e#kind, res#enemies)#name, now = e#hp, max = EnemiesDoc.statsOf(e#kind, res#enemies)#hp }),
           minimap = minimapOf(theme, World.ctx(res, w)#board, r),
           log = logLine(res, w#shown, w#runState), slots = slotsOf(res, theme, r#pack, glow),
           card = if (busy) None else cardOf(res, w#screen),

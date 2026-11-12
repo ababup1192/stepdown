@@ -10,8 +10,9 @@ mod Motion {
     use Run.Event
     use TurnTimeline.Beat
 
-    /// 1 手の見せ方の材料。progress = 時刻表のタグの今の進み（0..1。表に無いタグは 1）。
+    /// 1 手の見せ方の材料。progress = 時刻表のタグの今の進み（0..1。表に無いタグは 1）。board = 今の階の盤（ボスの帯のマスを引く）。
     pub type alias Turn = {
+        board = Board.Board,
         before = Run.Rec,
         after = Run.Rec,
         events = List[(Int32, Event)],
@@ -28,7 +29,7 @@ mod Motion {
         let shaded = (f: SceneView.Figure) -> { let (r, g, b) = Color.channels(f#tint); { tint = Color.rgb(r * light, g * light, b * light), lit = false | f } };
         { figures = List.flatten(trapFigures(turn) :: heroFigure(turn, time, fallen) :: enemyFigures(turn, moves, time) :: itemFigures(turn, time) :: arrows(turn) :: smokeBalls(turn) :: Nil)
               |> List.map(shaded),
-          bursts = bombBursts(turn) ::: smokeBursts(turn),
+          bursts = List.flatten(bombBursts(turn) :: smokeBursts(turn) :: bossBursts(turn, time) :: Nil),
           slotGlow = turn#after#pack |> List.map(held -> (Run.familyOfHeld(held), glowOf(turn, Run.familyOfHeld(held)))) |> List.toMap }
 
     // ── 進みの読み方 ──
@@ -172,6 +173,7 @@ mod Motion {
             case (i, Event.ThunderHit(id, _))  => flashed(id, i, acc)
             case (i, Event.EnemyBurned(id, _)) => flashed(id, i, acc)
             case (i, Event.EnemyDied(id, _, _)) => dies(id, i, Beat.Die, acc)
+            case (i, Event.HeroHurt(Run.Source.Slam(id), _, _)) => lunged(id, i, acc)
             case (i, Event.EnemyExploded(id, _)) => dies(id, i, Beat.Bomb, acc)
             case (i, Event.EnemyFell(id, _)) => dies(id, i, Beat.Die, acc)
             case (i, Event.HeroHurt(Run.Source.Melee(id), _, _)) => lunged(id, i, acc)
@@ -203,7 +205,7 @@ mod Motion {
         case Enemy.Kind.Shield => 1.05
         case Enemy.Kind.Charger => 0.95
         case Enemy.Kind.Bomber => 0.7
-        case Enemy.Kind.Boss   => 2.1
+        case Enemy.Kind.Boss   => 1.8
     }
 
     /// 床から浮かせる高さ（飛ぶ敵だけ）。
@@ -230,21 +232,47 @@ mod Motion {
     def settledPoint(moves: List[(Int32, Cell, Cell)], e: Enemy.Enemy): Vec3.Vec3 =
         List.last(moves) |> Option.map(m -> { let (_, _, to) = m; point(to) }) |> Option.getWithDefault(point(e#at))
 
+    /// 体の左上のマスから体の真ん中へのずれ（1 マスの敵は 0。2×2 は 4 マスの間へ）。
+    def bodyOffset(e: Enemy.Enemy): Vec3.Vec3 =
+        let (cx, cy) = Enemy.centerOf(e);
+        Vec3.sub(Vec3.v3(cx, 0.0, 0.0 - cy), point(e#at))
+
+    /// 体の真ん中の床の点。
+    def centerPoint(e: Enemy.Enemy): Vec3.Vec3 = Vec3.add(point(e#at), bodyOffset(e))
+
+    /// ボスの体の動き: 溜めの間は小刻みに左右へ揺れ、叩きつけでは跳ねて床へ落ち、倒れる時は大きく震えながら沈む（足もとのずれ）。
+    def bossSway(turn: Turn, t: Float64, e: Enemy.Enemy, dying: Float64): Vec3.Vec3 =
+        let shiver = if (e#intent == Enemy.Intent.Idle) 0.0 else 0.05 * Num.sin(t * 38.0);
+        let jump = turn#events |> List.foldLeft((acc, ie) -> match ie {
+            case (i, Event.EnemySlammed(id)) if id == e#id => Float64.max(acc, slamLift(progressOf(turn, i, Beat.Slam)))
+            case _ => acc
+        }, 0.0);
+        let quake = if (dying > 0.0) 0.09 * Num.sin(dying * Num.pi() * 18.0) * (1.0 - dying) else 0.0;
+        Vec3.v3(shiver + quake, jump - 0.5 * dying, 0.0)
+
+    /// 叩きつけの高さ（m）: 進みの 4 割で一番高く跳ね、5 割で床に落ちて、あとは床のまま。
+    def slamLift(p: Float64): Float64 =
+        if (not isActive(p)) 0.0
+        else Curve.pieces((0.0, 0.0) :: (0.4, 0.7) :: (0.5, 0.0) :: (1.0, 0.0) :: Nil, p)
+
     def enemyFigure(turn: Turn, t: Float64, heroAt: Vec3.Vec3, moves: List[(Int32, Cell, Cell)], hit: Option[Hit], e: Enemy.Enemy): Option[SceneView.Figure] =
         let h = hit |> Option.getWithDefault({ flash = noFlash(), dying = None, lunge = 0.0 });
         let dying = h#dying |> Option.getWithDefault(0.0);
         if (dying >= 1.0) None
         else {
-            let base = walkingPoint(turn, moves) |> Option.getWithDefault(settledPoint(moves, e));
+            let base = Vec3.add(walkingPoint(turn, moves) |> Option.getWithDefault(settledPoint(moves, e)), bodyOffset(e));
             let lunge = Vec3.mul(toward(base, heroAt), 0.3 * h#lunge);
             let kindTint = windupTint(e, t, white());
             let tint = if (Enemy.isAwake(e)) kindTint else Color.mix(kindTint, Color.rgb(0.2, 0.22, 0.35), 0.45);
             let bob = if (Enemy.isFlying(e#kind)) 0.08 * Num.sin(t * 3.3 + Int32.toFloat64(e#id)) else 0.0;
-            let scale = 1.0 - dying;
+            let boss = Enemy.isBoss(e#kind);
+            // WhyNot: ボスを縮めて消す — 大きい絵がしぼむと岩の巨体に見えない。震えながら床へ沈め、土煙で隠す。
+            let scale = if (boss) 1.0 - 0.25 * dying else 1.0 - dying;
+            let sway = if (boss) bossSway(turn, t, e, dying) else Vec3.zero();
             Some({ picture = if (e#kind == Enemy.Kind.Shield) Art.shieldBearer(e#facing) else Art.figure(figureOf(e#kind)),
-                   at = Vec3.add(Vec3.add(base, lunge), Vec3.v3(h#flash#shake, (liftOf(e#kind) + bob) * scale, 0.0)),
+                   at = Vec3.add(Vec3.add(Vec3.add(base, lunge), sway), Vec3.v3(h#flash#shake, (liftOf(e#kind) + bob) * scale, 0.0)),
                    height = heightOf(e#kind) * scale * (if (e#intent == Enemy.Intent.Idle) 1.0 else 0.88), tint = flashTint(tint, Float64.max(h#flash#glow, dying * 0.6)), lit = h#flash#glow <= 0.0 and dying <= 0.0,
-                   shadow = (if (e#kind == Enemy.Kind.Swarm) 0.2 else 0.3) * scale })
+                   shadow = (if (boss) 1.0 else if (e#kind == Enemy.Kind.Swarm) 0.2 else 0.3) * scale })
         }
 
     // ── 罠 ──
@@ -376,6 +404,81 @@ mod Motion {
                 })
             case _ => Nil
         })
+
+    // ── ボスの大技と倒れる ──
+
+    /// ボスの光と土煙: 溜めの間は体の上に赤い光が脈打ち、叩きつけは体の周りに土煙の輪と橙の閃き、帯は光が体から外へ帯のマスを走り、
+    /// 倒れる時は土煙が何度も上がる。
+    def bossBursts(turn: Turn, t: Float64): List[SceneView.Burst] =
+        let bosses = (turn#after#enemies ::: turn#before#enemies) |> List.filter(e -> Enemy.isBoss(e#kind)) |> List.map(e -> (e#id, e)) |> List.toMap;
+        let charging = turn#after#enemies |> List.filter(e -> Enemy.isBoss(e#kind) and e#intent != Enemy.Intent.Idle)
+            |> List.map(e -> { at = Vec3.add(centerPoint(e), up(0.9)), radius = 1.25 + 0.12 * Num.sin(t * 9.0), color = Color.rgb(1.0, 0.18, 0.1),
+                               alpha = 0.32 + 0.12 * Num.sin(t * 9.0), glow = true });
+        let fromEvents = turn#events |> List.flatMap(ie -> match ie {
+            case (i, Event.EnemySlammed(id))     => Map.get(id, bosses) |> Option.map(e -> slamDust(centerPoint(e), progressOf(turn, i, Beat.Slam))) |> Option.getWithDefault(Nil)
+            case (i, Event.EnemySwept(id, top))  => Map.get(id, bosses) |> Option.map(e -> sweepLight(turn#board, e, top, progressOf(turn, i, Beat.Sweep))) |> Option.getWithDefault(Nil)
+            case (i, Event.EnemyDied(id, Enemy.Kind.Boss, _)) => Map.get(id, bosses) |> Option.map(e -> fallDust(centerPoint(e), progressOf(turn, i, Beat.Die))) |> Option.getWithDefault(Nil)
+            case _ => Nil
+        });
+        charging ::: fromEvents
+
+    /// 叩きつけ: 床に落ちた瞬間（進みの 5 割）から、橙の閃きと、体の周りへ広がる土煙の輪（8 つの円）。
+    def slamDust(center: Vec3.Vec3, p: Float64): List[SceneView.Burst] =
+        let q = (p - 0.5) / 0.5;
+        if (not isActive(p) or q <= 0.0) Nil
+        else {
+            let flash = { at = Vec3.add(center, up(0.3)), radius = 1.0 + 1.6 * q, color = Color.rgb(1.0, 0.55, 0.2), alpha = 0.9 * (1.0 - q) * (1.0 - q), glow = true };
+            let ring = List.range(0, 8) |> List.map(k -> {
+                let a = Int32.toFloat64(k) * Num.tau() / 8.0;
+                let reach = 0.9 + 1.3 * q;
+                { at = Vec3.add(center, Vec3.v3(reach * Num.cos(a), 0.25 + 0.3 * q, reach * Num.sin(a))), radius = 0.3 + 0.35 * q,
+                  color = Color.rgb(0.45, 0.4, 0.36), alpha = 0.85 * (1.0 - q), glow = false }
+            });
+            flash :: ring
+        }
+
+    /// 帯: 光の頭が体の列から外へ走り、通ったマスに淡い光が残って薄れる（柱の陰のマスには走らない）。
+    def sweepLight(board: Board.Board, e: Enemy.Enemy, top: Int32, p: Float64): List[SceneView.Burst] =
+        if (not isActive(p)) Nil
+        else {
+            let (x, _) = e#at;
+            let gap = (c: Cell) -> { let (cx, _) = c; if (cx < x) x - cx else cx - (x + e#size - 1) };
+            let cells = Run.bandOf(board, e, top) |> Set.toList;
+            let far = cells |> List.map(gap) |> List.maximum |> Option.getWithDefault(1);
+            let head = p * Int32.toFloat64(Int32.max(1, far) + 2);
+            cells |> List.filterMap(c -> {
+                let behind = head - Int32.toFloat64(gap(c));
+                if (behind <= 0.0 or behind >= 3.0) None
+                else Some({ at = Vec3.add(point(c), up(0.35)), radius = 0.55 + 0.1 * behind, color = Color.rgb(1.0, 0.35, 0.12),
+                            alpha = 0.85 * (1.0 - behind / 3.0), glow = true })
+            })
+        }
+
+    /// ボスが倒れる: 体のまわりに土煙が 3 度に分けて上がり、広がって薄れる。
+    def fallDust(center: Vec3.Vec3, p: Float64): List[SceneView.Burst] =
+        if (not isActive(p)) Nil
+        else List.range(0, 12) |> List.filterMap(k -> {
+            let start = Int32.toFloat64(Int32.modulo(k, 3)) * 0.2;
+            let q = (p - start) / (1.0 - start);
+            let a = Int32.toFloat64(k) * 2.4;
+            if (q <= 0.0 or q >= 1.0) None
+            else Some({ at = Vec3.add(center, Vec3.v3((0.5 + 0.9 * q) * Num.cos(a), 0.3 + 1.0 * q, (0.5 + 0.9 * q) * Num.sin(a) * 0.6)),
+                        radius = 0.5 + 0.8 * q, color = Color.rgb(0.36, 0.32, 0.3), alpha = 0.95 * (1.0 - q * q), glow = false })
+        })
+
+    /// 画面の揺れ（カメラの目のずれ・m）: ボスの叩きつけが床に落ちた瞬間と、倒れる間だけ、控えめに。
+    pub def shakeOf(turn: Turn): Vec3.Vec3 =
+        let amount = turn#events |> List.foldLeft((acc, ie) -> match ie {
+            case (i, Event.EnemySlammed(_)) =>
+                let p = progressOf(turn, i, Beat.Slam);
+                if (p < 0.5 or p >= 1.0) acc else Float64.max(acc, 0.08 * (1.0 - (p - 0.5) / 0.5))
+            case (i, Event.EnemyDied(_, Enemy.Kind.Boss, _)) =>
+                let p = progressOf(turn, i, Beat.Die);
+                if (isActive(p)) Float64.max(acc, 0.05 * (1.0 - p)) else acc
+            case _ => acc
+        }, 0.0);
+        let wobble = turn#events |> List.length |> Int32.toFloat64;
+        Vec3.v3(amount * Num.sin(wobble + amount * 300.0), amount * 0.5 * Num.cos(amount * 260.0), 0.0)
 
     /// 系統 family の持ち物の枠の光（上位を拾った・その系統を使った手の間だけ 1 → 0）。
     def glowOf(turn: Turn, family: Item.Family): Float64 =

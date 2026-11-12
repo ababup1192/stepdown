@@ -383,25 +383,25 @@ mod Run {
         case Enemy.Intent.Charge(dir) => if (List.memberOf(cell, chargeLane(ctx, blockers, e, dir))) Some(Attack.Charge) else None
         case Enemy.Intent.Fuse        => if (isBeside(ctx, e, cell)) Some(Attack.Blast) else None
         case Enemy.Intent.Slam        => if (isBeside(ctx, e, cell)) Some(Attack.Slam) else None
-        case Enemy.Intent.Sweep(top)  => if (inBand(ctx, e, top, cell)) Some(Attack.Sweep) else None
+        case Enemy.Intent.Sweep(top)  => if (inBand(ctx#board, e, top, cell)) Some(Attack.Sweep) else None
         case Enemy.Intent.SlamAndSweep(top) =>
             if (isBeside(ctx, e, cell)) Some(Attack.Slam)
-            else if (inBand(ctx, e, top, cell)) Some(Attack.Sweep)
+            else if (inBand(ctx#board, e, top, cell)) Some(Attack.Sweep)
             else None
     }
 
     /// cell がボスの帯か: 行 top と top + 1 のうち、ボスと同じ部屋のマスで、その行でボスの体の列から cell までの間に矢を止めるマス（柱・壁）が無い（体のマスと、矢を止めるマス自身は除く）。
-    def inBand(ctx: Ctx, e: Enemy.Enemy, top: Int32, cell: Cell): Bool =
+    def inBand(board: Board.Board, e: Enemy.Enemy, top: Int32, cell: Cell): Bool =
         let (cx, y) = cell;
         let (x, _) = e#at;
         let between = if (cx < x) List.range(cx + 1, x) else List.range(x + e#size, cx);
-        (y == top or y == top + 1) and not Set.memberOf(cell, Enemy.cellsOf(e)) and not Board.stopsArrow(cell, ctx#board)
-            and Board.roomAt(cell, ctx#board) != 0 and Board.roomAt(cell, ctx#board) == Board.roomAt(e#at, ctx#board)
-            and List.forAll(bx -> not Board.stopsArrow((bx, y), ctx#board), between)
+        (y == top or y == top + 1) and not Set.memberOf(cell, Enemy.cellsOf(e)) and not Board.stopsArrow(cell, board)
+            and Board.roomAt(cell, board) != 0 and Board.roomAt(cell, board) == Board.roomAt(e#at, board)
+            and List.forAll(bx -> not Board.stopsArrow((bx, y), board), between)
 
     /// ボスの帯のマス（見せる側が床に帯を引く）。
-    pub def bandOf(ctx: Ctx, e: Enemy.Enemy, top: Int32): Set[Cell] =
-        Board.cells(ctx#board) |> List.filter(c -> inBand(ctx, e, top, c)) |> List.toSet
+    pub def bandOf(board: Board.Board, e: Enemy.Enemy, top: Int32): Set[Cell] =
+        Board.cells(board) |> List.filter(c -> inBand(board, e, top, c)) |> List.toSet
 
     /// 突進が dir へ走る道（e の隣から近い順）。歩けないマスか blockers の手前で止まり、長さは chargeMax + 1 まで。
     /// 走る長さ（Step）と赤い線（Preview）はどちらもこれだけを見る。主人公は道を止めない（道の上にいれば手前で止まって当たる）。

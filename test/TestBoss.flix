@@ -131,7 +131,7 @@ mod TestBoss {
     @Test
     def testPillarShadesTheSweep(): Unit \ Assert =
         let ctx = Fixtures.ctx(pillarRows());
-        let band = Run.bandOf(ctx, Enemy.make(0, Enemy.Kind.Boss, (6, 3), stats()#hp), 1);
+        let band = Run.bandOf(ctx#board, Enemy.make(0, Enemy.Kind.Boss, (6, 3), stats()#hp), 1);
         Assert.assertEq(expected = (false, true, false), (Set.memberOf((2, 2), band), Set.memberOf((2, 1), band), Set.memberOf((3, 2), band)))
 
     // ── 大技を当てる ──

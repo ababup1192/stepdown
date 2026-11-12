@@ -87,6 +87,12 @@ mod Enemy {
     /// ボスか（押されない・眠り玉と煙玉で眠らない・罠を踏まない・倒すと潜りが終わる）。
     pub def isBoss(kind: Kind): Bool = kind == Kind.Boss
 
+    /// 体の真ん中（マスの座標。1 マスの敵は at、2×2 は 4 マスの間）。見せる側の位置はここから引く。
+    pub def centerOf(e: Enemy): (Float64, Float64) =
+        let (x, y) = e#at;
+        let half = Int32.toFloat64(e#size - 1) / 2.0;
+        (Int32.toFloat64(x) + half, Int32.toFloat64(y) + half)
+
     /// ボスの帯の上の行: 主人公の行と、ボスに近い側の 1 行（主人公がボスの行にいればボスの 2 行）。
     pub def bandTop(e: Enemy, heroAt: Cell): Int32 =
         let (_, y) = e#at;

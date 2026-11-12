@@ -29,6 +29,8 @@ mod TurnTimeline {
         case EnemyStrike   // 敵が主人公へ踏み込んで戻る
         case EnemyArrow    // 弓兵の矢の板が飛ぶ
         case Windup        // 敵が身をかがめて技を溜める
+        case Slam          // ボスが跳ねて床を叩き、体の周りに土煙が広がる（画面が小さく揺れる）
+        case Sweep         // ボスの腕の光が帯の上を体から外へ走る
         case Trap          // 罠の床が光り、毒矢が主人公へ跳ね上がる
         case Alarm         // 起きかけた敵の頭に「!」が跳ねて出る
         case Potion        // 頭の上で薬の瓶が傾いて空になる
@@ -67,6 +69,11 @@ mod TurnTimeline {
         case Doll
         case Pit
         case Coin
+        case BossWindup
+        case Slam
+        case Sweep
+        case BossFall
+        case Roll
     }
 
     /// 音の論理名（project.json の sounds の name）。
@@ -92,6 +99,11 @@ mod TurnTimeline {
         case Sound.Doll    => "sd_doll"
         case Sound.Pit     => "sd_pit"
         case Sound.Coin    => "sd_coin"
+        case Sound.BossWindup => "sd_boss_windup"
+        case Sound.Slam    => "sd_slam"
+        case Sound.Sweep   => "sd_sweep"
+        case Sound.BossFall => "sd_boss_fall"
+        case Sound.Roll    => "sd_roll"
     }
 
     /// 見せる秒（look の Doc から。dash = ダッシュの 1 歩の時は移動を短くする）。
@@ -101,7 +113,7 @@ mod TurnTimeline {
         { step = if (dash) lk#dashStepSeconds else lk#stepSeconds, strike = lk#strikeSeconds, arrow = lk#arrowSeconds,
           potion = lk#potionSeconds, eat = lk#eatSeconds, smoke = lk#smokeSeconds, pebble = lk#pebbleSeconds }
 
-    /// 並べている途中: 書いた行（逆順）・敵の移動をもう置いたか・爆弾の行・最後に放ったのが小石か・最後に走った突進の行・
+    /// 並べている途中: 書いた行（逆順）・敵の移動をもう置いたか・爆弾の行（ボスの大技もここに置き、当たりの光を重ねる）・最後に放ったのが小石か・最後に走った突進の行・
     /// 敵の移動と溜めを重ねて始める主人公の移動の行（主人公の攻めが挟まったら None）。
     type alias Draft = { rows = List[Timeline.Step[Tag]], movesPlaced = Bool, bomb = Option[Tag], pebble = Bool, charge = Option[Tag], walk = Option[Tag] }
 
@@ -145,6 +157,7 @@ mod TurnTimeline {
             case Event.CoinPicked(_)       => add(cue(Sound.Coin, after(Beat.Pick, pace#step)) :: Nil, d)
             case Event.HeroStruck(_, _)    =>
                 attacked(add(cue(Sound.Strike, after(Beat.HeroStrike, pace#strike)) :: flashOn(pace, (i, Beat.HeroStrike), pace#strike * 0.45, i, Sound.Hit) :: Nil, d))
+            case Event.ArrowShot(_, kind, _) if Item.familyOf(kind) == Item.Family.IronBall => attacked({ pebble = false | add(cue(Sound.Roll, after(Beat.Arrow, pace#pebble)) :: Nil, d) })
             case Event.ArrowShot(_, kind, _) if Item.isStone(Item.familyOf(kind)) => attacked({ pebble = true | add(after(Beat.Arrow, pace#pebble) :: Nil, d) })
             case Event.ArrowShot(_, _, _)  => attacked({ pebble = false | add(cue(Sound.Arrow, after(Beat.Arrow, pace#arrow)) :: Nil, d) })
             case Event.ArrowHit(_, _)      => add(cue(if (d#pebble) Sound.Clink else Sound.Hit, after(Beat.Flash, pace#strike)) :: Nil, d)
@@ -174,12 +187,25 @@ mod TurnTimeline {
             case Event.AlarmRang(_)        => add(after(Beat.Alarm, pace#strike * 2.0) :: Nil, d)
             case Event.EnemyTrapped(_, _)  => add(cue(Sound.Hit, after(Beat.Flash, pace#strike)) :: Nil, d)
             case Event.EnemyPushed(_, _, _) => add(after(Beat.EnemyMove, pace#step) :: Nil, d)
+            case Event.EnemyDied(_, kind, _) if Enemy.isBoss(kind) => add(cue(Sound.BossFall, after(Beat.Die, pace#strike * 6.0)) :: Nil, d)
             case Event.EnemyDied(_, _, _)  => add(cue(Sound.Defeat, after(Beat.Die, pace#strike * 1.6)) :: Nil, d)
             case Event.EnemyMoved(_, _, _) if not d#movesPlaced =>
                 let together = moves |> List.zipWithIndex |> List.map(match (k, j) -> enemyRow(d, k == 0, (j, Beat.EnemyMove), pace#step));
                 { movesPlaced = true | add(together, d) }
             case Event.EnemyShot(_, _, _)  => add(cue(Sound.Arrow, after(Beat.EnemyArrow, pace#arrow)) :: Nil, d)
+            case Event.EnemyWindup(_, intent) if isBossMove(intent) => add(cue(Sound.BossWindup, enemyRow(d, true, (i, Beat.Windup), pace#strike * 2.5)) :: Nil, d)
             case Event.EnemyWindup(_, _)   => add(cue(Sound.Windup, enemyRow(d, true, (i, Beat.Windup), pace#strike * 1.5)) :: Nil, d)
+            case Event.EnemySlammed(_)     => { bomb = Some((i, Beat.Slam)) | add(cue(Sound.Slam, after(Beat.Slam, pace#arrow * 2.0)) :: Nil, d) }
+            case Event.EnemySwept(_, _)    =>
+                let row = d#bomb |> Option.map(slam -> Timeline.atStartOf(slam, (i, Beat.Sweep), secs(pace#arrow * 2.0)) |> Timeline.withDelay(secs(pace#arrow * 0.3)))
+                    |> Option.getWithDefault(after(Beat.Sweep, pace#arrow * 2.0));
+                { bomb = Some((i, Beat.Sweep)) | add(cue(Sound.Sweep, row) :: Nil, d) }
+            case Event.HeroHurt(Run.Source.Slam(_), _, _) =>
+                let row = d#bomb |> Option.map(slam -> flashOn(pace, slam, pace#arrow * 0.6, i, Sound.Hit)) |> Option.getWithDefault(cue(Sound.Hit, after(Beat.Flash, pace#strike)));
+                add(row :: Nil, d)
+            case Event.HeroHurt(Run.Source.Sweep(_), _, _) =>
+                let row = d#bomb |> Option.map(band -> flashOn(pace, band, pace#arrow * 0.6, i, Sound.Hit)) |> Option.getWithDefault(cue(Sound.Hit, after(Beat.Flash, pace#strike)));
+                add(row :: Nil, d)
             case Event.EnemyCharged(_, _, _) => { charge = Some((i, Beat.EnemyMove)) | add(cue(Sound.Charge, after(Beat.EnemyMove, pace#step * 1.4)) :: Nil, d) }
             case Event.HeroHurt(Run.Source.Charge(_), _, guarded) =>
                 let sound = if (guarded) Sound.Guard else Sound.Hit;
@@ -197,6 +223,9 @@ mod TurnTimeline {
             case Event.HeroDied            => add(cue(Sound.Fall, after(Beat.Fall, pace#strike * 4.0)) :: Nil, d)
             case _                         => d
         }
+
+    /// ボスの大技の溜めか。
+    def isBossMove(intent: Enemy.Intent): Bool = Enemy.slams(intent) or Option.nonEmpty(Enemy.sweepTop(intent))
 
     def isEnemyMove(event: Event): Bool = match event {
         case Event.EnemyMoved(_, _, _) => true
