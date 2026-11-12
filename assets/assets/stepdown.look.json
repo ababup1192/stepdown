@@ -73,5 +73,6 @@
   "chosenSeconds": 0.3,
   "diagonalBadgeScale": 0.78,
   "badgeScale": 1.35,
-  "badgeAlpha": 0.72
+  "badgeAlpha": 0.72,
+  "waitBadgeLift": 0.4
 }

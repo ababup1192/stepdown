@@ -1,7 +1,7 @@
 {
   "version": 1,
   "title": "遊びの決まり（HP・攻撃・矢・爆弾・薬・回復・見える距離・煙玉・空腹）",
-  "note": "1 手の決まりの数。判定の式と敵の動き方はコード（Step）、秒は look。maxHp=最大 HP / baseAttack=剣なしの攻撃 / arrowMin・arrowMax=矢を撃つ距離（主人公も弓兵も。1 には撃たない）/ bombNeeds=8 近傍の起きた敵がこの数以上で爆弾 / potionAt=HP が 最大×これ 以下で薬（切り捨て）/ regenEvery=移動したこの手数ごとに HP+1 / wakeSteps=見える距離（歩く距離。眠った敵が起き、ダッシュが止まる）/ enemyMinSteps=階の始めに敵を置く、始まりからの最小の歩数 / smokeAt=隣の起きた敵が 1 体でも、HP が 最大×これ 以下なら煙玉（切り捨て。2 体以上なら HP によらず） / burnDamage=燃える敵が 1 手に受けるダメージ / fullnessMax=満腹度の最大 / hungerEvery=手が進んだこの数ごとに満腹度 -1（移動・待つ・殴る・ダッシュの 1 歩。つかえた手・降りる手は数えない）/ starveDamage=満腹度 0 の間 1 手ごとに減る HP / levelExp=次のレベルまでに要る経験値（Lv1→2, 2→3, …。表を超えたら最後の数で続ける）/ tapWaitRadius=主人公のマスの中のタップを待つとみなす半径（マス）/ tapSlop=押してから動いてもタップとみなす距離（px）。",
+  "note": "1 手の決まりの数。判定の式と敵の動き方はコード（Step）、秒は look。maxHp=最大 HP / baseAttack=剣なしの攻撃 / arrowMin・arrowMax=矢を撃つ距離（主人公も弓兵も。1 には撃たない）/ bombNeeds=8 近傍の起きた敵がこの数以上で爆弾 / potionAt=HP が 最大×これ 以下で薬（切り捨て）/ regenEvery=移動したこの手数ごとに HP+1 / wakeSteps=見える距離（歩く距離。眠った敵が起き、ダッシュが止まる）/ enemyMinSteps=階の始めに敵を置く、始まりからの最小の歩数 / smokeAt=隣の起きた敵が 1 体でも、HP が 最大×これ 以下なら煙玉（切り捨て。2 体以上なら HP によらず） / burnDamage=燃える敵が 1 手に受けるダメージ / fullnessMax=満腹度の最大 / hungerEvery=手が進んだこの数ごとに満腹度 -1（移動・待つ・殴る・ダッシュの 1 歩。つかえた手・降りる手は数えない）/ starveDamage=満腹度 0 の間 1 手ごとに減る HP / levelExp=次のレベルまでに要る経験値（Lv1→2, 2→3, …。表を超えたら最後の数で続ける）/ tapWaitRadius=主人公のマスの中のタップを待つとみなす半径（マス）/ tapWaitPx=主人公の体（待つのアイコン）の真ん中から、この px 以内のタップは待つ / tapSlop=押してから動いてもタップとみなす距離（px）。",
   "maxHp": 20,
   "baseAttack": 2,
   "arrowMin": 2,
@@ -23,5 +23,6 @@
     14
   ],
   "tapWaitRadius": 0.45,
+  "tapWaitPx": 32.0,
   "tapSlop": 12
 }
