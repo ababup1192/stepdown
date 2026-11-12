@@ -69,7 +69,6 @@ mod World {
     ///   shown     … 今見せている 1 手
     ///   queued    … 見せている間に来た手（1 つまで）
     ///   foresight … 予告（run が変わった時だけ作り直す）
-    ///   press     … 押している途中のタップ
     ///   seed      … 周回の種
     ///   realNow   … このコマの実時間（App が配る frame#realNow の写し。松明の揺らぎと待機の揺れに使う）
     ///   popups    … 浮かぶ数（実時間で動く。Cards の間も止まらない）
@@ -84,7 +83,6 @@ mod World {
         queued = Option[Act],
         cam = Cam,
         clock = Clock.Clock[Play],
-        press = Option[Tap.Press],
         foresight = Foresight,
         quit = Quit,
         seed = Int64,
@@ -106,7 +104,7 @@ mod World {
     pub def initial(res: Res.Res, seed: Int64): World =
         let runState = Floor.begin(Res.floorDocs(res), res#layouts, seed);
         { runState = runState, screen = Screen.Title, shown = shownOf(runState), queued = None,
-          cam = camOf(runState), clock = Clock.start(), press = None, foresight = foresightOf(res, runState),
+          cam = camOf(runState), clock = Clock.start(), foresight = foresightOf(res, runState),
           quit = Quit.Playing, seed = seed, realNow = Clock.zero(),
           popups = Nil, trail = Popup.still(Run.heroOf(runState)#hp), cardsAt = Clock.never(), chosen = None, veilAt = Clock.never() }
 

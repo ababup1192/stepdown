@@ -21,14 +21,11 @@ mod Controls {
         else if (pressed(Key.Escape)) World.askQuit(w)
         else {
             let command = commandOf(frame, KeysDoc.rec(res#keys));
-            let pointer = { clicked = frame#mouseClicked, down = frame#mouseDown, cursor = frame#cursor, now = frame#realNow,
-                            dashed = Option.exists(isDash, command) };
-            let (press, tapped) = Tap.track(RulesDoc.rec(res#rules)#tapSlop, pointer, w#press);
-            let held = { press = press | w };
+            let tapped = Tap.pressedAt({ clicked = frame#mouseClicked, cursor = frame#cursor, dashed = Option.exists(isDash, command) });
             match (command, tapped) {
-                case (Some(c), _)     => apply(res, c, held)
-                case (None, Some(at)) => tapCommand(res, at, held) |> Option.map(c -> apply(res, c, held)) |> Option.getWithDefault(held)
-                case _                => held
+                case (Some(c), _)     => apply(res, c, w)
+                case (None, Some(at)) => tapCommand(res, at, w) |> Option.map(c -> apply(res, c, w)) |> Option.getWithDefault(w)
+                case _                => w
             }
         }
 

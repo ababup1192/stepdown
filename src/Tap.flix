@@ -1,25 +1,20 @@
 // Tap — 画面のタップを盤の入力へ読む（純粋）。
-//   押し始め: mouseClicked のコマ。確定: mouseDown が切れた最初のコマ（同じコマでもよい）。
-//   捨てる: 押してから動いた距離が tapSlop を超えた・同じコマにダッシュの操作（スワイプ）が来た。
+//   押したコマでそのまま 1 手にする。離すまで待つとスワイプとの見分けは付くが、指を置いていた分だけ動き出しが遅れる。
+//   同じコマにダッシュの操作（スワイプ）が来たら捨てる。
 //   方向: 押した点からのレイが床（y = 0）と交わる所の、主人公のマスから見た向きを 45° ずつの 8 つに分ける。主人公のマスの中（半径 tapWaitRadius）と、主人公の体の上（待つのアイコン・半径 tapWaitPx）は待つ。
 //   体の上を床へ写すと奥のマスに当たり「上」になってしまうので、体の上は床へ写す前に画面の距離で見る。
 //   下の UI の帯の中は盤の入力にしない。
 mod Tap {
-    use fge::{Camera3d, Clock, Ray3d, Vec2, Vec3}
+    use fge::{Camera3d, Ray3d, Vec2, Vec3}
     use Board.{Cell, Dir8}
     use Run.Input
 
-    /// 押し始めたタップ（押した所と時刻）。
-    pub type alias Press = { at = Vec2.Vec2, startedAt = Clock.Time[Clock.Real] }
+    /// 1 コマのポインタ: 押したコマか・今の所・同じコマにダッシュの操作が来たか。
+    pub type alias Pointer = { clicked = Bool, cursor = Vec2.Vec2, dashed = Bool }
 
-    /// 1 コマのポインタ: 押し始めたか・押しているか・今の所・実時間・同じコマにダッシュの操作が来たか。
-    pub type alias Pointer = { clicked = Bool, down = Bool, cursor = Vec2.Vec2, now = Clock.Time[Clock.Real], dashed = Bool }
-
-    /// 1 コマ進めた (押している途中のタップ, このコマで確定したタップの点)。slop = 動いてもタップとみなす距離（px）。
-    pub def track(slop: Float64, pointer: Pointer, press: Option[Press]): (Option[Press], Option[Vec2.Vec2]) =
-        let started = if (pointer#clicked) Some({ at = pointer#cursor, startedAt = pointer#now }) else press;
-        let kept = started |> Option.filter(p -> not pointer#dashed and Vec2.distanceTo(p#at, pointer#cursor) <= slop);
-        if (pointer#down) (kept, None) else (None, kept |> Option.map(p -> p#at))
+    /// このコマで盤の入力にするタップの点（押したコマだけ）。
+    pub def pressedAt(pointer: Pointer): Option[Vec2.Vec2] =
+        if (pointer#clicked and not pointer#dashed) Some(pointer#cursor) else None
 
     /// 盤の入力にする所か（下の UI の帯 bandTop より上）。
     pub def isOnBoard(bandTop: Float64, point: Vec2.Vec2): Bool = point#y < bandTop

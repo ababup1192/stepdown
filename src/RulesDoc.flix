@@ -25,7 +25,6 @@ mod RulesDoc {
     ///   thunderNeeds   … 主人公に気付いている起きた敵がこの数以上でかみなりの書を使う
     ///   tapWaitRadius  … 主人公のマスの中でタップしたら待つとみなす半径（マス）
     ///   tapWaitPx      … 主人公の体（待つのアイコン）の真ん中から、この px 以内のタップは待つ
-    ///   tapSlop        … 押してから動いてもタップとみなす距離（px）
     pub type alias Rec = {
         version = Int32,
         maxHp = Int32,
@@ -47,8 +46,7 @@ mod RulesDoc {
         trapDamage = Int32,
         thunderNeeds = Int32,
         tapWaitRadius = Float64,
-        tapWaitPx = Float64,
-        tapSlop = Float64
+        tapWaitPx = Float64
     }
 
     /// 型検査が record を展開しないため、持ち回る形は名前付きの enum にする。
@@ -64,7 +62,7 @@ mod RulesDoc {
                   potionAt = 0.25, regenEvery = 12, wakeSteps = 5, enemyMinSteps = 5,
                   smokeAt = 0.5, burnDamage = 1,
                   fullnessMax = 100, hungerEvery = 3, starveDamage = 1, levelExp = 3 :: 7 :: 10 :: 14 :: 20 :: 26 :: 32 :: Nil, lastFloor = 3, trapDamage = 2, thunderNeeds = 3,
-                  tapWaitRadius = 0.45, tapWaitPx = 32.0, tapSlop = 12.0 })
+                  tapWaitRadius = 0.45, tapWaitPx = 32.0 })
 
     /// テキストから Doc へ（fail-open）。JSON でない・形が違うフィールドは既定へ落とす。
     pub def fromJson(text: String): Option[Doc] =
@@ -85,7 +83,7 @@ mod RulesDoc {
                   levelExp = Map.get("levelExp", root) |> Option.flatMap(JsonCodec.decodeList(JsonCodec.expectInt))
                       |> Option.filter(xs -> not List.isEmpty(xs)) |> Option.getWithDefault(d#levelExp),
                   lastFloor = int("lastFloor", d#lastFloor), trapDamage = int("trapDamage", d#trapDamage), thunderNeeds = int("thunderNeeds", d#thunderNeeds),
-                  tapWaitRadius = float("tapWaitRadius", d#tapWaitRadius), tapWaitPx = float("tapWaitPx", d#tapWaitPx), tapSlop = float("tapSlop", d#tapSlop) })
+                  tapWaitRadius = float("tapWaitRadius", d#tapWaitRadius), tapWaitPx = float("tapWaitPx", d#tapWaitPx) })
 
     /// 薬を使う HP（最大 HP × potionAt を切り捨て）。
     pub def potionHp(maxHp: Int32, d: Doc): Int32 =

@@ -1,4 +1,4 @@
-// タップの読み方（押しっぱなし・動いた距離・同じコマのスワイプ・UI の帯・床との交点の向き）と、見せている間の手の扱い（溜める・ダッシュを止める・1 歩ずつ進む）。
+// タップの読み方（押したコマで取る・同じコマのスワイプ・UI の帯・床との交点の向き）と、見せている間の手の扱い（溜める・ダッシュを止める・1 歩ずつ進む）。
 mod TestTap {
 
     use fge::{App, Camera3d, Clock, Resources, Vec2}
@@ -6,42 +6,28 @@ mod TestTap {
     use Run.Input
 
     // ══════════════════════════════════════════════════════
-    // 押してから離すまで
+    // 押したコマ
     // ══════════════════════════════════════════════════════
 
-    def pointer(clicked: Bool, down: Bool, x: Float64, y: Float64, dashed: Bool): Tap.Pointer =
-        { clicked = clicked, down = down, cursor = { x = x, y = y }, now = Clock.zero(), dashed = dashed }
+    def pointer(clicked: Bool, x: Float64, y: Float64, dashed: Bool): Tap.Pointer =
+        { clicked = clicked, cursor = { x = x, y = y }, dashed = dashed }
 
     def xy(point: Option[Vec2.Vec2]): Option[(Float64, Float64)] = point |> Option.map(q -> (q#x, q#y))
 
-    def slop(): Float64 = RulesDoc.rec(RulesDoc.defaults())#tapSlop
-
-    /// 押して → 押したまま → 離す（押した所から slop の半分だけ動いた）の 3 コマ。確定は離したコマだけで、点は押した所。
+    /// 押したコマで、押した所がそのままタップの点になる（離すのを待たない）。
     @Test
-    def testTapIsConfirmedOnTheReleaseFrame(): Unit \ Assert =
-        let (held, first) = Tap.track(slop(), pointer(true, true, 100.0, 200.0, false), None);
-        let (kept, second) = Tap.track(slop(), pointer(false, true, 100.0, 200.0, false), held);
-        let (_, third) = Tap.track(slop(), pointer(false, false, 100.0 + slop() / 2.0, 200.0, false), kept);
-        Assert.assertEq(expected = (None, None, Some((100.0, 200.0))), (xy(first), xy(second), xy(third)))
+    def testTapIsTakenOnThePressFrame(): Unit \ Assert =
+        Assert.assertEq(expected = Some((100.0, 200.0)), xy(Tap.pressedAt(pointer(true, 100.0, 200.0, false))))
 
-    /// 押した・離したが同じコマでも確定する。
+    /// 押していないコマ（押したまま・離した）はタップにならない。
     @Test
-    def testPressAndReleaseInOneFrame(): Unit \ Assert =
-        Assert.assertEq(expected = Some((50.0, 60.0)), xy(snd(Tap.track(slop(), pointer(true, false, 50.0, 60.0, false), None))))
+    def testFramesWithoutAPressAreNotTaps(): Unit \ Assert =
+        Assert.assertEq(expected = None, xy(Tap.pressedAt(pointer(false, 100.0, 200.0, false))))
 
-    /// 押したまま slop より遠くへ動いた（横の払い）後は、離しても確定しない。
-    @Test
-    def testDragBeyondSlopIsDiscarded(): Unit \ Assert =
-        let (held, _) = Tap.track(slop(), pointer(true, true, 100.0, 200.0, false), None);
-        let (dragged, _) = Tap.track(slop(), pointer(false, true, 100.0 + slop() * 2.0, 200.0, false), held);
-        let (_, released) = Tap.track(slop(), pointer(false, false, 100.0, 200.0, false), dragged);
-        Assert.assertEq(expected = None, xy(released))
-
-    /// 離したコマにダッシュの操作（スワイプ）が来たら、タップは捨てる。
+    /// 同じコマにダッシュの操作（スワイプ）が来たら、タップは捨てる。
     @Test
     def testSwipeInTheSameFrameDiscardsTheTap(): Unit \ Assert =
-        let (held, _) = Tap.track(slop(), pointer(true, true, 100.0, 200.0, false), None);
-        Assert.assertEq(expected = None, xy(snd(Tap.track(slop(), pointer(false, false, 100.0, 200.0, true), held))))
+        Assert.assertEq(expected = None, xy(Tap.pressedAt(pointer(true, 100.0, 200.0, true))))
 
     // ══════════════════════════════════════════════════════
     // 点から入力へ
