@@ -280,6 +280,36 @@
    "seconds": 0.24997732426303854
   },
   {
+   "name": "sd_boss_windup",
+   "path": "assets/sfx/sd_boss_windup.wav",
+   "looping": false,
+   "seconds": 0.24997732426303854
+  },
+  {
+   "name": "sd_slam",
+   "path": "assets/sfx/sd_slam.wav",
+   "looping": false,
+   "seconds": 0.24
+  },
+  {
+   "name": "sd_sweep",
+   "path": "assets/sfx/sd_sweep.wav",
+   "looping": false,
+   "seconds": 0.24
+  },
+  {
+   "name": "sd_boss_fall",
+   "path": "assets/sfx/sd_boss_fall.wav",
+   "looping": false,
+   "seconds": 0.24997732426303854
+  },
+  {
+   "name": "sd_roll",
+   "path": "assets/sfx/sd_roll.wav",
+   "looping": false,
+   "seconds": 0.22
+  },
+  {
    "name": "bgm_harp",
    "path": "assets/sfx/bgm_harp.wav",
    "looping": true,
@@ -348,6 +378,8 @@
   "assets/sfx/bgm_harp.wav": "assets/sfx/bgm_harp.webm",
   "assets/sfx/sd_arrow.wav": "assets/sfx/sd_arrow.webm",
   "assets/sfx/sd_bomb.wav": "assets/sfx/sd_bomb.webm",
+  "assets/sfx/sd_boss_fall.wav": "assets/sfx/sd_boss_fall.webm",
+  "assets/sfx/sd_boss_windup.wav": "assets/sfx/sd_boss_windup.webm",
   "assets/sfx/sd_bump.wav": "assets/sfx/sd_bump.webm",
   "assets/sfx/sd_card.wav": "assets/sfx/sd_card.webm",
   "assets/sfx/sd_charge.wav": "assets/sfx/sd_charge.webm",
@@ -366,9 +398,12 @@
   "assets/sfx/sd_pit.wav": "assets/sfx/sd_pit.webm",
   "assets/sfx/sd_potion.wav": "assets/sfx/sd_potion.webm",
   "assets/sfx/sd_puff.wav": "assets/sfx/sd_puff.webm",
+  "assets/sfx/sd_roll.wav": "assets/sfx/sd_roll.webm",
+  "assets/sfx/sd_slam.wav": "assets/sfx/sd_slam.webm",
   "assets/sfx/sd_stairs.wav": "assets/sfx/sd_stairs.webm",
   "assets/sfx/sd_step.wav": "assets/sfx/sd_step.webm",
   "assets/sfx/sd_strike.wav": "assets/sfx/sd_strike.webm",
+  "assets/sfx/sd_sweep.wav": "assets/sfx/sd_sweep.webm",
   "assets/sfx/sd_upgrade.wav": "assets/sfx/sd_upgrade.webm",
   "assets/sfx/sd_windup.wav": "assets/sfx/sd_windup.webm",
   "font-atlas/default.fontatlas": "font-atlas/default.fontatlas-webp"

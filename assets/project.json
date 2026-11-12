@@ -380,6 +380,31 @@
       "looping": false
     },
     {
+      "name": "sd_boss_windup",
+      "path": "assets/sfx/sd_boss_windup.wav",
+      "looping": false
+    },
+    {
+      "name": "sd_slam",
+      "path": "assets/sfx/sd_slam.wav",
+      "looping": false
+    },
+    {
+      "name": "sd_sweep",
+      "path": "assets/sfx/sd_sweep.wav",
+      "looping": false
+    },
+    {
+      "name": "sd_boss_fall",
+      "path": "assets/sfx/sd_boss_fall.wav",
+      "looping": false
+    },
+    {
+      "name": "sd_roll",
+      "path": "assets/sfx/sd_roll.wav",
+      "looping": false
+    },
+    {
       "name": "bgm_harp",
       "path": "assets/sfx/bgm_harp.wav",
       "looping": true
