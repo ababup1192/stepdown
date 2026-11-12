@@ -62,7 +62,7 @@ mod TestFloor {
             mapIds() |> List.flatMap(id -> seeds() |> List.filter(seed ->
                 not Floor.itemsOnFloor(boardAt(id), floorOn(id, seed)))))
 
-    /// 2F の地図はどの種でも、食べ物は % に、items は $ に置き、items は $ の数（5）まで重複なしで全部置く（2F の items は 4 種類）。
+    /// 2F の地図はどの種でも、食べ物は % に、items は $ に置き、items は $ の数（6）まで重複なしで全部置く（2F の items は 6 種類）。
     @Test
     def testSecondFloorItemsSitOnTheirSpots(): Unit \ Assert + Fs.FileRead =
         let made = floorOn((2, 0), 3i64);
