@@ -139,11 +139,12 @@ mod Preview {
         List.isEmpty(Run.pendingOf(runState)) and Run.enemiesOf(runState) |> List.exists(e ->
             not Set.memberOf(cell, Enemy.cellsOf(e)) and Option.nonEmpty(Run.attackOn(ctx, Set.empty(), e, cell)) and wakesThere(ctx, e, cell))
 
-    /// e が今の位置から攻撃を届かせるマス（Run.attackOn が届くと言うマス。矢は敵では止めない）。
+    /// e が今の位置から攻撃を届かせるマス（Run.attackOn が届くと言うマス。矢は敵では止めない）。ボスの帯は部屋の端まで届くので、ボスは盤の全部を見る。
     def reachOf(ctx: Ctx, e: Enemy.Enemy): Set[Cell] =
         let far = Int32.max(1, Int32.max(RulesDoc.rec(ctx#rules)#arrowMax, EnemiesDoc.statsOf(e#kind, ctx#enemies)#chargeMax + 1));
         let (x, y) = e#at;
-        List.range(x - far, x + e#size + far) |> List.flatMap(cx -> List.range(y - far, y + e#size + far) |> List.map(cy -> (cx, cy)))
+        let near = List.range(x - far, x + e#size + far) |> List.flatMap(cx -> List.range(y - far, y + e#size + far) |> List.map(cy -> (cx, cy)));
+        (if (Enemy.isBoss(e#kind)) Board.cells(ctx#board) else near)
             |> List.filter(c -> not Set.memberOf(c, Enemy.cellsOf(e)) and Option.nonEmpty(Run.attackOn(ctx, Set.empty(), e, c)))
             |> List.toSet
 

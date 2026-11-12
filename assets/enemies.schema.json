@@ -85,6 +85,30 @@
           "label": "自爆虫が弾けた時のダメージ（盾は効かない）",
           "order": 10,
           "min": 0
+        },
+        "slamDamage": {
+          "type": "int",
+          "label": "ボスの叩きつけのダメージ（体の周り 12 マス・盾は効かない）",
+          "order": 11,
+          "min": 0
+        },
+        "sweepDamage": {
+          "type": "int",
+          "label": "ボスの帯のダメージ（主人公の行とボスに近い側の 1 行・盾は効かない）",
+          "order": 12,
+          "min": 0
+        },
+        "cooldownMin": {
+          "type": "int",
+          "label": "ボスが大技の後、次を溜めるまでの一番短い手数",
+          "order": 13,
+          "min": 0
+        },
+        "cooldownMax": {
+          "type": "int",
+          "label": "ボスが大技の後、次を溜めるまでの一番長い手数",
+          "order": 14,
+          "min": 0
         }
       }
     }

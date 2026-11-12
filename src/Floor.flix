@@ -1,5 +1,6 @@
 // Floor — 階を作る: floors の Doc の地図から盤を組み（地図ごとに 1 回）、種から地図と敵・アイテムの置き場を選んで Run にする（純粋）。
 // 乱数は地図の選び・食べ物の数・置き場だけ。種は Rng.mix(周回の種, 階)。敵は始まりから歩いて enemyMinSteps 以上（群れは 3 体を隣り合わせて置く）、アイテムは床だけ（階段と始まりには置かない）。
+// 敵の候補の字（e）がある盤は、ボスでない敵をその字のマスからだけ選ぶ。ボスは字（B）のマスを左上にして置く（乱数を使わない）。
 // 食べ物（パンの数は breadOdds の重み・肉は meatChance）は、字の候補が無い盤では floors の Doc の items の後ろに足してほかのアイテムと同じく置き、
 // 字の候補がある盤では食べ物の候補（%）から選ぶ。罠は地図の字のまま。
 mod Floor {
@@ -80,11 +81,14 @@ mod Floor {
     def placementOf(docs: Docs, floor: Int32, board: Board.Board, rng: Int64): (Run.Placement, Int64) =
         let plan = FloorsDoc.floorOf(floor, docs#floors);
         let countOf = (kind: Enemy.Kind) -> plan |> Option.map(FloorsDoc.enemyCount(kind)) |> Option.getWithDefault(0);
-        let kinds = Enemy.all() |> List.filter(kind -> kind != Enemy.Kind.Swarm) |> List.flatMap(kind -> List.repeat(countOf(kind), kind));
+        let kinds = Enemy.all() |> List.filter(kind -> kind != Enemy.Kind.Swarm and not Enemy.isBoss(kind)) |> List.flatMap(kind -> List.repeat(countOf(kind), kind));
+        let bosses = Board.spotsOf(Board.Spot.Boss, board) |> List.take(countOf(Enemy.Kind.Boss)) |> List.map(c -> (Enemy.Kind.Boss, c));
+        let bossBodies = Board.spotsOf(Board.Spot.Boss, board) |> List.map(c -> Enemy.cellsAt(c, Enemy.sizeOf(Enemy.Kind.Boss))) |> List.foldLeft(Set.union, Set.empty());
         let dist = Board.walkDistances(board#start, board);
-        let marked = Set.union(Map.keysOf(board#traps), Map.keysOf(board#spots));
+        let marked = Set.union(Set.union(Map.keysOf(board#traps), Map.keysOf(board#spots)), bossBodies);
         let open = Board.cells(board) |> List.filter(c -> Board.tileAt(c, board) == Board.Tile.Floor and c != board#start and Map.memberOf(c, dist) and not Set.memberOf(c, marked));
-        let far = open |> List.filter(c -> Map.getWithDefault(c, 0, dist) >= RulesDoc.rec(docs#rules)#enemyMinSteps);
+        let foeSpots = Board.spotsOf(Board.Spot.Foe, board);
+        let far = if (List.isEmpty(foeSpots)) open |> List.filter(c -> Map.getWithDefault(c, 0, dist) >= RulesDoc.rec(docs#rules)#enemyMinSteps) else foeSpots;
         let (singleCells, afterSingles) = Rng.pick(List.length(kinds), far, rng);
         let (swarmCells, afterEnemies) = swarmsOf(board, countOf(Enemy.Kind.Swarm), far, List.toSet(singleCells), afterSingles);
         let enemyCells = singleCells ::: swarmCells;
@@ -95,7 +99,7 @@ mod Floor {
             else scatter(open |> List.filter(c -> not List.memberOf(c, enemyCells)), fixed ::: food, afterFood);
         let taken = List.toSet(enemyCells ::: (items |> List.map(snd)));
         let coins = plan |> Option.map(f -> coinsOf(board, f, open |> List.filter(c -> not Set.memberOf(c, taken)), Rng.mix(rng, coinSalt()))) |> Option.getWithDefault(Nil);
-        ({ enemies = List.zip(kinds, singleCells) ::: (swarmCells |> List.map(c -> (Enemy.Kind.Swarm, c))), items = items ::: coins, traps = board#traps }, afterItems)
+        ({ enemies = List.zip(kinds, singleCells) ::: (swarmCells |> List.map(c -> (Enemy.Kind.Swarm, c))) ::: bosses, items = items ::: coins, traps = board#traps }, afterItems)
 
     /// コインの置き場を選ぶ乱数を、ほかの置き場の乱数から分ける数。
     /// WhyNot: 置き場の乱数の続きで引く — コインの無かった階まで敵と物の置き場が替わり、決まった種の手順（flow）が崩れる。
@@ -161,10 +165,15 @@ mod Floor {
         let occupied = List.toSet(swarms);
         swarms |> List.filter(c -> not List.exists(n -> Set.memberOf(n, occupied), Board.neighbors8(c)))
 
-    /// 始まりから階段まで、罠を踏まずに歩いて着けるか。
-    pub def reachesStairs(board: Board.Board): Bool =
+    /// 始まりから階段かボスの体まで、罠を踏まずに歩いて着けるか。
+    pub def reachesGoal(board: Board.Board): Bool =
         let dist = Board.walkDistancesAvoiding(Map.keysOf(board#traps), board#start :: Nil, board);
-        Board.cells(board) |> List.exists(c -> Board.tileAt(c, board) == Board.Tile.Stairs and Map.memberOf(c, dist))
+        goalsOf(board) |> List.exists(c -> Map.memberOf(c, dist))
+
+    /// 階の行き先のマス: 階段と、ボスの階ならボスの体の始めのマス（ボスを倒すと終わる）。
+    pub def goalsOf(board: Board.Board): List[Cell] =
+        let bosses = Board.spotsOf(Board.Spot.Boss, board) |> List.flatMap(c -> Enemy.cellsAt(c, Enemy.sizeOf(Enemy.Kind.Boss)) |> Set.toList);
+        (Board.cells(board) |> List.filter(c -> Board.tileAt(c, board) == Board.Tile.Stairs)) ::: bosses
 
     /// 歩けるのに、始まりから角を抜けずに歩いて着けないマス（読む順）。
     pub def unreachableCells(board: Board.Board): List[Cell] =

@@ -105,7 +105,7 @@ mod Fixtures {
          "#.P.^...r..>#" ::
          "#############" :: Nil) :: Nil
 
-    /// seed から乱数で組んだ局面: 盤・主人公の位置と HP・持ち物・1〜5 体の敵（種類・位置・眠り方・HP・燃える手・向き・起きた敵の半分ほどは溜め）・0〜3 個の毒矢か警報の罠を足す。
+    /// seed から乱数で組んだ局面: 盤・主人公の位置と HP・持ち物・1〜5 体の敵（種類・位置・眠り方・HP・燃える手・向き・起きた敵の半分ほどは溜め。ボスは 2×2 の体が収まる所だけ）・0〜3 個の毒矢か警報の罠を足す。
     /// 地図の字の罠もそのまま残し、罠は乱数で半分ほどを見えている罠にする。
     pub def randomCase(seed: Int64): (Run.Ctx, Run.State) =
         let boards = randomBoards();
@@ -119,10 +119,12 @@ mod Fixtures {
         let (count, r3) = Rng.below(5, r2);
         let (foes, r4) = List.range(0, count + 1) |> List.foldLeft((acc, _) -> {
             let (made, state) = acc;
-            let taken = Set.insert(heroAt, made |> List.map(e -> e#at) |> List.toSet);
+            let taken = Set.insert(heroAt, made |> List.map(Enemy.cellsOf) |> List.foldLeft(Set.union, Set.empty()));
             let (kindAt, s1) = Rng.below(List.length(Enemy.all()), state);
             let kind = List.nth(kindAt, Enemy.all()) |> Option.getWithDefault(Enemy.Kind.Jelly);
-            let pool = (if (Enemy.isFlying(kind)) flyable else walkable) |> List.filter(cell -> not Set.memberOf(cell, taken) and Board.chebyshev(cell, heroAt) <= 5);
+            let room = List.toSet(if (Enemy.isFlying(kind)) flyable else walkable);
+            let pool = (if (Enemy.isFlying(kind)) flyable else walkable) |> List.filter(cell -> Board.chebyshev(cell, heroAt) <= 5
+                and Enemy.cellsAt(cell, Enemy.sizeOf(kind)) |> Set.forAll(body -> Set.memberOf(body, room) and not Set.memberOf(body, taken)));
             let (cells, s2) = Rng.pick(1, pool, s1);
             let (restAt, s3) = Rng.below(4, s2);
             let (hp, s4) = Rng.below(4, s3);
@@ -136,11 +138,11 @@ mod Fixtures {
             let facing = List.nth(facingAt, Board.dirs8()) |> Option.getWithDefault(Board.Dir8.Down);
             let intent = if (rest == Enemy.Rest.Awake and Int32.modulo(facingAt, 2) == 0) intentOf(kind, facingAt / 2) else Enemy.Intent.Idle;
             let made2 = List.head(cells) |> Option.map(cell ->
-                { rest = rest, hp = 1 + hp, burn = burn, facing = facing, turns = facingAt, intent = intent | Enemy.make(List.length(made), kind, cell, 1) } :: made)
+                { rest = rest, hp = 1 + hp, burn = burn, facing = facing, turns = facingAt, intent = intent, cooldown = burn | Enemy.make(List.length(made), kind, cell, 1) } :: made)
                 |> Option.getWithDefault(made);
             (made2, s6)
         }, (Nil, r3));
-        let foeCells = foes |> List.map(e -> e#at) |> List.toSet;
+        let foeCells = foes |> List.map(Enemy.cellsOf) |> List.foldLeft(Set.union, Set.empty());
         let (trapCount, r5) = Rng.below(4, r4);
         let floors = walkable |> List.filter(cell -> Board.tileAt(cell, b) == Board.Tile.Floor and cell != heroAt and not Set.memberOf(cell, foeCells));
         let (trapCells, r6) = Rng.pick(trapCount, floors, r5);
@@ -155,10 +157,13 @@ mod Fixtures {
         (c, Run.of({ hero = { at = heroAt, hp = 1 + hpLeft | r#hero }, pack = List.nth(packAt, packs) |> Option.getWithDefault(Nil),
                      enemies = enemies, nextId = List.length(enemies), revealed = List.toSet(shown), seen = Board.viewFrom(heroAt, b) | r }))
 
-    /// 生成器の溜め: 突進は k 番目の上下左右へ溜め、自爆虫は導火線を付ける。溜めない種類は Idle。
+    /// 生成器の溜め: 突進は k 番目の上下左右へ溜め、自爆虫は導火線を付け、ボスは k で叩きつけ・帯（上の行 k + 1）・両方を選ぶ。溜めない種類は Idle。
     def intentOf(kind: Enemy.Kind, k: Int32): Enemy.Intent = match kind {
         case Enemy.Kind.Charger => Enemy.Intent.Charge(List.nth(k, Board.dirs()) |> Option.getWithDefault(Board.Dir.Up))
         case Enemy.Kind.Bomber  => Enemy.Intent.Fuse
+        case Enemy.Kind.Boss if k == 0 => Enemy.Intent.Slam
+        case Enemy.Kind.Boss if k == 1 => Enemy.Intent.Sweep(k + 1)
+        case Enemy.Kind.Boss    => Enemy.Intent.SlamAndSweep(k + 1)
         case _                  => Enemy.Intent.Idle
     }
 

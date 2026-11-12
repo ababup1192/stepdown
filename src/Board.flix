@@ -77,11 +77,15 @@ mod Board {
     ///   Item   … floors の items から重複なしで引いた物の候補
     ///   Silver … 銀の剣か銀の盾のどちらか
     ///   Coin   … ちいさなコインの候補（floors の coinOdds で引いた数だけ選ぶ）
+    ///   Foe    … 敵を置いてよいマス（1 つでもある盤は、ボスでない敵をここからだけ選ぶ）
+    ///   Boss   … ボスの体の左上（2×2 の 4 マスは床にする）
     pub enum Spot with Eq, Order, ToString {
         case Food
         case Item
         case Silver
         case Coin
+        case Foe
+        case Boss
     }
 
     /// 地図の 1 字の読み。corridor は通路の床（部屋の番号 0）。
@@ -105,10 +109,12 @@ mod Board {
             case '$' => spotted(Spot.Item)
             case '&' => spotted(Spot.Silver)
             case '*' => spotted(Spot.Coin)
+            case 'e' => spotted(Spot.Foe)
+            case 'B' => spotted(Spot.Boss)
             case _   => Trap.fromGlyph(ch) |> Option.map(kind -> { trap = Some(kind) | plain(Tile.Floor) })
         }
 
-    /// 文字の地図から盤を組む。長方形でない・知らない字・始まりが 1 つでない・階段が無いときは理由を返す。
+    /// 文字の地図から盤を組む。長方形でない・知らない字・始まりが 1 つでない・階段もボスも無いときは理由を返す（ボスの階は倒せば終わるので階段が要らない）。
     pub def fromRows(rows: List[String]): Result[String, Board] =
         let height = List.length(rows);
         let width = List.head(rows) |> Option.map(String.length) |> Option.getWithDefault(0);
@@ -117,13 +123,13 @@ mod Board {
         let unknown = glyphs |> List.find(match (_, _, g) -> Option.isEmpty(g));
         let read = glyphs |> List.filterMap(match (cell, _, g) -> g |> Option.map(glyph -> (cell, glyph)));
         let starts = read |> List.filter(e -> snd(e)#start) |> List.map(fst);
-        let hasStairs = read |> List.exists(e -> snd(e)#tile == Tile.Stairs);
+        let hasStairs = read |> List.exists(e -> snd(e)#tile == Tile.Stairs or snd(e)#spot == Some(Spot.Boss));
         if (height == 0 or width == 0) Err("地図が空")
         else if (List.exists(line -> String.length(line) != width, rows)) Err("地図の行の長さがそろっていない（${width} 字にそろえる）")
         else match (unknown, starts) {
             case (Some((cell, ch, _)), _) => Err("知らない字 '${ch}'（${cell}）")
             case (None, start :: Nil) if hasStairs => Ok(assemble(width, height, start, read))
-            case (None, _ :: Nil) => Err("階段 '>' が無い")
+            case (None, _ :: Nil) => Err("階段 '>' もボス 'B' も無い")
             case (None, _) => Err("始まり '@' はちょうど 1 つ（${List.length(starts)} 個）")
         }
 

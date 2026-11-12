@@ -4,6 +4,7 @@
 // ── 画面の移り変わり ──
 //   Title ──決定──▶ Play ──倒れた──▶ Dead ──決定──▶ Title
 //                   Play ──階段で待つ──▶ 暗転して次の階の Play（最後の階なら Clear ──決定──▶ Title）
+//                   Play ──ボスを倒した──▶ Clear（その手にレベルが上がっていれば Cards で選んでから Clear）
 //   Play ──選ぶ場面が立ち、その手を見せ終えた──▶ Cards ──選ぶ（pending が空になる）──▶ Play
 //
 // ── 1 手の見せ方 ──
@@ -271,12 +272,13 @@ mod World {
     def settleScreen(w: World): World = match Run.statusOf(w#runState) {
         case Run.Status.Dead      => { screen = Screen.Dead, shown = { rest = Nil | w#shown } | w }
         case Run.Status.Descended => { queued = None, shown = { rest = Nil | w#shown } | w }
+        case Run.Status.Cleared if isChoosing(w) => { queued = None, shown = { rest = Nil | w#shown } | w }
         case Run.Status.Cleared   => { screen = Screen.Clear, shown = { rest = Nil | w#shown } | w }
         case Run.Status.Playing if isChoosing(w) => { queued = None, shown = { rest = Nil | w#shown } | w }
         case Run.Status.Playing   => w
     }
 
-    /// 選ぶ場面の index 枚目で答え、答え終えたら遊びへ戻る（範囲外は何もしない）。
+    /// 選ぶ場面の index 枚目で答え、答え終えたら遊びへ戻る（ボスを倒した後なら Clear へ。範囲外は何もしない）。
     pub def answerCard(res: Res.Res, index: Int32, w: World): World =
         if (w#screen != Screen.Cards) w
         else {
@@ -286,7 +288,7 @@ mod World {
                 |> Option.map(choice -> { choice = choice, pack = Run.packOf(w#runState), index = index, startedAt = w#realNow });
             let chosen = if (Option.isEmpty(picked)) w#chosen else picked;
             if (isChoosing(answered)) { screen = Screen.Cards, cardsAt = w#realNow, chosen = chosen | answered }
-            else { screen = Screen.Play, chosen = chosen | answered }
+            else settleScreen({ screen = Screen.Play, chosen = chosen | answered })
         }
 
     /// 今の選ぶ場面のカードの枚数（捨てるカードは持っている枠＋足もとの物・レベルアップは候補の数）。

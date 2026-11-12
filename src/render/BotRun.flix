@@ -124,6 +124,8 @@ mod BotRun {
     def itemWeight(): Int32 = 6
     /// コイン 1 枚の点（階段へ 7 歩ほど。近くのコインなら寄り道して拾う）。
     def coinWeight(): Int32 = 30
+    /// ボスに与えた 1 点の点（HP の 1 点より重く、殴り合いで少し受けても削りに行く）。
+    def bossWeight(): Int32 = 25
     def deadScore(): Int32 = -1000000
     def clearScore(): Int32 = 1000000
 
@@ -131,16 +133,23 @@ mod BotRun {
     /// left は読み残した手数（早く降りる・遅く倒れる方を高くする）。
     def scoreOf(field: Field, left: Int32, runState: Run.State): Int32 =
         let r = Run.rec(runState);
-        let dist = Map.getWithDefault(r#hero#at, 99, field#toStairs);
+        let dist = bossGap(field, r) |> Option.getWithDefault(Map.getWithDefault(r#hero#at, 99, field#toStairs));
         let items = r#pack |> List.map(held -> Run.countOf(Some(held))) |> List.sum;
+        let bossLost = r#enemies |> List.filter(e -> Enemy.isBoss(e#kind)) |> List.map(e -> EnemiesDoc.statsOf(e#kind, field#ctx#enemies)#hp - e#hp) |> List.sum;
         match r#status {
             case Run.Status.Dead      => deadScore() - left
             case Run.Status.Descended => clearScore() + left
             case Run.Status.Cleared   => clearScore() + left
             case Run.Status.Playing   =>
                 hpScore(r#hero) - dist * (stairsWeight() + (r#turns - field#arrived) / impatienceEvery()) + r#level * levelWeight() + r#exp * expWeight()
-                + r#fullness * fullnessWeight() + items * itemWeight() + r#coins * coinWeight()
+                + r#fullness * fullnessWeight() + items * itemWeight() + r#coins * coinWeight() + bossLost * bossWeight()
         }
+
+    /// 主人公がボスと同じ部屋にいれば、ボスの体まであと何歩で隣か（ボスは歩くので、行き先の距離の代わりに今の体を見る）。
+    def bossGap(field: Field, r: Run.Rec): Option[Int32] =
+        let room = Board.roomAt(r#hero#at, field#ctx#board);
+        r#enemies |> List.find(e -> Enemy.isBoss(e#kind) and room != 0 and Board.roomAt(e#at, field#ctx#board) == room)
+            |> Option.flatMap(e -> Enemy.cellsOf(e) |> Set.toList |> List.map(c -> Board.chebyshev(c, r#hero#at) - 1) |> List.minimum)
 
     def hpScore(hero: Run.Hero): Int32 =
         let half = hero#maxHp / 2;
@@ -212,6 +221,8 @@ mod BotRun {
         case Run.Source.Arrow(_) => "矢"
         case Run.Source.Charge(_) => "突進"
         case Run.Source.Blast(_) => "自爆"
+        case Run.Source.Slam(_)  => "叩きつけ"
+        case Run.Source.Sweep(_) => "帯"
         case Run.Source.Starve   => "空腹"
         case Run.Source.Trap(_)  => "罠"
     }
@@ -223,9 +234,9 @@ mod BotRun {
         case Bot.Lookahead => 4i64
     }
 
+    /// 遊ぶ盤。toStairs は行き先（階段か、ボスの階ならボスの体の始めのマス）からの歩く距離。
     def fieldOf(look: Look, ctx: Ctx, arrived: Int32): Field =
-        let stairs = Board.cells(ctx#board) |> List.filter(c -> Board.tileAt(c, ctx#board) == Board.Tile.Stairs);
-        { ctx = ctx, toStairs = Board.walkDistancesFrom(stairs, ctx#board), look = look, arrived = arrived }
+        { ctx = ctx, toStairs = Board.walkDistancesFrom(Floor.goalsOf(ctx#board), ctx#board), look = look, arrived = arrived }
 
     /// 種 seed で 1F から bot が limit 手まで遊んだ (最後の Run, 数え)。階段で降りたら次の階を作って続ける。
     def playSeed(setup: Setup, bot: Bot, limit: Int32, seed: Int64): (Run.State, Tally) =
@@ -254,7 +265,7 @@ mod BotRun {
             "${tenths / 10}.${Int32.remainder(tenths, 10)}%"
         }
 
-    /// 階ごとの「着いた回数・その階で倒れた割合・その階を抜けた割合」（抜けた = 次の階に着いたかクリア）。
+    /// 階ごとの「着いた回数・その階で倒れた割合・その階を抜けた割合」（抜けた = 次の階に着いたかクリア。残りは打ち切り）。
     def byFloor(deepest: Int32, outcomes: List[Outcome]): String =
         List.range(1, deepest + 1) |> List.map(f -> {
             let reached = List.count(o -> o#floor >= f, outcomes);

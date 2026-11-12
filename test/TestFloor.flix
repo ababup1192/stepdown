@@ -23,15 +23,15 @@ mod TestFloor {
     // 地図
     // ══════════════════════════════════════════════════════
 
-    /// 1F〜4F の地図は 2 枚ずつ組める。
+    /// 1F〜5F の地図は 2 枚ずつ組める。
     @Test
     def testEveryFloorHasTwoMaps(): Unit \ Assert + Fs.FileRead =
-        Assert.assertEq(expected = (1, 0) :: (1, 1) :: (2, 0) :: (2, 1) :: (3, 0) :: (3, 1) :: (4, 0) :: (4, 1) :: Nil, mapIds())
+        Assert.assertEq(expected = (1, 0) :: (1, 1) :: (2, 0) :: (2, 1) :: (3, 0) :: (3, 1) :: (4, 0) :: (4, 1) :: (5, 0) :: (5, 1) :: Nil, mapIds())
 
-    /// どの地図も、始まりから階段まで罠を踏まずに歩いて着ける。
+    /// どの地図も、始まりから階段（ボスの階はボスの体）まで罠を踏まずに歩いて着ける。
     @Test
-    def testEveryMapReachesTheStairs(): Unit \ Assert + Fs.FileRead =
-        Assert.assertEq(expected = Nil, mapIds() |> List.filter(id -> not Floor.reachesStairs(boardAt(id))))
+    def testEveryMapReachesTheGoal(): Unit \ Assert + Fs.FileRead =
+        Assert.assertEq(expected = Nil, mapIds() |> List.filter(id -> not Floor.reachesGoal(boardAt(id))))
 
     /// どの地図も、歩けるマスは全部、始まりから角を抜けずに歩いて着ける（斜めの角で閉じた所が無い）。
     @Test
@@ -58,6 +58,26 @@ mod TestFloor {
         Assert.assertEq(expected = ((Map#{(7, 14) => dart, (14, 16) => Trap.Kind.Pit, (2, 25) => dart}, (3, 18) :: Nil),
                                     (Map#{(4, 12) => dart, (12, 12) => Trap.Kind.Pit, (2, 29) => dart}, (12, 14) :: Nil)),
             (shape(boardAt((4, 0))), shape(boardAt((4, 1)))))
+
+    /// 5F の地図は 2 枚とも、階段が無く、ボスの左上（B）が 1 つ・敵の候補（e）が 3 つ・毒矢が 1 つ。
+    @Test
+    def testFifthFloorMapsHaveABossAndAnAnteroom(): Unit \ Assert + Fs.FileRead =
+        let shape = (b: Board.Board) -> (Board.cells(b) |> List.exists(c -> Board.tileAt(c, b) == Board.Tile.Stairs), List.length(Board.spotsOf(Board.Spot.Boss, b)),
+                                         List.length(Board.spotsOf(Board.Spot.Foe, b)), Map.valuesOf(b#traps));
+        Assert.assertEq(expected = ((false, 1, 3, Trap.Kind.PoisonDart :: Nil), (false, 1, 3, Trap.Kind.PoisonDart :: Nil)),
+            (shape(boardAt((5, 0))), shape(boardAt((5, 1)))))
+
+    /// 5F はどの種でも、ボスを B に置き、ほかの敵（弓兵と盾持ち）は e のマスにだけ置く。
+    @Test
+    def testFifthFloorPlacesTheBossOnBAndTheRestOnE(): Unit \ Assert + Fs.FileRead =
+        let placedRight = (id: (Int32, Int32), seed: Int64) -> {
+            let b = boardAt(id);
+            let foes = Run.enemiesOf(floorOn(id, seed));
+            let bossOk = foes |> List.filter(e -> Enemy.isBoss(e#kind)) |> List.map(e -> e#at) == Board.spotsOf(Board.Spot.Boss, b);
+            let restOk = foes |> List.filter(e -> not Enemy.isBoss(e#kind)) |> List.forAll(e -> List.memberOf(e#at, Board.spotsOf(Board.Spot.Foe, b)));
+            bossOk and restOk and List.length(foes) == 3
+        };
+        Assert.assertEq(expected = Nil, ((5, 0) :: (5, 1) :: Nil) |> List.flatMap(id -> seeds() |> List.filter(seed -> not placedRight(id, seed))))
 
     // ══════════════════════════════════════════════════════
     // 置き場

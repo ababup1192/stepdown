@@ -52,7 +52,7 @@ mod Run {
 
     /// 潜りの状態。Playing の外では手を受けない。
     ///   Descended … 階段で降りた（次の階は Floor.enter で作る）
-    ///   Cleared   … 最後の階（rules の lastFloor）の階段で降りた
+    ///   Cleared   … 最後の階（rules の lastFloor）の階段で降りたか、ボスを倒した（その手に立ったレベルアップは、この後に選ぶ）
     pub enum Status with Eq, ToString {
         case Playing
         case Dead
@@ -191,6 +191,10 @@ mod Run {
         case EnemyCharged(Int32, Cell, Cell)
         /// 自爆虫が弾けて消えた（敵の id・マス）。続く BombHit が巻き込まれた敵、HeroHurt が主人公への当たり。経験値は入らない。
         case EnemyExploded(Int32, Cell)
+        /// ボスが叩きつけた（敵の id）。体の周り 12 マスに主人公がいれば続く HeroHurt。
+        case EnemySlammed(Int32)
+        /// ボスが帯をなぎ払った（敵の id・帯の上の行）。帯に主人公がいれば続く HeroHurt。
+        case EnemySwept(Int32, Int32)
         /// HP が 0 以下になった主人公の身代わりに人形が砕け、HP がこの値になった（倒れない）。
         case DollSaved(Int32)
         /// 主人公が落とし穴から次の階へ落ちた（その手はここで終わる。最後の階なら Cleared）。
@@ -212,6 +216,8 @@ mod Run {
     ///   Arrow(id) … 弓兵の矢が当たった
     ///   Charge(id) … 突進に当たった
     ///   Blast(id) … 自爆虫の弾けに巻き込まれた
+    ///   Slam(id)  … ボスの叩きつけ
+    ///   Sweep(id) … ボスの帯
     ///   Starve    … 満腹度が 0 で減った
     ///   Trap(kind) … 罠を踏んだ
     pub enum Source with Eq, ToString {
@@ -219,6 +225,8 @@ mod Run {
         case Arrow(Int32)
         case Charge(Int32)
         case Blast(Int32)
+        case Slam(Int32)
+        case Sweep(Int32)
         case Starve
         case Trap(Trap.Kind)
     }
@@ -229,6 +237,8 @@ mod Run {
         case Source.Arrow(id) => Some(id)
         case Source.Charge(id) => Some(id)
         case Source.Blast(id) => Some(id)
+        case Source.Slam(id)  => Some(id)
+        case Source.Sweep(id) => Some(id)
         case Source.Starve    => None
         case Source.Trap(_)   => None
     }
@@ -344,11 +354,15 @@ mod Run {
     ///   Shot   … 弓兵の矢
     ///   Charge … 溜めた突進が走って当たる
     ///   Blast  … 導火線の付いた自爆虫が弾ける
+    ///   Slam   … ボスの叩きつけ
+    ///   Sweep  … ボスの帯
     pub enum Attack with Eq, ToString {
         case Melee
         case Shot
         case Charge
         case Blast
+        case Slam
+        case Sweep
     }
 
     /// e が今の位置から cell へ当てる攻撃（届かなければ None）。敵の手番（Step）と敵の予告（Preview）はどちらもこれだけを見る。
@@ -356,6 +370,8 @@ mod Run {
     ///   矢   … 弓兵で、上下左右の列がそろい距離 arrowMin..arrowMax、間に矢を止めるマスも blockers も無く、両方が部屋の中（canShoot）
     ///   突進 … 溜めた向きの走る道（chargeLane）の上。溜めている手は隣でも殴らない
     ///   弾け … 導火線の付いた自爆虫の殴れる隣と同じマス（壁と、壁の角の向こうは入らない）
+    ///   叩きつけ … ボスの殴れる隣と同じ、体の周り 12 マス（角の決まりで届く所だけ）
+    ///   帯   … ボスの部屋の中の 2 行で、柱の陰を除く（bandOf）。叩きつけと重ねた手は、体の周りのマスを叩きつけとして数える
     /// blockers は矢と突進を止める敵のマス。予告は敵が動いた後も当たる側に倒すので空で渡す。
     pub def attackOn(ctx: Ctx, blockers: Set[Cell], e: Enemy.Enemy, cell: Cell): Option[Attack] = match e#intent {
         case Enemy.Intent.Idle =>
@@ -366,7 +382,26 @@ mod Run {
             else None
         case Enemy.Intent.Charge(dir) => if (List.memberOf(cell, chargeLane(ctx, blockers, e, dir))) Some(Attack.Charge) else None
         case Enemy.Intent.Fuse        => if (isBeside(ctx, e, cell)) Some(Attack.Blast) else None
+        case Enemy.Intent.Slam        => if (isBeside(ctx, e, cell)) Some(Attack.Slam) else None
+        case Enemy.Intent.Sweep(top)  => if (inBand(ctx, e, top, cell)) Some(Attack.Sweep) else None
+        case Enemy.Intent.SlamAndSweep(top) =>
+            if (isBeside(ctx, e, cell)) Some(Attack.Slam)
+            else if (inBand(ctx, e, top, cell)) Some(Attack.Sweep)
+            else None
     }
+
+    /// cell がボスの帯か: 行 top と top + 1 のうち、ボスと同じ部屋のマスで、その行でボスの体の列から cell までの間に矢を止めるマス（柱・壁）が無い（体のマスと、矢を止めるマス自身は除く）。
+    def inBand(ctx: Ctx, e: Enemy.Enemy, top: Int32, cell: Cell): Bool =
+        let (cx, y) = cell;
+        let (x, _) = e#at;
+        let between = if (cx < x) List.range(cx + 1, x) else List.range(x + e#size, cx);
+        (y == top or y == top + 1) and not Set.memberOf(cell, Enemy.cellsOf(e)) and not Board.stopsArrow(cell, ctx#board)
+            and Board.roomAt(cell, ctx#board) != 0 and Board.roomAt(cell, ctx#board) == Board.roomAt(e#at, ctx#board)
+            and List.forAll(bx -> not Board.stopsArrow((bx, y), ctx#board), between)
+
+    /// ボスの帯のマス（見せる側が床に帯を引く）。
+    pub def bandOf(ctx: Ctx, e: Enemy.Enemy, top: Int32): Set[Cell] =
+        Board.cells(ctx#board) |> List.filter(c -> inBand(ctx, e, top, c)) |> List.toSet
 
     /// 突進が dir へ走る道（e の隣から近い順）。歩けないマスか blockers の手前で止まり、長さは chargeMax + 1 まで。
     /// 走る長さ（Step）と赤い線（Preview）はどちらもこれだけを見る。主人公は道を止めない（道の上にいれば手前で止まって当たる）。
@@ -411,6 +446,6 @@ mod Run {
     /// 進行に効く欄の指紋（記録の再生・flow が比べる）。
     pub def fingerprint(runState: State): String =
         let r = rec(runState);
-        let enemies = r#enemies |> List.map(e -> "${e#id}:${e#kind}@${e#at}/${e#hp}/${e#rest}/t${e#turns}/b${e#burn}/${e#facing}/${e#intent}") |> List.join(",");
+        let enemies = r#enemies |> List.map(e -> "${e#id}:${e#kind}@${e#at}/${e#hp}/${e#rest}/t${e#turns}/b${e#burn}/${e#facing}/${e#intent}/c${e#cooldown}") |> List.join(",");
         "F${r#floor}.${r#layout}|${r#status}|hero=${r#hero#at}/${r#hero#hp}|sword=${r#hero#sword}|shield=${r#hero#shield}|pack=${r#pack}|enemies=${enemies}|items=${r#items}|traps=${r#traps}|revealed=${r#revealed}|walked=${r#walked}|turns=${r#turns}|fullness=${r#fullness}|pending=${r#pending}|declined=${r#declined}|level=${r#level}/${r#exp}|perks=${r#perks}|coins=${r#coins}"
 }

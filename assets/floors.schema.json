@@ -46,7 +46,8 @@
               "Swarm": { "type": "int", "label": "群れ（小ゼリー 3 体の組の数）", "order": 4, "min": 0 },
               "Shield": { "type": "int", "label": "盾持ち", "order": 5, "min": 0 },
               "Charger": { "type": "int", "label": "突進", "order": 6, "min": 0 },
-              "Bomber": { "type": "int", "label": "自爆虫", "order": 7, "min": 0 }
+              "Bomber": { "type": "int", "label": "自爆虫", "order": 7, "min": 0 },
+              "Boss": { "type": "int", "label": "ボス（地図の B に置く）", "order": 8, "min": 0 }
             }
           },
           "label": "敵の数",

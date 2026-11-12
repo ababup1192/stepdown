@@ -191,6 +191,7 @@ mod Motion {
         case Enemy.Kind.Shield => Art.Figure.Shield
         case Enemy.Kind.Charger => Art.Figure.Charger
         case Enemy.Kind.Bomber => Art.Figure.Bomber
+        case Enemy.Kind.Boss   => Art.Figure.Boss
     }
 
     /// 板の高さ（m）。
@@ -202,6 +203,7 @@ mod Motion {
         case Enemy.Kind.Shield => 1.05
         case Enemy.Kind.Charger => 0.95
         case Enemy.Kind.Bomber => 0.7
+        case Enemy.Kind.Boss   => 2.1
     }
 
     /// 床から浮かせる高さ（飛ぶ敵だけ）。
