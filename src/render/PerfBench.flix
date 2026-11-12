@@ -1,5 +1,5 @@
 // PerfBench — 遊びの場面 1 コマの CPU の仕事（系・Pass の計画・本編の面・engine へ渡す前の写し）を窓なしで何度も回し、1 コマの平均の ms を出す。
-// GL の送り・GPU の塗りは入らない（ブラウザの fps=1 の数とは同じ物差しではない。前後の比べに使う）。
+// 先に起動の Res.build（地図ごとの形をつなぐ）の ms も出す。GL の送り・GPU の塗りは入らない（ブラウザの fps=1 の数とは同じ物差しではない。前後の比べに使う）。
 // 実行: $ENGINE/bin/headless-run PerfBench.main（SHOT=<場面> で場面・PART=step|input|plan|specs|frame で一部だけ。既定は play・all）
 mod PerfBench {
     use fge::{App, GameEngine, GpuHandle, HeadlessFont, HeadlessLoad, Render, Vec2}
@@ -46,7 +46,11 @@ mod PerfBench {
         let env = App.Headless.envOf(App.Headless.requestFromProcess());
         let name = Map.getWithDefault("SHOT", "play", env);
         let part = Map.getWithDefault("PART", "all", env);
-        let res = Res.build(run { HeadlessLoad.handle(Controls.loadAll) } with Fs.FileRead.runWithIO);
+        let docs = run { HeadlessLoad.handle(Controls.loadAll) } with Fs.FileRead.runWithIO;
+        let t0 = System.nanoTime();
+        let res = Res.build(docs);
+        let t1 = System.nanoTime() + Int32.toInt64(Map.size(res#meshes) * 0);
+        println("[bench] 起動の Res.build ${Int64.toFloat64(t1 - t0) / 1000000.0} ms（地図 ${Map.size(res#meshes)} 枚の形をつなぐ）");
         let atlas = HeadlessFont.buildUiAtlas("assets/ShipporiMincho-Regular.subset.ttf", "assets/ShipporiMincho-Regular.subset.ttf");
         let ctx = App.viewCtxOf(atlas, design());
         match Shots.worldOf(name, res) {

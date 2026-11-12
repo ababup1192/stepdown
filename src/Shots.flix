@@ -9,7 +9,7 @@ mod Shots {
     /// 場面の題と一言（Studio のギャラリーに出るラベル）は assets/stepdown.scenes.json 側で、name をここの名前とそろえる。
     /// 場面を足したら、ここと sceneOf と Makefile の SHOTS を一緒に足す。
     pub def names(): List[String] =
-        "title" :: "play" :: "dead" :: "clear" :: "quit" :: "arrow" :: "bomb" :: "dirs" :: "popups" :: "swap" :: "levelup_mid" :: "levelup" :: "chosen" :: "use_tilt" :: "use_potion" :: "use_meat" :: "smoke_fly" :: "smoke_puff" :: "pebble" :: Nil
+        "title" :: "play" :: "dead" :: "clear" :: "quit" :: "arrow" :: "bomb" :: "dirs" :: "popups" :: "swap" :: "levelup_mid" :: "levelup" :: "chosen" :: "use_tilt" :: "use_potion" :: "use_meat" :: "smoke_fly" :: "smoke_puff" :: "pebble" :: "floor2" :: Nil
 
     /// 名前 → 周回の種を固定した初めの World から組んだ場面の World（1 手を見せ終えた所。途中の場面はその秒の所）。
     pub def worldOf(name: String, res: Res.Res): Option[World.World] =
@@ -64,8 +64,15 @@ mod Shots {
             case "levelup" => Some(cardsAt(res, Run.Input.Move(Board.Dir8.Right), 0.8, levelReady(res, w0)))
             // 左のカードを選び、光って主人公へ吸い込まれている途中（遊びへ戻った所）。
             case "chosen" => Some(cardsAt(res, Run.Input.Move(Board.Dir8.Right), 0.8, levelReady(res, w0)) |> World.answerCard(res, 0) |> World.skipShow |> World.seekChosen(0.15))
+            // 2F の始まりの部屋。右上の起きた弓兵の射線（左と下へ延びる赤）・左下の起きたゼリーの赤・右下の斜めの毒矢の罠（床の印と、踏む向きの予告）。
+            case "floor2" => Some(World.snapCam(staged(res, (8, 27), Run.Held.Held(Item.Kind.IronBall, 2) :: Nil,
+                (Enemy.Kind.Archer, (12, 25)) :: (Enemy.Kind.Jelly, (5, 28)) :: Nil, secondFloor(res, World.begin(res, w0)))))
             case _       => sceneOf(name, res, w0) |> Option.map(w -> World.snapCam(World.skipShow(w)))
         }
+
+    /// 遊んでいる 1F から 2F へ降りた所（周回の種で決まる 2F の地図）。
+    def secondFloor(res: Res.Res, w: World.World): World.World =
+        World.withState(res, Floor.enter(Res.floorDocs(res), res#layouts, w#runState, 2), w)
 
     /// 決まりの状態を f で直す。
     def withRec(res: Res.Res, f: Run.Rec -> Run.Rec, w: World.World): World.World =
