@@ -234,6 +234,14 @@
       "group": "予告",
       "required": true
     },
+    "markShield": {
+      "kind": "field",
+      "type": "color",
+      "label": "盾持ちが防ぐ側",
+      "order": 29,
+      "group": "予告",
+      "required": true
+    },
     "markDescend": {
       "kind": "field",
       "type": "color",

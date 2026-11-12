@@ -17,6 +17,7 @@ mod SceneView {
         case Frame     // マスのふち
         case Dashed    // マスのふちの破線
         case Fill      // マスを薄く塗る
+        case Guard(Float64, Float64) // 床の向き (x, z) を真ん中に、前と左右斜め前へ広がる弧（盾持ちが防ぐ側）
     }
 
     /// 床の印 1 つ（マスの真ん中・色・形）。
@@ -150,6 +151,21 @@ mod SceneView {
             case Stroke.Dashed =>
                 (-0.31 :: 0.0 :: 0.31 :: Nil) |> List.flatMap(o ->
                     side(o, h, 0.09, t) :: side(o, 0.0 - h, 0.09, t) :: side(h, o, t, 0.09) :: side(0.0 - h, o, t, 0.09) :: Nil)
+            case Stroke.Guard(fx, fz) =>
+                let facing = Num.atan2(fz, fx);
+                let (inner, outer, spread, n) = (0.5, 0.68, 1.2, 10);
+                let point = (r: Float64, a: Float64) -> Vec3.add(c, Vec3.v3(r * Num.cos(a), y + 0.002, r * Num.sin(a)));
+                let arc = List.range(0, n) |> List.map(k -> {
+                    let a0 = facing - spread + 2.0 * spread * Int32.toFloat64(k) / Int32.toFloat64(n);
+                    let a1 = facing - spread + 2.0 * spread * Int32.toFloat64(k + 1) / Int32.toFloat64(n);
+                    { points = point(inner, a1) :: point(outer, a1) :: point(outer, a0) :: point(inner, a0) :: Nil, color = m#color }
+                });
+                // 奥を向くと弧の真ん中は体の板に隠れるので、板の頭より先のマスに向きの山形を置く。
+                let (tip, back, wing, thick) = (1.25, 0.95, 0.45, 0.09);
+                let chevron = (hand: Float64) ->
+                    { points = point(tip, facing) :: point(back + thick, facing + hand * wing) :: point(back, facing + hand * wing) :: point(tip - thick, facing) :: Nil,
+                      color = m#color };
+                arc ::: chevron(1.0) :: chevron(-1.0) :: Nil
         }
 
     /// 破線 1 本の四角の列（0.3 m おきに 0.16 m の線）。

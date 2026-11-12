@@ -31,6 +31,7 @@
   "markArrow": "#7fd4ff",
   "markBomb": "#ff9a5c",
   "markBlocked": "#8a8478",
+  "markShield": "#8fc4ff",
   "markDescend": "#c9f08a",
   "markDanger": "#ff5a4f",
   "markTrap": "#b07cff",

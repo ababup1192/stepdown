@@ -69,7 +69,7 @@ mod View {
         { time = time, camera = World.cameraOf(res, w), look = lk, floor = Res.floorAt(res, r#floor, r#layout),
           flame = Kit.itemOf("FLAME", res#kit), textures = res#kit#textures,
           hand = FloorMesh.cellPoint(r#hero#at), figures = pose#figures, bursts = pose#bursts,
-          marks = trapMarks(theme, r) ::: (if (foresight) List.append(preview |> List.flatMap(markOf(theme)), dangerMarks(theme, r#hero#at, w#foresight#danger)) else Nil),
+          marks = trapMarks(theme, r) ::: (if (foresight) preview |> List.flatMap(markOf(theme)) ::: dangerMarks(theme, r#hero#at, w#foresight#danger) ::: shieldMarks(theme, r) else Nil),
           lanes = if (foresight) w#foresight#lanes |> List.map(laneOf(theme)) else Nil }
 
     /// 2D に重ねる物の値（上と下の帯・場面の上の印・カード）。
@@ -429,6 +429,15 @@ mod View {
         let fills = Set.toList(danger) |> List.flatMap(c ->
             { at = FloorMesh.cellPoint(c), color = t#markDanger, stroke = SceneView.Stroke.Fill } :: { at = FloorMesh.cellPoint(c), color = t#markDanger, stroke = SceneView.Stroke.Dashed } :: Nil);
         if (Set.memberOf(hero, danger)) { at = FloorMesh.cellPoint(hero), color = t#markDanger, stroke = SceneView.Stroke.Frame } :: fills else fills
+
+    /// 盾持ちが防ぐ側: 足もとから向き facing の側へ、前と左右斜め前（Enemy.guards の 3 方向）にかかる弧を盾の色で描く。
+    /// マスのふちを縁取るだけでは、奥を向いた時に体の板に隠れて前がどちらか読めなかった。
+    def shieldMarks(t: ThemeDoc.Rec, r: Run.Rec): List[SceneView.Mark] =
+        let origin = FloorMesh.cellPoint((0, 0));
+        r#enemies |> List.filter(e -> e#kind == Enemy.Kind.Shield) |> List.map(e -> {
+            let v = Vec3.sub(FloorMesh.cellPoint(Board.step8(e#facing, (0, 0))), origin);
+            { at = FloorMesh.cellPoint(e#at), color = t#markShield, stroke = SceneView.Stroke.Guard(v#x, v#z) }
+        })
 
     /// 見えている罠（踏まれた罠）の床: 罠の色の面（罠の絵の板は Motion が立てる）。
     def trapMarks(t: ThemeDoc.Rec, r: Run.Rec): List[SceneView.Mark] =
