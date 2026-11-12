@@ -374,7 +374,7 @@ mod View {
         let along = Vec3.mul(d, 1.0 / Float64.max(0.001, Vec3.length(d)));
         { origin = Vec3.add(archer, Vec3.mul(along, 0.4)), tip = Vec3.add(far, Vec3.mul(along, 0.3)), color = t#markDanger }
 
-    /// アイコンの置き場のずれ（左右は板と重ならないよう横へ・待つは頭の上）。
+    /// アイコンの置き場のずれ（左右は板と重ならないよう横へ・待つは体の上に重ねる。そこのタップが待つになる）。
     def offsetOf(input: Run.Input): Vec2.Vec2 = match input {
         case Run.Input.Move(Dir8.Up)        => { x = 0.0, y = -16.0 }
         case Run.Input.Move(Dir8.UpRight)   => { x = 24.0, y = -14.0 }
@@ -384,7 +384,7 @@ mod View {
         case Run.Input.Move(Dir8.DownLeft)  => { x = -24.0, y = 0.0 }
         case Run.Input.Move(Dir8.Left)      => { x = -30.0, y = -10.0 }
         case Run.Input.Move(Dir8.UpLeft)    => { x = -24.0, y = -14.0 }
-        case _                              => { x = 0.0, y = -118.0 }
+        case _                              => { x = 0.0, y = 0.0 }
     }
 
     def glyphOf(act: Act): MarkView.Glyph = match act {
@@ -410,7 +410,8 @@ mod View {
 
     def badgeOf(t: ThemeDoc.Rec, lk: LookDoc.Rec, screen: Vec3.Vec3 -> Option[Vec2.Vec2], s: Shown): Option[MarkView.Badge] =
         let k = lk#badgeScale * (if (isDiagonal(s#input)) lk#diagonalBadgeScale else 1.0);
-        screen(Vec3.add(FloorMesh.cellPoint(s#cell), Vec3.v3(0.0, 0.25, 0.0))) |> Option.map(at ->
+        let lift = if (s#input == Run.Input.Wait) lk#waitBadgeLift else 0.25;
+        screen(Vec3.add(FloorMesh.cellPoint(s#cell), Vec3.v3(0.0, lift, 0.0))) |> Option.map(at ->
             { at = Vec2.add(at, Vec2.mul(offsetOf(s#input), lk#badgeScale)), glyph = glyphOf(s#act), hurt = s#hurt, color = colorOf(t, s#act),
               scale = k, alpha = lk#badgeAlpha })
 

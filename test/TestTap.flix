@@ -75,7 +75,7 @@ mod TestTap {
         let camera = World.cameraOf(res, w);
         let hero = Run.heroOf(w#runState)#at;
         let tap = (cell: Board.Cell) -> Camera3d.worldToScreen(camera, size(), FloorMesh.cellPoint(cell)) |> Option.flatMap(
-            Tap.inputOf({ camera = camera, size = size(), bandTop = HudView.bandTop() }, RulesDoc.rec(res#rules)#tapWaitRadius, hero));
+            Tap.inputOf({ camera = camera, size = size(), bandTop = HudView.bandTop() }, waitOf(res, camera, hero), hero));
         Assert.assertEq(expected = (Some(Input.Wait), Some(Input.Move(Dir8.Up)), Some(Input.Move(Dir8.Right))),
             (tap(hero), tap(Board.step(Dir.Up, hero)), tap(Board.step(Dir.Right, hero))))
 
@@ -125,4 +125,19 @@ mod TestTap {
         let ticked = World.command(res, World.Act.Go(Input.Move(Dir8.Right)), App.tickClocks(app, 1.0 / 60.0, Resources.of(res, w))#world);
         let later = App.tickClocks(app, 1.0 / 60.0, Resources.of(res, ticked))#world;
         Assert.assertEq(expected = ("sd_step" :: Nil, Nil), (World.sounds(res, ticked), World.sounds(res, later)))
+
+    def waitOf(res: Res.Res, camera: Camera3d.Camera3d, hero: Board.Cell): Tap.Wait =
+        { radius = RulesDoc.rec(res#rules)#tapWaitRadius, px = RulesDoc.rec(res#rules)#tapWaitPx,
+          spot = Tap.waitSpotOf(camera, size(), LookDoc.rec(res#look)#waitBadgeLift, hero) }
+
+    /// 主人公の体の上（待つ・降りるのアイコン）をタップすると、床へ写すと上のマスに当たる点でも待つになる。
+    @Test
+    def testTapOnTheHerosBodyWaits(): Unit \ Assert + Fs.FileRead =
+        let res = Res.build(Controls.loadDocs());
+        let w = World.begin(res, World.initial(res, World.fixedSeed()));
+        let camera = World.cameraOf(res, w);
+        let hero = Run.heroOf(w#runState)#at;
+        let wait = waitOf(res, camera, hero);
+        let onBody = wait#spot |> Option.flatMap(Tap.inputOf({ camera = camera, size = size(), bandTop = HudView.bandTop() }, wait, hero));
+        Assert.assertEq(expected = Some(Input.Wait), onBody)
 }

@@ -21,6 +21,7 @@ mod RulesDoc {
     ///   starveDamage   … 満腹度 0 の間、1 手ごとに減る HP
     ///   levelExp       … 次のレベルまでに要る経験値（Lv1→2, 2→3, …。表を超えたら最後の数で続ける）
     ///   tapWaitRadius  … 主人公のマスの中でタップしたら待つとみなす半径（マス）
+    ///   tapWaitPx      … 主人公の体（待つのアイコン）の真ん中から、この px 以内のタップは待つ
     ///   tapSlop        … 押してから動いてもタップとみなす距離（px）
     pub type alias Rec = {
         version = Int32,
@@ -40,6 +41,7 @@ mod RulesDoc {
         starveDamage = Int32,
         levelExp = List[Int32],
         tapWaitRadius = Float64,
+        tapWaitPx = Float64,
         tapSlop = Float64
     }
 
@@ -56,7 +58,7 @@ mod RulesDoc {
                   potionAt = 0.25, regenEvery = 12, wakeSteps = 5, enemyMinSteps = 5,
                   smokeAt = 0.5, burnDamage = 1,
                   fullnessMax = 100, hungerEvery = 3, starveDamage = 1, levelExp = 3 :: 7 :: 10 :: 14 :: Nil,
-                  tapWaitRadius = 0.45, tapSlop = 12.0 })
+                  tapWaitRadius = 0.45, tapWaitPx = 32.0, tapSlop = 12.0 })
 
     /// テキストから Doc へ（fail-open）。JSON でない・形が違うフィールドは既定へ落とす。
     pub def fromJson(text: String): Option[Doc] =
@@ -76,7 +78,7 @@ mod RulesDoc {
                   starveDamage = int("starveDamage", d#starveDamage),
                   levelExp = Map.get("levelExp", root) |> Option.flatMap(JsonCodec.decodeList(JsonCodec.expectInt))
                       |> Option.filter(xs -> not List.isEmpty(xs)) |> Option.getWithDefault(d#levelExp),
-                  tapWaitRadius = float("tapWaitRadius", d#tapWaitRadius), tapSlop = float("tapSlop", d#tapSlop) })
+                  tapWaitRadius = float("tapWaitRadius", d#tapWaitRadius), tapWaitPx = float("tapWaitPx", d#tapWaitPx), tapSlop = float("tapSlop", d#tapSlop) })
 
     /// 薬を使う HP（最大 HP × potionAt を切り捨て）。
     pub def potionHp(maxHp: Int32, d: Doc): Int32 =

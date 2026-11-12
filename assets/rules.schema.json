@@ -161,6 +161,16 @@
       "max": 1.0,
       "default": 0.45
     },
+    "tapWaitPx": {
+      "kind": "field",
+      "type": "float",
+      "label": "主人公の体の上のタップを待つとみなす半径（px）",
+      "order": 16,
+      "group": "タップ",
+      "min": 0.0,
+      "max": 120.0,
+      "default": 32.0
+    },
     "tapSlop": {
       "kind": "field",
       "type": "float",

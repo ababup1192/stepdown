@@ -52,7 +52,10 @@ mod Controls {
         else if (w#screen != World.Screen.Play) Some(Command.Confirm)
         else {
             let screen = { camera = World.cameraOf(res, w), size = { x = World.width(), y = World.height() }, bandTop = HudView.bandTop() };
-            Tap.inputOf(screen, RulesDoc.rec(res#rules)#tapWaitRadius, Run.heroOf(w#runState)#at, at)
+            let (rules, hero) = (RulesDoc.rec(res#rules), Run.heroOf(w#runState)#at);
+            let wait = { radius = rules#tapWaitRadius, px = rules#tapWaitPx,
+                         spot = Tap.waitSpotOf(screen#camera, screen#size, LookDoc.rec(res#look)#waitBadgeLift, hero) };
+            Tap.inputOf(screen, wait, hero, at)
                 |> Option.map(Command.Go) |> Option.getWithDefault(Command.Confirm) |> Some
         }
 

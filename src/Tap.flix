@@ -1,10 +1,11 @@
 // Tap — 画面のタップを盤の入力へ読む（純粋）。
 //   押し始め: mouseClicked のコマ。確定: mouseDown が切れた最初のコマ（同じコマでもよい）。
 //   捨てる: 押してから動いた距離が tapSlop を超えた・同じコマにダッシュの操作（スワイプ）が来た。
-//   方向: 押した点からのレイが床（y = 0）と交わる所の、主人公のマスから見た向きを 45° ずつの 8 つに分ける。主人公のマスの中（半径 tapWaitRadius）は待つ。
+//   方向: 押した点からのレイが床（y = 0）と交わる所の、主人公のマスから見た向きを 45° ずつの 8 つに分ける。主人公のマスの中（半径 tapWaitRadius）と、主人公の体の上（待つのアイコン・半径 tapWaitPx）は待つ。
+//   体の上を床へ写すと奥のマスに当たり「上」になってしまうので、体の上は床へ写す前に画面の距離で見る。
 //   下の UI の帯の中は盤の入力にしない。
 mod Tap {
-    use fge::{Camera3d, Clock, Ray3d, Vec2}
+    use fge::{Camera3d, Clock, Ray3d, Vec2, Vec3}
     use Board.{Cell, Dir8}
     use Run.Input
 
@@ -47,8 +48,17 @@ mod Tap {
         else if (down) Input.Move(if (right) Dir8.DownRight else Dir8.DownLeft)
         else Input.Move(if (right) Dir8.UpRight else Dir8.UpLeft)
 
+    /// 主人公の体の上の点（待つ・降りるのアイコンの真ん中）の画面の位置。lift = 足もとからの高さ（m）。
+    pub def waitSpotOf(camera: Camera3d.Camera3d, size: Vec2.Vec2, lift: Float64, hero: Cell): Option[Vec2.Vec2] =
+        Camera3d.worldToScreen(camera, size, Vec3.add(FloorMesh.cellPoint(hero), Vec3.v3(0.0, lift, 0.0)))
+
+    /// 待つとみなす所: 主人公のマスの中の半径（マス）と、体の上の点からの半径（px）。
+    pub type alias Wait = { radius = Float64, spot = Option[Vec2.Vec2], px = Float64 }
+
     /// 盤の上のタップの入力（UI の帯の中・床と交わらない点は None）。
-    pub def inputOf(view: { camera = Camera3d.Camera3d, size = Vec2.Vec2, bandTop = Float64 }, waitRadius: Float64, hero: Cell, point: Vec2.Vec2): Option[Input] =
+    pub def inputOf(view: { camera = Camera3d.Camera3d, size = Vec2.Vec2, bandTop = Float64 }, wait: Wait, hero: Cell, point: Vec2.Vec2): Option[Input] =
+        let onBody = wait#spot |> Option.exists(s -> Vec2.distanceTo(s, point) <= wait#px);
         if (not isOnBoard(view#bandTop, point)) None
-        else floorAt(view#camera, view#size, point) |> Option.map(inputToward(waitRadius, hero))
+        else if (onBody) Some(Input.Wait)
+        else floorAt(view#camera, view#size, point) |> Option.map(inputToward(wait#radius, hero))
 }
