@@ -44,9 +44,10 @@
       "hp": 3,
       "attack": 2,
       "exp": 1,
-      "dropChance": 0.1,
+      "dropChance": 0.2,
       "drops": [
         "Bread",
+        "Coin",
         "Coin"
       ]
     },
@@ -55,22 +56,24 @@
       "hp": 8,
       "attack": 4,
       "exp": 7,
-      "dropChance": 0.3,
+      "dropChance": 0.4,
       "drops": [
         "Herb",
         "Bread",
+        "Coin",
         "Coin"
       ]
     },
     "Charger": {
       "name": "突進",
-      "hp": 9,
-      "attack": 6,
+      "hp": 12,
+      "attack": 7,
       "exp": 6,
-      "dropChance": 0.3,
+      "dropChance": 0.4,
       "drops": [
         "Bread",
         "Herb",
+        "Coin",
         "Coin"
       ],
       "chargeMin": 2,
@@ -81,10 +84,11 @@
       "hp": 4,
       "attack": 0,
       "exp": 5,
-      "dropChance": 0.25,
+      "dropChance": 0.35,
       "drops": [
         "Smoke",
         "Bread",
+        "Coin",
         "Coin"
       ],
       "blastDamage": 8
