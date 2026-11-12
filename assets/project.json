@@ -144,6 +144,41 @@
       "hasAlpha": true
     },
     {
+      "name": "icon_ironball_roll1",
+      "path": "assets/icons/ironball_roll1.png",
+      "hasAlpha": true
+    },
+    {
+      "name": "icon_ironball_roll2",
+      "path": "assets/icons/ironball_roll2.png",
+      "hasAlpha": true
+    },
+    {
+      "name": "icon_ironball_roll3",
+      "path": "assets/icons/ironball_roll3.png",
+      "hasAlpha": true
+    },
+    {
+      "name": "icon_ironball_roll4",
+      "path": "assets/icons/ironball_roll4.png",
+      "hasAlpha": true
+    },
+    {
+      "name": "icon_ironball_roll5",
+      "path": "assets/icons/ironball_roll5.png",
+      "hasAlpha": true
+    },
+    {
+      "name": "icon_ironball_roll6",
+      "path": "assets/icons/ironball_roll6.png",
+      "hasAlpha": true
+    },
+    {
+      "name": "icon_ironball_roll7",
+      "path": "assets/icons/ironball_roll7.png",
+      "hasAlpha": true
+    },
+    {
       "name": "icon_scroll_thunder",
       "path": "assets/icons/scroll_thunder.png",
       "hasAlpha": true
