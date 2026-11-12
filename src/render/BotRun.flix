@@ -39,8 +39,8 @@ mod BotRun {
     /// 1 回の遊びの終わり。
     type alias Outcome = { status = Run.Status, floor = Int32, hands = Int32, turns = Int32, fullness = Int32, level = Int32, stuck = Int32, judged = Int32, strikes = Int32, cause = String, coins = Int32 }
 
-    /// 遊ぶ盤（判定の束と、階段からの歩く距離）。
-    type alias Field = { ctx = Ctx, toStairs = Map[Cell, Int32], look = Look }
+    /// 遊ぶ盤（判定の束と、階段からの歩く距離と、その階に着いた時の手の数）。
+    type alias Field = { ctx = Ctx, toStairs = Map[Cell, Int32], look = Look, arrived = Int32 }
 
     /// 階を作る Doc と盤。
     type alias Setup = { docs = Floor.Docs, layouts = Floor.Layouts, look = Look }
@@ -107,6 +107,9 @@ mod BotRun {
     def lowHpWeight(): Int32 = 10
     def highHpWeight(): Int32 = 2
     def stairsWeight(): Int32 = 4
+    /// 階に着いてからこの手の数ごとに、階段へ 1 歩寄る点を 1 ずつ重くする。
+    /// WhyNot: 階段の点をはじめから重くする — 着いたばかりの階で、拾える物と倒せる敵に寄らずに降りる。
+    def impatienceEvery(): Int32 = 25
     def levelWeight(): Int32 = 40
     def expWeight(): Int32 = 4
     def fullnessWeight(): Int32 = 1
@@ -125,7 +128,7 @@ mod BotRun {
             case Run.Status.Descended => clearScore() + left
             case Run.Status.Cleared   => clearScore() + left
             case Run.Status.Playing   =>
-                hpScore(r#hero) - dist * stairsWeight() + r#level * levelWeight() + r#exp * expWeight()
+                hpScore(r#hero) - dist * (stairsWeight() + (r#turns - field#arrived) / impatienceEvery()) + r#level * levelWeight() + r#exp * expWeight()
                 + r#fullness * fullnessWeight() + items * itemWeight()
         }
 
@@ -210,9 +213,9 @@ mod BotRun {
         case Bot.Lookahead => 4i64
     }
 
-    def fieldOf(look: Look, ctx: Ctx): Field =
+    def fieldOf(look: Look, ctx: Ctx, arrived: Int32): Field =
         let stairs = Board.cells(ctx#board) |> List.filter(c -> Board.tileAt(c, ctx#board) == Board.Tile.Stairs);
-        { ctx = ctx, toStairs = Board.walkDistancesFrom(stairs, ctx#board), look = look }
+        { ctx = ctx, toStairs = Board.walkDistancesFrom(stairs, ctx#board), look = look, arrived = arrived }
 
     /// 種 seed で 1F から bot が limit 手まで遊んだ (最後の Run, 数え)。階段で降りたら次の階を作って続ける。
     def playSeed(setup: Setup, bot: Bot, limit: Int32, seed: Int64): (Run.State, Tally) =
@@ -220,7 +223,7 @@ mod BotRun {
                    { hands = 0, stuck = 0, judged = 0, strikes = 0, cause = "", rng = Rng.mix(seed, salt(bot)) })
 
     def playFloors(setup: Setup, bot: Bot, limit: Int32, runState: Run.State, tally: Tally): (Run.State, Tally) =
-        let (after, counted) = play(bot, fieldOf(setup#look, Floor.ctxOf(setup#docs, setup#layouts, runState)), limit, runState, tally);
+        let (after, counted) = play(bot, fieldOf(setup#look, Floor.ctxOf(setup#docs, setup#layouts, runState), Run.rec(runState)#turns), limit, runState, tally);
         if (Run.statusOf(after) == Run.Status.Descended and counted#hands < limit)
             playFloors(setup, bot, limit, Floor.enter(setup#docs, setup#layouts, after, Run.rec(after)#floor + 1), counted)
         else (after, counted)
