@@ -96,10 +96,17 @@ mod Art {
         Icon.Sword :: Icon.Shield :: Icon.Arrow :: Icon.Bomb :: Icon.Herb :: Icon.Bread :: Icon.Meat :: Icon.Pebble :: Icon.Smoke :: Icon.BottleEmpty :: Icon.Bone :: Icon.BreadBitten :: Icon.PebbleOne ::
         Icon.Thunder :: Icon.IronBall :: Icon.Doll :: Icon.WoodShield :: Icon.IronShield :: Icon.Coin :: Icon.TrapDart :: Icon.TrapAlarm :: Icon.TrapPit :: Nil
 
+    /// 転がる鉄球の絵（frame を 8 で割った余り × 45° だけ時計回りに回した絵。0 は持ち物の枠と同じ絵）。
+    /// 板の絵を回す口がエンジンに無いので、回した絵を 8 枚持って切り替える。
+    pub def ironBallRolled(frame: Int32): Picture =
+        let k = Int32.modulo(frame, 8);
+        if (k == 0) icon(Icon.IronBall)
+        else { name = "icon_ironball_roll${k}", path = "assets/icons/ironball_roll${k}.png", width = 128.0, height = 128.0 }
+
     /// 全部の絵（描き出しが読む）。
     pub def all(): List[Picture] =
         List.map(figure, Figure.Hero :: Figure.Jelly :: Figure.Bat :: Figure.Archer :: Figure.Swarm :: Figure.Shield :: Figure.Charger :: Figure.Bomber :: Figure.Boss :: Nil)
-            ::: List.map(icon, icons()) ::: (fx(Fx.LevelUp) :: Nil)
+            ::: List.map(icon, icons()) ::: List.map(ironBallRolled, List.range(1, 8)) ::: (fx(Fx.LevelUp) :: Nil)
 
     /// アイテムの系統の絵（食べ物はパン）。
     def iconOfFamily(family: Item.Family): Icon = match family {
