@@ -189,7 +189,7 @@
       "order": 30,
       "min": 1,
       "max": 9,
-      "default": 2
+      "default": 3
     },
     "trapDamage": {
       "kind": "field",
@@ -200,6 +200,16 @@
       "min": 0,
       "max": 20,
       "default": 2
+    },
+    "thunderNeeds": {
+      "kind": "field",
+      "type": "int",
+      "label": "かみなりの書を使う、気付いている起きた敵の数",
+      "group": "爆弾・煙玉",
+      "order": 32,
+      "min": 1,
+      "max": 9,
+      "default": 3
     }
   }
 }

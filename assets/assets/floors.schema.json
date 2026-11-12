@@ -37,25 +37,18 @@
           "label": "使う地図の名前（乱数で 1 つ）",
           "order": 2
         },
-        "jelly": {
-          "type": "int",
-          "label": "ゼリーの数",
+        "enemies": {
+          "type": {
+            "record": {
+              "Jelly": { "type": "int", "label": "ゼリー", "order": 1, "min": 0 },
+              "Bat": { "type": "int", "label": "コウモリ", "order": 2, "min": 0 },
+              "Archer": { "type": "int", "label": "弓兵", "order": 3, "min": 0 },
+              "Swarm": { "type": "int", "label": "群れ（小ゼリー 3 体の組の数）", "order": 4, "min": 0 },
+              "Shield": { "type": "int", "label": "盾持ち", "order": 5, "min": 0 }
+            }
+          },
+          "label": "敵の数",
           "order": 3
-        },
-        "bat": {
-          "type": "int",
-          "label": "コウモリの数",
-          "order": 4
-        },
-        "archer": {
-          "type": "int",
-          "label": "弓兵の数",
-          "order": 5
-        },
-        "swarm": {
-          "type": "int",
-          "label": "群れの数",
-          "order": 6
         },
         "items": {
           "type": {
@@ -81,7 +74,8 @@
                 "Meat",
                 "Pebble",
                 "Smoke",
-                "IronBall"
+                "IronBall",
+                "Thunder"
               ]
             }
           },
