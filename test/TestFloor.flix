@@ -23,10 +23,10 @@ mod TestFloor {
     // 地図
     // ══════════════════════════════════════════════════════
 
-    /// 1F〜3F の地図は 2 枚ずつ組める。
+    /// 1F〜4F の地図は 2 枚ずつ組める。
     @Test
     def testEveryFloorHasTwoMaps(): Unit \ Assert + Fs.FileRead =
-        Assert.assertEq(expected = (1, 0) :: (1, 1) :: (2, 0) :: (2, 1) :: (3, 0) :: (3, 1) :: Nil, mapIds())
+        Assert.assertEq(expected = (1, 0) :: (1, 1) :: (2, 0) :: (2, 1) :: (3, 0) :: (3, 1) :: (4, 0) :: (4, 1) :: Nil, mapIds())
 
     /// どの地図も、始まりから階段まで罠を踏まずに歩いて着ける。
     @Test
@@ -49,6 +49,15 @@ mod TestFloor {
         Assert.assertEq(expected = (3, 3, true, true),
             (Map.size(boardAt((3, 0))#traps), Map.size(boardAt((3, 1))#traps),
              List.memberOf(Trap.Kind.Alarm, Map.valuesOf(boardAt((3, 0))#traps)), List.memberOf(Trap.Kind.Alarm, Map.valuesOf(boardAt((3, 1))#traps))))
+
+    /// 4F の地図は 2 枚とも、毒矢 2 つと落とし穴 1 つを字で置き、銀の剣か銀の盾の候補（&）が 1 つある。
+    @Test
+    def testFourthFloorMapsHaveDartsAPitAndSilver(): Unit \ Assert + Fs.FileRead =
+        let dart = Trap.Kind.PoisonDart;
+        let shape = (b: Board.Board) -> (b#traps, Board.spotsOf(Board.Spot.Silver, b));
+        Assert.assertEq(expected = ((Map#{(7, 14) => dart, (14, 16) => Trap.Kind.Pit, (2, 25) => dart}, (3, 18) :: Nil),
+                                    (Map#{(4, 12) => dart, (12, 12) => Trap.Kind.Pit, (2, 29) => dart}, (12, 14) :: Nil)),
+            (shape(boardAt((4, 0))), shape(boardAt((4, 1)))))
 
     // ══════════════════════════════════════════════════════
     // 置き場
