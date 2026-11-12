@@ -1,9 +1,14 @@
 {
   "version": 1,
-  "note": "音の通り道。1 手の時刻表の効果音（sd_*）は sfx のバス。環境音（ダンジョンの低い響き）は作る時に amb_ で始まる名前にして ambience のバスへ通す。",
+  "note": "音の通り道。1 手の時刻表の効果音（sd_*）は sfx のバス。環境音（ダンジョンの低い響き）は作る時に amb_ で始まる名前にして ambience のバスへ通す。 曲（bgm_ で始まる名前）は music のバスへ通し、効果音が鳴っている間は少し下げる。",
   "defaultBus": "sfx",
   "transitionSeconds": 0.4,
   "buses": [
+    {
+      "name": "music",
+      "volume": 0.6,
+      "lowpassGainHF": 1.0
+    },
     {
       "name": "ambience",
       "volume": 0.55,
@@ -26,6 +31,12 @@
       "prefixes": [
         "amb_"
       ]
+    },
+    {
+      "bus": "music",
+      "prefixes": [
+        "bgm_"
+      ]
     }
   ],
   "ducks": [
@@ -38,6 +49,16 @@
       "attackSeconds": 0.05,
       "holdSeconds": 0.15,
       "releaseSeconds": 0.6
+    },
+    {
+      "bus": "music",
+      "by": [
+        "sfx"
+      ],
+      "depth": 0.7,
+      "attackSeconds": 0.03,
+      "holdSeconds": 0.1,
+      "releaseSeconds": 0.5
     }
   ],
   "cooldowns": [

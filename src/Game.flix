@@ -19,6 +19,8 @@ mod Game {
             |> Resources.addClock({ clockOf = World.clockOf, withClock = World.withClock, paceOf = (_, w) -> World.paceOf(w) })
             // 音: 一発の音は今見せている 1 手の時刻表の Cue（区間は遊びの時計が持つ）と、カードの前後の World から。大きさはミキサーのバス（stepdown.mixer.json）。
             |> App.withAudio(ws -> Resources.read((r, after) -> Controls.sounds(r, { before = Resources.read((_, prev) -> prev, ws#before), after = after }), ws#after))
+            // 曲: 題名と遊ぶ画面の間だけ鳴り続ける（ループ点は WAV の smpl）。music のバスで効果音の間は少し下がる。
+            |> App.withSustained(Resources.read((_, w) -> World.music(w)))
             |> App.withMixer(Resources.read((r, _) -> r#mixer))
             // 好きな場面から起動する・テストと flow が場面を名前で組む（START=play など）。
             |> App.withStarts(Starts.all() |> List.map(Resources.liftStart))

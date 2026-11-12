@@ -12,7 +12,7 @@
 // ダッシュは列を始めに全部計算し、1 歩見せ始めるごとにその歩の Run を run にする。ダッシュ中の入力は次の歩で止めるだけ（溜めない）。
 mod World {
 
-    use fge::{Camera3d, Clock, Timeline}
+    use fge::{App, Camera3d, Clock, Timeline}
     use Board.{Cell, Dir}
     use Run.Input
 
@@ -320,6 +320,18 @@ mod World {
 
     /// このコマに鳴らす音（今見せている 1 手の時刻表の Cue）。
     pub def sounds(res: Res.Res, w: World): List[String] = Timeline.soundsOnClock(w#clock, w#shown#startedAt, timelineOf(res, w))
+
+    /// 鳴り続ける曲: 題名・遊ぶ画面・カードの間はハープの曲を流す。倒れた・抜けた画面では止める
+    /// （倒れる音とファンファーレの後を静かにして、終わったことを音で分ける）。
+    pub def music(w: World): List[App.Sustain] =
+        musicOf(w#screen) |> Option.toList |> List.map(name -> { name = name, volume = 1.0, pitch = 1.0 })
+
+    /// 画面で流す曲の名前（無ければ None）。
+    pub def musicOf(screen: Screen): Option[String] = match screen {
+        case Screen.Dead  => None
+        case Screen.Clear => None
+        case _            => Some("bgm_harp")
+    }
 
     /// カードの音（遊びの時計が止まっている間に起きるので時刻表に乗せず、前後の World から導く）:
     /// レベルアップのカードが出たらファンファーレ、選んだらカードを選ぶ音・捨てる音。

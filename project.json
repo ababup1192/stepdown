@@ -308,6 +308,11 @@
       "name": "sd_coin",
       "path": "assets/sfx/sd_coin.wav",
       "looping": false
+    },
+    {
+      "name": "bgm_harp",
+      "path": "assets/sfx/bgm_harp.wav",
+      "looping": true
     }
   ],
   "editor": {
