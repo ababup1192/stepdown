@@ -40,5 +40,6 @@
   "dollBroke": "身代わり人形が くだけた！",
   "pitfall": "落とし穴に おちた！ {n} のダメージ",
   "enemyFell": "{enemy}が 穴に おちた",
+  "coinFound": "ちいさなコインを ひろった（{n}）",
   "floorLabel": "{n}F"
 }

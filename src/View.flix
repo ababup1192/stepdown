@@ -95,6 +95,7 @@ mod View {
           fullness = { now = r#fullness, max = rules#fullnessMax, glow = fade(lk#popupSeconds, Popup.Kind.Fed, aged), alarm = fade(lk#popupSeconds, Popup.Kind.Starved, aged) },
           exp = { level = r#level, now = r#exp, need = RulesDoc.expToNext(r#level, res#rules) },
           gear = gearOf(theme, r#hero),
+          coins = r#coins,
           minimap = minimapOf(theme, World.ctx(res, w)#board, r),
           log = logLine(res, w#shown, w#runState), slots = slotsOf(res, theme, r#pack, glow),
           card = if (busy) None else cardOf(res, w#screen),
@@ -592,6 +593,7 @@ mod View {
             case Run.Event.SmokeThrown(_)       => say(TextDoc.Line.Bombed, item(Item.Kind.Smoke) :: Nil)
             case Run.Event.PotionUsed(kind, n)  => say(TextDoc.Line.Drank, item(kind) :: ("n", "${n}") :: Nil)
             case Run.Event.DollSaved(_)         => say(TextDoc.Line.DollBroke, Nil)
+            case Run.Event.CoinPicked(n)        => say(TextDoc.Line.CoinFound, ("n", "${n}") :: Nil)
             case Run.Event.Descended            => say(TextDoc.Line.Descended, Nil)
             case Run.Event.HeroBlocked(_)       => say(TextDoc.Line.Blocked, Nil)
             case _                              => None

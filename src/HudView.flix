@@ -37,6 +37,7 @@ mod HudView {
         fullness = Fullness,
         exp = Exp,
         gear = List[Gear],
+        coins = Int32,
         minimap = Minimap,
         log = String,
         slots = List[Option[Slot]],
@@ -66,7 +67,11 @@ mod HudView {
         List.flatten(
             (band(Vec2.zero(), p(width(), 180.0), t#shade, { top = 0.85, bottom = 0.0 }, 0)
                 :: text(atlas, w#floorLabel, p(18.0, 14.0), 34.0, t#ink, 3) :: Nil)
-            :: expBar(atlas, t, w#exp) :: hpBar(atlas, t, w#hp) :: fullnessBar(t, w#time, w#fullness) :: gear :: Nil)
+            :: expBar(atlas, t, w#exp) :: hpBar(atlas, t, w#hp) :: fullnessBar(t, w#time, w#fullness) :: gear :: coinCount(atlas, t, w#coins) :: Nil)
+
+    /// ちいさなコイン: 剣と盾の枠の右に、コインの絵と枚数（字は数だけ）。
+    def coinCount(atlas: FontAtlas, t: ThemeDoc.Rec, coins: Int32): List[Render.PlacedItem] =
+        icon(Art.icon(Art.Icon.Coin), p(138.0, 145.0), 28.0, 3) :: text(atlas, "${coins}", p(156.0, 133.0), 20.0, t#ink, 3) :: Nil
 
     /// 経験値: 星の中にレベルの数、右に細い棒。
     def expBar(atlas: FontAtlas, t: ThemeDoc.Rec, e: Exp): List[Render.PlacedItem] =

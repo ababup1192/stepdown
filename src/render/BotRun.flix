@@ -37,7 +37,7 @@ mod BotRun {
     type alias Tally = { hands = Int32, stuck = Int32, judged = Int32, strikes = Int32, cause = String, rng = Int64 }
 
     /// 1 回の遊びの終わり。
-    type alias Outcome = { status = Run.Status, floor = Int32, hands = Int32, turns = Int32, fullness = Int32, level = Int32, stuck = Int32, judged = Int32, strikes = Int32, cause = String }
+    type alias Outcome = { status = Run.Status, floor = Int32, hands = Int32, turns = Int32, fullness = Int32, level = Int32, stuck = Int32, judged = Int32, strikes = Int32, cause = String, coins = Int32 }
 
     /// 遊ぶ盤（判定の束と、階段からの歩く距離）。
     type alias Field = { ctx = Ctx, toStairs = Map[Cell, Int32], look = Look }
@@ -228,7 +228,7 @@ mod BotRun {
     def outcomeOf(result: (Run.State, Tally)): Outcome =
         let (runState, tally) = result;
         let r = Run.rec(runState);
-        { status = r#status, floor = r#floor, hands = tally#hands, turns = r#turns, fullness = r#fullness, level = r#level, stuck = tally#stuck, judged = tally#judged, strikes = tally#strikes, cause = tally#cause }
+        { status = r#status, floor = r#floor, hands = tally#hands, turns = r#turns, fullness = r#fullness, level = r#level, stuck = tally#stuck, judged = tally#judged, strikes = tally#strikes, cause = tally#cause, coins = r#coins }
 
     def median(xs: List[Int32]): String =
         let sorted = Sort.sortStable(xs);
@@ -274,6 +274,7 @@ mod BotRun {
         "  赤に囲まれて動けなかった手 ${outcomes |> List.map(o -> o#stuck) |> List.sum}（${List.count(o -> o#stuck > 0, outcomes)} 回の遊びで）\n" +
         "  手数（クリアの中央値）${median(cleared |> List.map(o -> o#turns))}・生き延びた手数（死亡の中央値）${median(dead |> List.map(o -> o#turns))}・全部の中央値 ${median(outcomes |> List.map(o -> o#turns))}\n" +
         "  満腹度の残り（クリアの中央値）${median(cleared |> List.map(o -> o#fullness * 100 / fullnessMax))}%\n" +
+        "  コイン（全部の中央値）${median(outcomes |> List.map(o -> o#coins))}・クリアの中央値 ${median(cleared |> List.map(o -> o#coins))}\n" +
         "  到達レベル ${levels}（Lv2 以上 ${percent(List.count(o -> o#level >= 2, outcomes), n)}）\n" +
         "  自分から殴った手 ${outcomes |> List.map(o -> o#strikes) |> List.sum}（1 回の遊びの中央値 ${median(outcomes |> List.map(o -> o#strikes))}）\n" +
         "  判断の割合 ${percent(outcomes |> List.map(o -> o#judged) |> List.sum, hands)}（${hands} 手）"

@@ -275,6 +275,7 @@ mod Motion {
         let lying = Map.toList(turn#after#items) |> List.map(match (cell, kind) -> itemFigure(t, cell, kind, point(cell), 1.0));
         let pickedAt = turn#events |> List.findMap(ie -> match ie {
             case (i, Event.Picked(_, _)) => Some(progressOf(turn, i, Beat.Pick))
+            case (i, Event.CoinPicked(_)) => Some(progressOf(turn, i, Beat.Pick))
             case _                       => None
         });
         let hero = Vec3.add(point(turn#after#hero#at), up(0.6));

@@ -46,7 +46,8 @@
       "exp": 1,
       "dropChance": 0.1,
       "drops": [
-        "Bread"
+        "Bread",
+        "Coin"
       ]
     },
     "Shield": {
@@ -57,7 +58,8 @@
       "dropChance": 0.3,
       "drops": [
         "Herb",
-        "Bread"
+        "Bread",
+        "Coin"
       ]
     },
     "Charger": {
@@ -68,7 +70,8 @@
       "dropChance": 0.3,
       "drops": [
         "Bread",
-        "Herb"
+        "Herb",
+        "Coin"
       ],
       "chargeMin": 2,
       "chargeMax": 5
@@ -81,7 +84,8 @@
       "dropChance": 0.25,
       "drops": [
         "Smoke",
-        "Bread"
+        "Bread",
+        "Coin"
       ],
       "blastDamage": 6
     }

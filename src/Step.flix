@@ -187,6 +187,7 @@ mod Step {
         let r = t#runState;
         let family = Item.familyOf(kind);
         if (family == Item.Family.Food) eat(ctx, kind, t)
+        else if (family == Item.Family.Coin) t |> withRun({ items = Map.remove(r#hero#at, r#items), coins = r#coins + 1 | r }) |> emit(Event.CoinPicked(r#coins + 1))
         else if (not hasRoom(family, r#pack) and r#declined == Some(r#hero#at)) t
         else if (not hasRoom(family, r#pack)) t |> withRun({ pending = r#pending ::: (Run.Choice.Swap(kind) :: Nil) | r })
         else {

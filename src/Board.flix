@@ -76,10 +76,12 @@ mod Board {
     ///   Food   … パン・肉の候補（floors の breadOdds・meatChance で引いた数だけ選ぶ）
     ///   Item   … floors の items から重複なしで引いた物の候補
     ///   Silver … 銀の剣か銀の盾のどちらか
+    ///   Coin   … ちいさなコインの候補（floors の coinOdds で引いた数だけ選ぶ）
     pub enum Spot with Eq, Order, ToString {
         case Food
         case Item
         case Silver
+        case Coin
     }
 
     /// 地図の 1 字の読み。corridor は通路の床（部屋の番号 0）。
@@ -102,6 +104,7 @@ mod Board {
             case '%' => spotted(Spot.Food)
             case '$' => spotted(Spot.Item)
             case '&' => spotted(Spot.Silver)
+            case '*' => spotted(Spot.Coin)
             case _   => Trap.fromGlyph(ch) |> Option.map(kind -> { trap = Some(kind) | plain(Tile.Floor) })
         }
 

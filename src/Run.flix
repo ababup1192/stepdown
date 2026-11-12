@@ -94,6 +94,7 @@ mod Run {
     ///   perks    … 取ったカード（取った順）
     ///   pending  … 選ぶ場面の列（先頭から 1 つずつ。ある間は Choose 以外の入力は何もしない）
     ///   declined … 捨てるカードで拾わなかった物のマス（そのマスを離れたら消す）
+    ///   coins    … 拾ったちいさなコインの数（階をまたいで持ち越す）
     pub type alias Rec = {
         floor = Int32,
         layout = Int32,
@@ -114,6 +115,7 @@ mod Run {
         fullness = Int32,
         pending = List[Choice],
         declined = Option[Cell],
+        coins = Int32,
         nextId = Int32,
         status = Status
     }
@@ -195,6 +197,8 @@ mod Run {
         case FellThrough
         /// 敵が落とし穴に落ちて階から消えた（敵の id・マス）。経験値は入り、物は落とさない。
         case EnemyFell(Int32, Cell)
+        /// ちいさなコインを拾った（拾った後の数）。
+        case CoinPicked(Int32)
         /// 押し出しの先が壁・柱・岩で、押せずにダメージが増えた（敵の id・足したダメージ）。続く出来事で HP が減る。
         case PushedIntoWall(Int32, Int32)
         /// カードを取った。
@@ -248,10 +252,10 @@ mod Run {
                       hero = { at = ctx#board#start, hp = rules#maxHp, maxHp = rules#maxHp, sword = None, shield = None },
                       pack = Nil, enemies = Nil, items = Map.empty(), traps = Map.empty(), revealed = Set.empty(), seen = Set.empty(), rng = at#rng, seed = at#seed,
                       perks = Nil, level = 1, exp = 0, walked = 0, turns = 0, fullness = rules#fullnessMax,
-                      pending = Nil, declined = None, nextId = 0, status = Status.Playing };
+                      pending = Nil, declined = None, coins = 0, nextId = 0, status = Status.Playing };
         enter(of(fresh), ctx, at, placement)
 
-    /// 次の階へ（Doc を保存した時は同じ階を作り直す）: 主人公の HP・満腹度・経験値とレベル・カード・枠・剣と盾・レベルアップの選ぶ場面・数えた手は持ち越す。
+    /// 次の階へ（Doc を保存した時は同じ階を作り直す）: 主人公の HP・満腹度・経験値とレベル・カード・枠・剣と盾・レベルアップの選ぶ場面・数えた手・コインは持ち越す。
     /// 主人公は始まりの印に立ち、敵は全員眠っている。床の物・罠・霧・捨てるカード・拾わなかった物のマスは前の階の物なので捨てる。
     pub def enter(prev: State, ctx: Ctx, at: Arrival, placement: Placement): State =
         let r = rec(prev);
@@ -408,5 +412,5 @@ mod Run {
     pub def fingerprint(runState: State): String =
         let r = rec(runState);
         let enemies = r#enemies |> List.map(e -> "${e#id}:${e#kind}@${e#at}/${e#hp}/${e#rest}/t${e#turns}/b${e#burn}/${e#facing}/${e#intent}") |> List.join(",");
-        "F${r#floor}.${r#layout}|${r#status}|hero=${r#hero#at}/${r#hero#hp}|sword=${r#hero#sword}|shield=${r#hero#shield}|pack=${r#pack}|enemies=${enemies}|items=${r#items}|traps=${r#traps}|revealed=${r#revealed}|walked=${r#walked}|turns=${r#turns}|fullness=${r#fullness}|pending=${r#pending}|declined=${r#declined}|level=${r#level}/${r#exp}|perks=${r#perks}"
+        "F${r#floor}.${r#layout}|${r#status}|hero=${r#hero#at}/${r#hero#hp}|sword=${r#hero#sword}|shield=${r#hero#shield}|pack=${r#pack}|enemies=${enemies}|items=${r#items}|traps=${r#traps}|revealed=${r#revealed}|walked=${r#walked}|turns=${r#turns}|fullness=${r#fullness}|pending=${r#pending}|declined=${r#declined}|level=${r#level}/${r#exp}|perks=${r#perks}|coins=${r#coins}"
 }

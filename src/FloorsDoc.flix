@@ -9,14 +9,16 @@ mod FloorsDoc {
     pub type alias MapDef = { title = String, rows = List[String] }
 
     /// 階 1 つ。maps は使う地図の名前（乱数で 1 つ選ぶ）。enemies は種類 → 数（群れだけは 3 体の組の数）、items は床に置くアイテム。
-    /// breadOdds はパンを 0 個・1 個・2 個…置く重み（足して 1 でなくてよい）、meatChance は肉を 1 つ置く確率。
+    /// breadOdds はパンを 0 個・1 個・2 個…置く重み（足して 1 でなくてよい）、meatChance は肉を 1 つ置く確率、
+    /// coinOdds はちいさなコインを 0 枚・1 枚・2 枚…置く重み（書かなければ置かない）。
     pub type alias FloorDef = {
         floor = Int32,
         maps = List[String],
         enemies = Map[Enemy.Kind, Int32],
         items = List[Item.Kind],
         breadOdds = List[Float64],
-        meatChance = Float64
+        meatChance = Float64,
+        coinOdds = List[Float64]
     }
 
     pub type alias Rec = { version = Int32, maps = Map[String, MapDef], floors = List[FloorDef] }
@@ -33,7 +35,7 @@ mod FloorsDoc {
                   maps = Map#{ "1a" => { title = "1F 四つの部屋", rows = defaultRows() } },
                   floors = { floor = 1, maps = "1a" :: Nil, enemies = Map#{Enemy.Kind.Jelly => 4, Enemy.Kind.Bat => 2, Enemy.Kind.Archer => 1},
                              items = Item.Kind.WoodArrow :: Item.Kind.SmallBomb :: Item.Kind.Herb :: Item.Kind.IronSword :: Nil,
-                             breadOdds = defaultBreadOdds(), meatChance = 0.15 } :: Nil })
+                             breadOdds = defaultBreadOdds(), meatChance = 0.15, coinOdds = Nil } :: Nil })
 
     def defaultBreadOdds(): List[Float64] = 0.15 :: 0.7 :: 0.15 :: Nil
 
@@ -77,9 +79,10 @@ mod FloorsDoc {
         let counts = Map.get("enemies", obj) |> Option.flatMap(JsonCodec.expectObject) |> Option.getWithDefault(Map.empty());
         let enemies = Enemy.all() |> List.map(kind -> (kind, JsonCodec.intOr("${kind}", 0, counts))) |> List.filter(e -> snd(e) > 0) |> List.toMap;
         let odds = Map.get("breadOdds", obj) |> Option.flatMap(JsonCodec.decodeList(JsonCodec.expectFloat)) |> Option.getWithDefault(defaultBreadOdds());
+        let coins = Map.get("coinOdds", obj) |> Option.flatMap(JsonCodec.decodeList(JsonCodec.expectFloat)) |> Option.getWithDefault(Nil);
         Map.get("floor", obj) |> Option.flatMap(JsonCodec.expectInt) |> Option.map(n ->
             { floor = n, maps = names("maps"), enemies = enemies, items = names("items") |> List.filterMap(Item.fromName),
-              breadOdds = odds, meatChance = JsonCodec.floatOr("meatChance", 0.15, obj) })
+              breadOdds = odds, meatChance = JsonCodec.floatOr("meatChance", 0.15, obj), coinOdds = coins })
 
     pub def load(p: String): Doc \ Fs.FileRead =
         DocJson.loadOr(fromJson, defaults(), p)

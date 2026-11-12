@@ -93,7 +93,20 @@ mod Floor {
         let (items, afterItems) =
             if (Board.hasSpots(board)) placeOnSpots(board, food, fixed, afterFood)
             else scatter(open |> List.filter(c -> not List.memberOf(c, enemyCells)), fixed ::: food, afterFood);
-        ({ enemies = List.zip(kinds, singleCells) ::: (swarmCells |> List.map(c -> (Enemy.Kind.Swarm, c))), items = items, traps = board#traps }, afterItems)
+        let taken = List.toSet(enemyCells ::: (items |> List.map(snd)));
+        let coins = plan |> Option.map(f -> coinsOf(board, f, open |> List.filter(c -> not Set.memberOf(c, taken)), Rng.mix(rng, coinSalt()))) |> Option.getWithDefault(Nil);
+        ({ enemies = List.zip(kinds, singleCells) ::: (swarmCells |> List.map(c -> (Enemy.Kind.Swarm, c))), items = items ::: coins, traps = board#traps }, afterItems)
+
+    /// コインの置き場を選ぶ乱数を、ほかの置き場の乱数から分ける数。
+    /// WhyNot: 置き場の乱数の続きで引く — コインの無かった階まで敵と物の置き場が替わり、決まった種の手順（flow）が崩れる。
+    def coinSalt(): Int64 = 23i64
+
+    /// ちいさなコインを coinOdds の重みで引いた枚数だけ置く: コインの候補（*）のある盤はそこから、無い盤は空いた床 free から。
+    def coinsOf(board: Board.Board, plan: FloorsDoc.FloorDef, free: List[Cell], rng: Int64): List[(Item.Kind, Cell)] =
+        let (count, afterCount) = Rng.weighted(plan#coinOdds, rng);
+        let spots = Board.spotsOf(Board.Spot.Coin, board);
+        let (cells, _) = Rng.pick(if (List.isEmpty(plan#coinOdds)) 0 else count, if (List.isEmpty(spots)) free else spots, afterCount);
+        cells |> List.map(c -> (Item.Kind.Coin, c))
 
     /// 群れの組を groups 組置く: 組ごとに空いたマスを 1 つ選び、その隣（8 方向・角を抜けない）の空いたマスから 2 つ足す（足りなければ置ける数だけ）。
     def swarmsOf(board: Board.Board, groups: Int32, far: List[Cell], taken: Set[Cell], rng: Int64): (List[Cell], Int64) =
@@ -158,13 +171,14 @@ mod Floor {
         let dist = Board.walkDistances(board#start, board);
         Board.cells(board) |> List.filter(c -> Board.isWalkable(c, board) and not Map.memberOf(c, dist))
 
-    /// 字の候補のある盤で、床のアイテムが全部、種類に合う候補のマスにあるか（食べ物は %・銀の剣と銀の盾は &・ほかは $）。
+    /// 字の候補のある盤で、床のアイテムが全部、種類に合う候補のマスにあるか（食べ物は %・銀の剣と銀の盾は &・コインは *・ほかは $）。
     pub def itemsOnSpots(board: Board.Board, runState: Run.State): Bool =
         Run.rec(runState)#items |> Map.forAll((cell, kind) -> Map.get(cell, board#spots) == Some(spotOf(kind)))
 
     def spotOf(kind: Item.Kind): Board.Spot =
         if (Item.familyOf(kind) == Item.Family.Food) Board.Spot.Food
         else if (kind == Item.Kind.SilverSword or kind == Item.Kind.SilverShield) Board.Spot.Silver
+        else if (kind == Item.Kind.Coin) Board.Spot.Coin
         else Board.Spot.Item
 
     /// 床のアイテムが全部、床（階段でも始まりでもない）のマスにあるか。

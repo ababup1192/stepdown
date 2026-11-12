@@ -64,6 +64,7 @@ mod TurnTimeline {
         case Charge
         case Doll
         case Pit
+        case Coin
     }
 
     /// 音の論理名（project.json の sounds の name）。
@@ -88,6 +89,7 @@ mod TurnTimeline {
         case Sound.Charge  => "sd_charge"
         case Sound.Doll    => "sd_doll"
         case Sound.Pit     => "sd_pit"
+        case Sound.Coin    => "sd_coin"
     }
 
     /// 見せる秒（look の Doc から。dash = ダッシュの 1 歩の時は移動を短くする）。
@@ -128,6 +130,7 @@ mod TurnTimeline {
             case Event.Picked(_, Item.Pick.Upgraded) =>
                 add(cue(Sound.Upgrade, after(Beat.Pick, pace#step)) :: Timeline.join((i, Beat.Upgrade), secs(pace#strike * 4.0)) :: Nil, d)
             case Event.Picked(_, _)        => add(cue(Sound.Pick, after(Beat.Pick, pace#step)) :: Nil, d)
+            case Event.CoinPicked(_)       => add(cue(Sound.Coin, after(Beat.Pick, pace#step)) :: Nil, d)
             case Event.HeroStruck(_, _)    =>
                 add(cue(Sound.Strike, after(Beat.HeroStrike, pace#strike)) :: flashOn(pace, (i, Beat.HeroStrike), pace#strike * 0.45, i, Sound.Hit) :: Nil, d)
             case Event.ArrowShot(_, kind, _) if Item.isStone(Item.familyOf(kind)) => { pebble = true | add(after(Beat.Arrow, pace#pebble) :: Nil, d) }
