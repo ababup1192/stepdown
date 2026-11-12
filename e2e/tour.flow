@@ -1,6 +1,6 @@
 # 長めの紹介動画の手順（make video FLOW=e2e/tour.flow）。周回の種は World.fixedSeed（地図は 1a）。
 # 始まりの小部屋で斜めに歩いて爆弾を拾う → ダッシュで通路へ → 柱の部屋で弓兵の矢を受け、弓兵とコウモリに挟まれて爆弾
-# → LEVEL UP（攻撃のカード）→ 落とし物の矢と小石を拾って 3 枠が埋まる → 通路のゼリーを矢で倒して 2 回目の LEVEL UP
+# → LEVEL UP（攻撃のカード）→ 落とし物の矢と小石を拾って 3 枠が埋まる → 通路のゼリーを小石と剣で倒して 2 回目の LEVEL UP
 # → 水場のゼリーに殴られて HP を減らす → パンを食べる（満腹度の棒が光る）→ ダッシュで通路の角を曲がる
 # → 通路のゼリーで 3 回目の LEVEL UP → 広間で薬草（4 種類目）を拾い、捨てるカードで小石を捨てる
 # → コウモリに噛まれて薬草が効く（緑の数）→ コウモリを斜めに殴る → 鉄の剣・木の矢を拾う → 広間を回って階段で待って降りる → Clear。
@@ -67,7 +67,7 @@ wait 0.8
 tap upRight
 wait 0.9
 expect held=3&arrows=5
-# 通路へ下りると、起きたゼリーを矢で撃ち、寄ってきたところをもう 1 本で倒す
+# 通路へ下りると、起きたゼリーに小石を投げ（通路では矢を撃たない）、寄ってきたところを殴って倒す
 tap down
 wait 0.8
 tap down
@@ -75,6 +75,8 @@ wait 0.8
 tap down
 wait 0.8
 tap wait
+wait 0.8
+tap left
 until screen=Cards max 5
 expect level=3&foes=4
 wait 2.8
@@ -212,7 +214,7 @@ wait 0.4
 tap dashUp
 until !busy max 5
 wait 1.5
-expect col=1&row=21&arrows=6
+expect col=1&row=21&arrows=10
 # 広間の上の端を右の角まで走り、右の端を下りて、下の端を階段まで走る
 tap dashRight
 until !busy max 5

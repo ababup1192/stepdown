@@ -68,7 +68,7 @@ wait 0.6
 tap upRight
 wait 0.9
 expect held=3&arrows=5
-# 通路へ下りると、起きたゼリーを矢で撃ち、寄ってきたところをもう 1 本で倒す
+# 通路へ下りると、起きたゼリーに小石を投げ（通路では矢を撃たない）、寄ってきたところを殴って倒す
 tap down
 wait 0.6
 tap down
@@ -76,6 +76,8 @@ wait 0.6
 tap down
 wait 0.6
 tap wait
+wait 0.6
+tap left
 until screen=Cards max 5
 expect level=3&foes=4
 wait 2.8
@@ -217,7 +219,7 @@ wait 0.4
 tap dashUp
 until !busy max 5
 wait 1.5
-expect col=1&row=21&arrows=6
+expect col=1&row=21&arrows=10
 mark in_stairs
 # 広間の上の端を右の角まで走り、右の端を下りて、下の端を階段まで走る
 tap dashRight
