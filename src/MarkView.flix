@@ -13,8 +13,9 @@ mod MarkView {
         case Hourglass
     }
 
-    /// 方向の予告 1 つ。at = アイコンの真ん中・hurt = 受けるダメージ（無ければ 0）・color = 枠の色・scale = 大きさの倍（斜めは小さい）。
-    pub type alias Badge = { at = Vec2.Vec2, glyph = Glyph, hurt = Int32, color = Color, scale = Float64 }
+    /// 方向の予告 1 つ。at = アイコンの真ん中・hurt = 受けるダメージ（無ければ 0）・color = 枠の色・scale = 大きさの倍（斜めは小さい）・
+    /// alpha = 濃さ（受けるダメージのラベルは薄めない）。
+    pub type alias Badge = { at = Vec2.Vec2, glyph = Glyph, hurt = Int32, color = Color, scale = Float64, alpha = Float64 }
 
     /// 浮かぶ数 1 つ。at = 出始めの真ん中（頭の上・積んだ段の分だけ上）・lift = 段（横へ流れる向きを左右交互に分ける）・age = 出てからの秒。
     pub type alias Number = { at = Vec2.Vec2, kind = Popup.Kind, amount = Int32, lift = Int32, age = Float64 }
@@ -78,7 +79,8 @@ mod MarkView {
         let face = RawDraw.circleAt(b#at, 19.0 * k, t#badgeFace, 2) :: Nil;
         let rings = RawDraw.circleAt(b#at, 22.0 * k, t#badgeEdge, 1) :: faded(0.35, RawDraw.circleAt(b#at, 26.0 * k, b#color, 0)) :: Nil;
         let hurt = if (b#hurt <= 0) Nil else hurtTag(atlas, t, b);
-        List.flatten(rings :: face :: glyph(b#glyph, b#at, k, t#badgeEdge) :: hurt :: Nil)
+        let see = List.map(faded(b#alpha));
+        List.flatten(see(rings) :: see(face) :: see(glyph(b#glyph, b#at, k, t#badgeEdge)) :: hurt :: Nil)
 
     def glyph(g: Glyph, c: Vec2.Vec2, k: Float64, color: Color): List[Render.PlacedItem] =
         let small = (items: List[Render.PlacedItem]) -> if (k >= 0.999) items else Render.scaledAllAround(k, c, items);

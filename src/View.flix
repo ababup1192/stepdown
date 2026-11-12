@@ -104,7 +104,7 @@ mod View {
         let marks = { theme = theme, time = time,
           timing = { life = lk#popupSeconds, popScale = lk#popupPopScale, popSeconds = lk#popupPopSeconds, rise = lk#popupRise, fall = lk#popupFall,
                      drift = lk#popupDrift, fadeSeconds = lk#popupFadeSeconds, healRise = lk#healRise, healPop = lk#healPopScale },
-          badges = preview |> List.filterMap(badgeOf(theme, lk#diagonalBadgeScale, screen)),
+          badges = preview |> List.filterMap(badgeOf(theme, lk, screen)),
           sleepers = if (w#screen != World.Screen.Play) Nil else r#enemies |> List.filter(e -> not Enemy.isAwake(e))
               |> List.filterMap(e -> screen(Vec3.add(FloorMesh.cellPoint(e#at), Vec3.v3(0.0, Motion.heightOf(e#kind) + Motion.liftOf(e#kind) + 0.1, 0.0)))),
           numbers = aged |> List.filterMap(numberOf(screen, { stack = lk#popupStack, gap = lk#popupHeadGap }, headOf(r))),
@@ -408,10 +408,11 @@ mod View {
         case _                              => false
     }
 
-    def badgeOf(t: ThemeDoc.Rec, diagonal: Float64, screen: Vec3.Vec3 -> Option[Vec2.Vec2], s: Shown): Option[MarkView.Badge] =
+    def badgeOf(t: ThemeDoc.Rec, lk: LookDoc.Rec, screen: Vec3.Vec3 -> Option[Vec2.Vec2], s: Shown): Option[MarkView.Badge] =
+        let k = lk#badgeScale * (if (isDiagonal(s#input)) lk#diagonalBadgeScale else 1.0);
         screen(Vec3.add(FloorMesh.cellPoint(s#cell), Vec3.v3(0.0, 0.25, 0.0))) |> Option.map(at ->
-            { at = Vec2.add(at, offsetOf(s#input)), glyph = glyphOf(s#act), hurt = s#hurt, color = colorOf(t, s#act),
-              scale = if (isDiagonal(s#input)) diagonal else 1.0 })
+            { at = Vec2.add(at, Vec2.mul(offsetOf(s#input), lk#badgeScale)), glyph = glyphOf(s#act), hurt = s#hurt, color = colorOf(t, s#act),
+              scale = k, alpha = lk#badgeAlpha })
 
     // ── HUD ──
 

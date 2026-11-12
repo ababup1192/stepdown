@@ -683,6 +683,26 @@
       "min": 0.4,
       "max": 1.0,
       "default": 0.78
+    },
+    "badgeScale": {
+      "kind": "field",
+      "type": "float",
+      "label": "方向の予告の大きさの倍",
+      "order": 71,
+      "group": "UI の動き",
+      "min": 0.6,
+      "max": 2.0,
+      "default": 1.35
+    },
+    "badgeAlpha": {
+      "kind": "field",
+      "type": "float",
+      "label": "方向の予告の濃さ（1 = 透けない）",
+      "order": 72,
+      "group": "UI の動き",
+      "min": 0.2,
+      "max": 1.0,
+      "default": 0.72
     }
   }
 }
