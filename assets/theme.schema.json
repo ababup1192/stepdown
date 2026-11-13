@@ -266,6 +266,14 @@
       "group": "予告",
       "required": true
     },
+    "markSummon": {
+      "kind": "field",
+      "type": "color",
+      "label": "ボスが仲間を呼ぶマス",
+      "order": 31,
+      "group": "予告",
+      "required": true
+    },
     "sleep": {
       "kind": "field",
       "type": "color",

@@ -38,6 +38,7 @@ mod ThemeDoc {
     ///   markDanger … 敵の攻撃が届くマス・弓兵の射線・受けるダメージ
     ///   markTrap … 見えている罠の床の印と、罠を踏む向きの予告
     ///   markShield … 盾持ちが防ぐ側（前と左右斜め前）のマスの縁
+    ///   markSummon … ボスが次の手番に仲間を呼ぶマス
     ///   sleep … 眠っている敵の頭の上の z
     ///   popDealt … 与えた数
     ///   popTaken … 受けた数・画面の周りの赤
@@ -91,6 +92,7 @@ mod ThemeDoc {
         markDescend = Color,
         markDanger = Color,
         markTrap = Color,
+        markSummon = Color,
         sleep = Color,
         popDealt = Color,
         popTaken = Color,
@@ -117,7 +119,7 @@ mod ThemeDoc {
 
     /// コード側の既定値（assets/stepdown.theme.json と同じ値から出発する）。
     pub def defaults(): Doc =
-        Doc.Doc({ version = 1, bg = hexOr("#0b0c10"), ink = hexOr("#fff4e0"), shade = hexOr("#000000"), hpEdge = hexOr("#f3d9b0"), hpBack = hexOr("#3a1d1a"), hpTop = hexOr("#ff8f7a"), hpBottom = hexOr("#e24b45"), mapFloor = hexOr("#d8c29a"), mapWater = hexOr("#3fb4d6"), mapStairs = hexOr("#ffffff"), mapHero = hexOr("#ffe08a"), mapEnemy = hexOr("#ff5a4f"), logBack = hexOr("#1c120c"), logEdge = hexOr("#6b4a30"), slotTop = hexOr("#3d2618"), slotBottom = hexOr("#24160e"), tierNone = hexOr("#4a3a2c"), tierWood = hexOr("#8a6040"), tierIron = hexOr("#a7b4c2"), tierSilver = hexOr("#eef2f6"), tierFire = hexOr("#ff7a3a"), badgeFace = hexOr("#fff8e8"), badgeEdge = hexOr("#5a3420"), labelBack = hexOr("#2b1a12"), markMove = hexOr("#e8e0d0"), markStrike = hexOr("#ffd166"), markArrow = hexOr("#7fd4ff"), markBomb = hexOr("#ff9a5c"), markBlocked = hexOr("#8a8478"), markShield = hexOr("#8fc4ff"), markDescend = hexOr("#c9f08a"), markDanger = hexOr("#ff5a4f"), markTrap = hexOr("#b07cff"), sleep = hexOr("#bcd0ff"), popDealt = hexOr("#ffffff"), popTaken = hexOr("#ff4a3d"), popHealed = hexOr("#7dff8a"), popFed = hexOr("#f6c76b"), popBlocked = hexOr("#b4aea2"), popBurned = hexOr("#ff9a2e"), popExp = hexOr("#ffe14a"), popRim = hexOr("#1a0e08"), hpLost = hexOr("#ff3b30"), hpGain = hexOr("#7dff8a"), fullTop = hexOr("#f8d890"), fullBottom = hexOr("#c4843a"), expTop = hexOr("#fff3a0"), expBottom = hexOr("#e0a820"), levelGlow = hexOr("#ffe39a"), cardEdge = hexOr("#caa26a"), cardNew = hexOr("#9fe6ff") })
+        Doc.Doc({ version = 1, bg = hexOr("#0b0c10"), ink = hexOr("#fff4e0"), shade = hexOr("#000000"), hpEdge = hexOr("#f3d9b0"), hpBack = hexOr("#3a1d1a"), hpTop = hexOr("#ff8f7a"), hpBottom = hexOr("#e24b45"), mapFloor = hexOr("#d8c29a"), mapWater = hexOr("#3fb4d6"), mapStairs = hexOr("#ffffff"), mapHero = hexOr("#ffe08a"), mapEnemy = hexOr("#ff5a4f"), logBack = hexOr("#1c120c"), logEdge = hexOr("#6b4a30"), slotTop = hexOr("#3d2618"), slotBottom = hexOr("#24160e"), tierNone = hexOr("#4a3a2c"), tierWood = hexOr("#8a6040"), tierIron = hexOr("#a7b4c2"), tierSilver = hexOr("#eef2f6"), tierFire = hexOr("#ff7a3a"), badgeFace = hexOr("#fff8e8"), badgeEdge = hexOr("#5a3420"), labelBack = hexOr("#2b1a12"), markMove = hexOr("#e8e0d0"), markStrike = hexOr("#ffd166"), markArrow = hexOr("#7fd4ff"), markBomb = hexOr("#ff9a5c"), markBlocked = hexOr("#8a8478"), markShield = hexOr("#8fc4ff"), markDescend = hexOr("#c9f08a"), markDanger = hexOr("#ff5a4f"), markTrap = hexOr("#b07cff"), markSummon = hexOr("#5effc8"), sleep = hexOr("#bcd0ff"), popDealt = hexOr("#ffffff"), popTaken = hexOr("#ff4a3d"), popHealed = hexOr("#7dff8a"), popFed = hexOr("#f6c76b"), popBlocked = hexOr("#b4aea2"), popBurned = hexOr("#ff9a2e"), popExp = hexOr("#ffe14a"), popRim = hexOr("#1a0e08"), hpLost = hexOr("#ff3b30"), hpGain = hexOr("#7dff8a"), fullTop = hexOr("#f8d890"), fullBottom = hexOr("#c4843a"), expTop = hexOr("#fff3a0"), expBottom = hexOr("#e0a820"), levelGlow = hexOr("#ffe39a"), cardEdge = hexOr("#caa26a"), cardNew = hexOr("#9fe6ff") })
 
     /// 既定の色を #rrggbb で書くための近道（書き損じはマゼンタで目に見せる）。
     def hexOr(text: String): Color =
@@ -162,7 +164,7 @@ mod ThemeDoc {
                   markBlocked = color("markBlocked", d#markBlocked),
                   markShield = color("markShield", d#markShield),
                   markDescend = color("markDescend", d#markDescend),
-                  markDanger = color("markDanger", d#markDanger), markTrap = color("markTrap", d#markTrap),
+                  markDanger = color("markDanger", d#markDanger), markTrap = color("markTrap", d#markTrap), markSummon = color("markSummon", d#markSummon),
                   sleep = color("sleep", d#sleep),
                   popDealt = color("popDealt", d#popDealt),
                   popTaken = color("popTaken", d#popTaken),

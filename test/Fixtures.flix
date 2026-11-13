@@ -105,7 +105,7 @@ mod Fixtures {
          "#.P.^...r..>#" ::
          "#############" :: Nil) :: Nil
 
-    /// seed から乱数で組んだ局面: 盤・主人公の位置と HP・持ち物・1〜5 体の敵（種類・位置・眠り方・HP・燃える手・向き・起きた敵の半分ほどは溜め。ボスは 2×2 の体が収まる所だけ）・0〜3 個の毒矢か警報の罠を足す。
+    /// seed から乱数で組んだ局面: 盤・主人公の位置と HP・持ち物・1〜5 体の敵（種類・位置・眠り方・HP・燃える手・向き・起きた敵の半分ほどは溜め。ボスは 2×2 の体が収まる所だけで、半分ほどは仲間を呼ぶ予告を持つ）・0〜3 個の毒矢か警報の罠を足す。
     /// 地図の字の罠もそのまま残し、罠は乱数で半分ほどを見えている罠にする。
     pub def randomCase(seed: Int64): (Run.Ctx, Run.State) =
         let boards = randomBoards();
@@ -153,7 +153,8 @@ mod Fixtures {
         let traps = trapCells |> List.zipWithIndex |> List.foldLeft((m, e) -> Map.insert(snd(e), if (Int32.modulo(fst(e) + packAt, 2) == 0) Trap.Kind.PoisonDart else Trap.Kind.Alarm, m), b#traps);
         let (shown, r9) = Rng.pick(Map.size(traps) / 2, Map.keysOf(traps) |> Set.toList, r8);
         let r = Run.rec(Run.start(c, { floor = 1, layout = 0, seed = seed, rng = r9 }, { enemies = Nil, items = Nil, traps = traps }));
-        let enemies = List.reverse(foes);
+        let placed = List.reverse(foes);
+        let enemies = placed |> List.map(e -> if (Enemy.isBoss(e#kind)) { away = e#turns, summonAt = if (Int32.modulo(e#turns, 2) == 1) Run.summonCell(c, heroAt, placed, e) else None | e } else e);
         (c, Run.of({ hero = { at = heroAt, hp = 1 + hpLeft | r#hero }, pack = List.nth(packAt, packs) |> Option.getWithDefault(Nil),
                      enemies = enemies, nextId = List.length(enemies), revealed = List.toSet(shown), seen = Board.viewFrom(heroAt, b) | r }))
 

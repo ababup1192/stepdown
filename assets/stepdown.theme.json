@@ -35,6 +35,7 @@
   "markDescend": "#c9f08a",
   "markDanger": "#ff5a4f",
   "markTrap": "#b07cff",
+  "markSummon": "#5effc8",
   "sleep": "#bcd0ff",
   "popDealt": "#ffffff",
   "popTaken": "#ff4a3d",

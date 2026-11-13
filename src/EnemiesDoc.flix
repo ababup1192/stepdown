@@ -9,8 +9,10 @@ mod EnemiesDoc {
     /// （drops は同じ種類を並べるほど出やすい）。chargeMin..chargeMax は突進が溜める距離（走るのは chargeMax + 1 マスまで。突進でない敵は 0）、
     /// blastDamage は自爆虫が弾けた時に周りへ与えるダメージ（盾は効かない。自爆虫でない敵は 0）。
     /// slamDamage・sweepDamage はボスの叩きつけ・帯のダメージ（盾は効かない）、cooldownMin..cooldownMax はボスが大技を当ててから次を溜めるまでの手の数（乱数。ボスでない敵は 0）。
+    /// summonEvery はボスが仲間を呼ぶまでの、主人公が体の隣にいない手番が続いた数（0 なら呼ばない）、summonMax は呼んだ仲間が同時に生きていられる数、summonKind は呼ぶ敵の種類。
     pub type alias Stats = { name = String, hp = Int32, attack = Int32, exp = Int32, dropChance = Float64, drops = List[Item.Kind], chargeMin = Int32, chargeMax = Int32, blastDamage = Int32,
-                             slamDamage = Int32, sweepDamage = Int32, cooldownMin = Int32, cooldownMax = Int32 }
+                             slamDamage = Int32, sweepDamage = Int32, cooldownMin = Int32, cooldownMax = Int32,
+                             summonEvery = Int32, summonMax = Int32, summonKind = Enemy.Kind }
 
     pub type alias Rec = { version = Int32, stats = Map[Enemy.Kind, Stats] }
 
@@ -36,12 +38,14 @@ mod EnemiesDoc {
                                      drops = Item.Kind.Bread :: Item.Kind.Herb :: Nil, chargeMin = 2, chargeMax = 5 | plain() }
         case Enemy.Kind.Bomber => { name = "自爆虫", hp = 4, attack = 0, exp = 5, dropChance = 0.25,
                                     drops = Item.Kind.Smoke :: Item.Kind.Bread :: Nil, blastDamage = 6 | plain() }
-        case Enemy.Kind.Boss   => { name = "ゴーレム", hp = 40, attack = 3, exp = 30, slamDamage = 10, sweepDamage = 8, cooldownMin = 2, cooldownMax = 3 | plain() }
+        case Enemy.Kind.Boss   => { name = "ゴーレム", hp = 40, attack = 5, exp = 30, slamDamage = 10, sweepDamage = 8, cooldownMin = 2, cooldownMax = 3,
+                                    summonEvery = 5, summonMax = 3 | plain() }
     }
 
     /// 使わない欄を 0 にした強さ（種類ごとの既定はこれに欄を書き足す）。
     def plain(): Stats = { name = "", hp = 1, attack = 0, exp = 0, dropChance = 0.0, drops = Nil, chargeMin = 0, chargeMax = 0, blastDamage = 0,
-                         slamDamage = 0, sweepDamage = 0, cooldownMin = 0, cooldownMax = 0 }
+                         slamDamage = 0, sweepDamage = 0, cooldownMin = 0, cooldownMax = 0,
+                         summonEvery = 0, summonMax = 0, summonKind = Enemy.Kind.Swarm }
 
     pub def defaults(): Doc =
         Doc.Doc({ version = 1, stats = Enemy.all() |> List.map(kind -> (kind, defaultStats(kind))) |> List.toMap })
@@ -68,7 +72,9 @@ mod EnemiesDoc {
           chargeMin = JsonCodec.intOr("chargeMin", d#chargeMin, obj), chargeMax = JsonCodec.intOr("chargeMax", d#chargeMax, obj),
           blastDamage = JsonCodec.intOr("blastDamage", d#blastDamage, obj),
           slamDamage = JsonCodec.intOr("slamDamage", d#slamDamage, obj), sweepDamage = JsonCodec.intOr("sweepDamage", d#sweepDamage, obj),
-          cooldownMin = JsonCodec.intOr("cooldownMin", d#cooldownMin, obj), cooldownMax = JsonCodec.intOr("cooldownMax", d#cooldownMax, obj) }
+          cooldownMin = JsonCodec.intOr("cooldownMin", d#cooldownMin, obj), cooldownMax = JsonCodec.intOr("cooldownMax", d#cooldownMax, obj),
+          summonEvery = JsonCodec.intOr("summonEvery", d#summonEvery, obj), summonMax = JsonCodec.intOr("summonMax", d#summonMax, obj),
+          summonKind = Map.get("summonKind", obj) |> Option.flatMap(JsonCodec.expectString) |> Option.flatMap(Enemy.fromName) |> Option.getWithDefault(d#summonKind) }
 
     pub def load(p: String): Doc \ Fs.FileRead =
         DocJson.loadOr(fromJson, defaults(), p)

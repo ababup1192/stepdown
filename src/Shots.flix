@@ -9,7 +9,7 @@ mod Shots {
     /// 場面の題と一言（Studio のギャラリーに出るラベル）は assets/stepdown.scenes.json 側で、name をここの名前とそろえる。
     /// 場面を足したら、ここと sceneOf と Makefile の SHOTS を一緒に足す。
     pub def names(): List[String] =
-        "title" :: "play" :: "dead" :: "clear" :: "quit" :: "arrow" :: "bomb" :: "dirs" :: "popups" :: "swap" :: "levelup_mid" :: "levelup" :: "chosen" :: "use_tilt" :: "use_potion" :: "use_meat" :: "smoke_fly" :: "smoke_puff" :: "pebble" :: "floor2" :: "floor3" :: "thunder" :: "guard" :: "alarm" :: "floor4" :: "charge" :: "blast" :: "doll" :: "floor5" :: "boss_windup" :: "boss_slam" :: "boss_sweep" :: "boss_down" :: Nil
+        "title" :: "play" :: "dead" :: "clear" :: "quit" :: "arrow" :: "bomb" :: "dirs" :: "popups" :: "swap" :: "levelup_mid" :: "levelup" :: "chosen" :: "use_tilt" :: "use_potion" :: "use_meat" :: "smoke_fly" :: "smoke_puff" :: "pebble" :: "floor2" :: "floor3" :: "thunder" :: "guard" :: "alarm" :: "floor4" :: "charge" :: "blast" :: "doll" :: "floor5" :: "boss_windup" :: "boss_slam" :: "boss_sweep" :: "boss_down" :: "boss_summon" :: Nil
 
     /// 名前 → 周回の種を固定した初めの World から組んだ場面の World（1 手を見せ終えた所。途中の場面はその秒の所）。
     pub def worldOf(name: String, res: Res.Res): Option[World.World] =
@@ -114,6 +114,9 @@ mod Shots {
             case "boss_down" => Some(turnAt(res, Run.Input.Move(Board.Dir8.Right), lk#strikeSeconds * (1.0 + 6.0 * 0.5),
                 withRec(res, r -> { enemies = r#enemies |> List.map(e -> { hp = 2, cooldown = 3 | e }) | r },
                     staged(res, (7, 21), Nil, (Enemy.Kind.Boss, (8, 21)) :: Nil, fifthFloor(res, World.begin(res, w0))))))
+            // 離れて逃げ回る主人公へ、ボスが次の手番に仲間を呼ぶマスへ印を出した所（前に呼んだ群れが 1 体寄ってくる）。
+            case "boss_summon" => Some(World.snapCam(summonMarked(res, withRec(res, r -> { enemies = r#enemies |> List.map(e -> { summoned = not Enemy.isBoss(e#kind) | e }) | r },
+                staged(res, (7, 18), Nil, (Enemy.Kind.Boss, (8, 21)) :: (Enemy.Kind.Swarm, (4, 19)) :: Nil, fifthFloor(res, World.begin(res, w0)))))))
             case _       => sceneOf(name, res, w0) |> Option.map(w -> World.snapCam(World.skipShow(w)))
         }
 
@@ -137,6 +140,13 @@ mod Shots {
     def windups(res: Res.Res, intents: List[(Int32, Enemy.Intent)], w: World.World): World.World =
         let byId = List.toMap(intents);
         withRec(res, r -> { enemies = r#enemies |> List.map(e -> { intent = Map.getWithDefault(e#id, e#intent, byId) | e }) | r }, w)
+
+    /// ボスに、次の手番に仲間を呼ぶ予告のマス（Run.summonCell）を持たせる。
+    def summonMarked(res: Res.Res, w: World.World): World.World =
+        let ctx = World.ctx(res, w);
+        let hero = Run.heroOf(w#runState)#at;
+        withRec(res, r -> { enemies = r#enemies |> List.map(e ->
+            if (Enemy.isBoss(e#kind)) { summonAt = Run.summonCell(ctx, hero, r#enemies, e), away = 4 | e } else e) | r }, w)
 
     /// 敵を全員、階の始めの眠りにする。
     def sleeping(res: Res.Res, w: World.World): World.World =

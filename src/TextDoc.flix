@@ -46,6 +46,8 @@ mod TextDoc {
         case Exploded
         case Fused
         case Braced
+        case SummonReady
+        case Summoned
         case FloorLabel
     }
 
@@ -62,7 +64,7 @@ mod TextDoc {
         Line.Upgraded :: Line.Stacked :: Line.Discarded :: Line.Struck :: Line.Shot :: Line.Bombed ::
         Line.Defeated :: Line.Woke :: Line.Approached :: Line.Hurt :: Line.Deflected :: Line.Drank ::
         Line.Descended :: Line.Blocked ::
-        Line.Ate :: Line.Starved :: Line.Guarded :: Line.Swapped :: Line.LevelUp :: Line.Dropped :: Line.Burning :: Line.Slammed :: Line.Darted :: Line.EnemyDarted :: Line.Thundered :: Line.ShieldBlocked :: Line.Alarmed :: Line.CoinFound :: Line.EnemyFell :: Line.Pitfall :: Line.DollBroke :: Line.Exploded :: Line.Fused :: Line.Braced ::
+        Line.Ate :: Line.Starved :: Line.Guarded :: Line.Swapped :: Line.LevelUp :: Line.Dropped :: Line.Burning :: Line.Slammed :: Line.Darted :: Line.EnemyDarted :: Line.Thundered :: Line.ShieldBlocked :: Line.Alarmed :: Line.CoinFound :: Line.EnemyFell :: Line.Pitfall :: Line.DollBroke :: Line.Exploded :: Line.Fused :: Line.Braced :: Line.SummonReady :: Line.Summoned ::
         Line.FloorLabel :: Nil
 
     /// Doc のキー。
@@ -107,6 +109,8 @@ mod TextDoc {
         case Line.Exploded => "exploded"
         case Line.Fused => "fused"
         case Line.Braced => "braced"
+        case Line.SummonReady => "summonReady"
+        case Line.Summoned => "summoned"
         case Line.FloorLabel => "floorLabel"
     }
 
@@ -152,6 +156,8 @@ mod TextDoc {
         case Line.Exploded => "{enemy}が はじけた！"
         case Line.Fused => "{enemy}の 導火線に 火が ついた！"
         case Line.Braced => "{enemy}が 身がまえた！"
+        case Line.SummonReady => "{enemy}が なかまを よぼうとしている！"
+        case Line.Summoned => "{enemy}が なかまを よんだ！"
         case Line.FloorLabel => "{n}F"
     }
 

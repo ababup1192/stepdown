@@ -13,11 +13,12 @@ mod Starts {
     /// WhyNot: 1F から 4F を flow で歩かせる — 手順が長く、Doc を少し直すだけで 5F に着く前に崩れる。
     def fifthFloor(res: Res.Res, w: World.World): World.World =
         let playing = World.begin(res, w);
-        let r = Run.rec(playing#runState);
-        let seasoned = Run.of({
-            hero = { hp = 30, maxHp = 30, sword = Some(Item.Kind.IronSword), shield = Some(Item.Kind.IronShield) | r#hero },
-            pack = Run.Held.Held(Item.Kind.IronArrow, 8) :: Run.Held.Held(Item.Kind.SmallBomb, 4) :: Run.Held.Held(Item.Kind.Tonic, 1) :: Nil,
-            perks = Run.Perk.MaxHp :: Run.Perk.Attack :: Run.Perk.LoneBomb :: Run.Perk.MaxHp :: Run.Perk.Attack :: Run.Perk.Feast :: Nil,
-            level = 7, exp = 4, fullness = 70, coins = 9 | r });
-        World.withState(res, Floor.enter(Res.floorDocs(res), res#layouts, seasoned, 5), playing)
+        World.withState(res, Floor.enter(Res.floorDocs(res), res#layouts, Run.of(seasoned(Run.rec(playing#runState))), 5), playing)
+
+    /// 4F まで潜ってきた人の HP・剣と盾・持ち物・カード・レベル（5F の始まりと、ボットを 5F から遊ばせる時が同じ物を使う）。
+    pub def seasoned(r: Run.Rec): Run.Rec =
+        { hero = { hp = 30, maxHp = 30, sword = Some(Item.Kind.IronSword), shield = Some(Item.Kind.IronShield) | r#hero },
+          pack = Run.Held.Held(Item.Kind.IronArrow, 8) :: Run.Held.Held(Item.Kind.SmallBomb, 4) :: Run.Held.Held(Item.Kind.Tonic, 1) :: Nil,
+          perks = Run.Perk.MaxHp :: Run.Perk.Attack :: Run.Perk.LoneBomb :: Run.Perk.MaxHp :: Run.Perk.Attack :: Run.Perk.Feast :: Nil,
+          level = 7, exp = 4, fullness = 70, coins = 9 | r }
 }

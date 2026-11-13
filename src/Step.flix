@@ -7,6 +7,7 @@
 //      → 煙玉（隣の起きた敵が bombNeeds 以上か、1 体以上で HP が smokeAt 以下）。
 //   拾う: 枠は slotCount まで。埋まっていて 4 種類目なら床に残して捨てるカード（pending）を積む。手は最後まで進め、Choose で答える。
 //   3. 気付いた敵が起きる → 敵の手番（主人公への歩く距離の近い順 → 作った順）。受けるたびに薬・倒れるを見る。
+//      ボスは主人公が体の隣にいない手番を数え、summonEvery に届く 1 手前に床の印を出し、次の溜めていない手番にその印のマスへ仲間を呼ぶ（呼ばれた敵はその手番には動かない）。
 //   4. 移動した手だけ数え、regenEvery ごとに HP +1（満腹度 0 の手は飛ばす）。
 //   5. 手が進んだ数を数え、hungerEvery ごとに満腹度 -1。満腹度 0 なら HP が減る（薬 → 倒れるを見る）。
 //   食べ物は持たず、止まったマス（待つも含む）で食べる。満腹度が最大の時は食べずに床に残す。
@@ -529,9 +530,9 @@ mod Step {
     def act(ctx: Ctx, dist: Map[Cell, Int32], e: Enemy.Enemy, t: Turn): Turn =
         let blockers = blockersFor(e, t);
         match e#intent {
+            case _ if Enemy.isBoss(e#kind) => bossAct(ctx, dist, blockers, e, t)
             case Enemy.Intent.Charge(dir) => charge(ctx, blockers, e, dir, t)
             case Enemy.Intent.Fuse        => explode(ctx, e, t)
-            case Enemy.Intent.Idle if Enemy.isBoss(e#kind) => bossTurn(ctx, dist, blockers, e, t)
             case Enemy.Intent.Idle        =>
                 Run.attackOn(ctx, blockers, e, t#runState#hero#at)
                     |> Option.map(attack -> attackHero(ctx, e, attack, t))
@@ -540,8 +541,17 @@ mod Step {
             case _                        => smash(ctx, e, t)
         }
 
-    /// ボスの溜めていない手番: cooldown が尽きていれば大技を溜め、そうでなければ cooldown を 1 減らして、殴れる隣なら殴り、届かなければ寄る。
+    /// ボスの手番: 主人公が体の隣にいない手番を数え（隣にいれば 0 に戻し、仲間を呼ぶ予告も消す）、溜めていれば大技を当て、溜めていなければ bossTurn。
+    /// WhyNot: 隣にいない手番を合計で数える — 殴り合いの合間に 1 歩引いただけでも溜まり、殴りに行く人にも湧く。
+    def bossAct(ctx: Ctx, dist: Map[Cell, Int32], blockers: Set[Cell], e: Enemy.Enemy, t: Turn): Turn =
+        let tallied = if (isBeside(ctx, e, t#runState#hero#at)) { away = 0, summonAt = None | e } else { away = e#away + 1 | e };
+        let counted = setEnemy(tallied, t);
+        if (tallied#intent == Enemy.Intent.Idle) bossTurn(ctx, dist, blockers, tallied, counted) else smash(ctx, tallied, counted)
+
+    /// ボスの溜めていない手番: cooldown が尽きていれば大技を溜め、そうでなければ cooldown を 1 減らして、仲間を呼ぶ予告があれば呼び（その手番は動かない）、
+    /// 無ければ殴れる隣なら殴り、届かなければ寄って、次の手番に呼べそうなら予告を出す。
     /// 大技は、HP が半分を切っていれば叩きつけと帯を重ね、そうでなければ主人公が体の周り 12 マスにいれば叩きつけ、いなければ帯。
+    /// WhyNot: 大技の溜め・当てる手番にも呼ぶ — 床に赤と呼ぶ印が同時に出て、どちらをよけるか読めない。予告は残して次の溜めていない手番へ持ち越す。
     def bossTurn(ctx: Ctx, dist: Map[Cell, Int32], blockers: Set[Cell], e: Enemy.Enemy, t: Turn): Turn =
         let heroAt = t#runState#hero#at;
         let top = Enemy.bandTop(e, heroAt);
@@ -552,9 +562,43 @@ mod Step {
         } else {
             let rested = { cooldown = e#cooldown - 1 | e };
             let counted = setEnemy(rested, t);
-            Run.attackOn(ctx, blockers, rested, heroAt) |> Option.map(attack -> attackHero(ctx, rested, attack, counted))
-                |> Option.getWithDefault(chase(ctx, dist, rested, counted))
+            let spawned = rested#summonAt |> Option.flatMap(cell -> summon(ctx, rested, cell, counted));
+            match spawned {
+                case Some(done) => done
+                case None       =>
+                    let plain = { summonAt = None | rested };
+                    Run.attackOn(ctx, blockers, plain, heroAt) |> Option.map(attack -> attackHero(ctx, plain, attack, setEnemy(plain, counted)))
+                        |> Option.getWithDefault(chase(ctx, dist, plain, setEnemy(plain, counted)))
+                        |> markSummon(ctx, e#id)
+            }
         }
+
+    /// ボスが予告したマス cell に仲間（summonKind）を 1 体呼ぶ（呼んだ敵は起きていて、この手番には動かない）。数え直しは 0 から。
+    /// 呼べない（マスに敵がいる・呼んだ仲間が summonMax 体いる）なら None（その手番は普段どおり殴るか寄り、予告を出し直す）。
+    /// WhyNot: 塞がれた時に別の空きマスへ呼ぶ — 印の無いマスに湧き、床の予告を読む意味が消える。
+    def summon(ctx: Ctx, boss: Enemy.Enemy, cell: Cell, t: Turn): Option[Turn] =
+        let r = t#runState;
+        let stats = EnemiesDoc.statsOf(boss#kind, ctx#enemies);
+        let kind = stats#summonKind;
+        let foe = { rest = Enemy.Rest.Awake, summoned = true | Enemy.make(r#nextId, kind, cell, EnemiesDoc.statsOf(kind, ctx#enemies)#hp) };
+        let fits = Run.canSummonAt(ctx, r#hero#at, r#enemies, boss, cell) and Run.summonedAlive(r#enemies) < stats#summonMax;
+        if (not fits) None
+        else Some(t |> setEnemy({ away = 0, summonAt = None | boss })
+                    |> (acc -> withRun({ enemies = acc#runState#enemies ::: (foe :: Nil), nextId = r#nextId + 1 | acc#runState }, acc))
+                    |> emit(Event.EnemySummoned(boss#id, foe#id, kind, cell)))
+
+    /// 次の手番に隣にいない手番の数が summonEvery に届き、呼んだ仲間が summonMax 体より少なく、主人公が今は隣にいなければ、
+    /// 呼ぶマス（Run.summonCell）を予告する。
+    def markSummon(ctx: Ctx, id: Int32, t: Turn): Turn =
+        let r = t#runState;
+        let ready = (boss: Enemy.Enemy) -> {
+            let stats = EnemiesDoc.statsOf(boss#kind, ctx#enemies);
+            r#status == Status.Playing and stats#summonEvery > 0 and boss#away + 1 >= stats#summonEvery and Enemy.sizeOf(stats#summonKind) == 1
+                and Run.summonedAlive(r#enemies) < stats#summonMax and not isBeside(ctx, boss, r#hero#at)
+        };
+        enemyOf(id, t) |> Option.filter(ready)
+            |> Option.flatMap(boss -> Run.summonCell(ctx, r#hero#at, r#enemies, boss) |> Option.map(cell -> t |> setEnemy({ summonAt = Some(cell) | boss }) |> emit(Event.SummonMarked(id, cell))))
+            |> Option.getWithDefault(t)
 
     /// ボスの溜めた大技を当てる（溜めは消え、次を溜めるまでの cooldown を cooldownMin..cooldownMax から乱数で引く）。
     /// 叩きつけと帯を重ねた手でも、主人公に当たるのは 1 回（体の周りなら叩きつけ）。

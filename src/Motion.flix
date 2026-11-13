@@ -255,10 +255,18 @@ mod Motion {
         if (not isActive(p)) 0.0
         else Curve.pieces((0.0, 0.0) :: (0.4, 0.7) :: (0.5, 0.0) :: (1.0, 0.0) :: Nil, p)
 
+    /// 呼ばれた敵の出てくる大きさの割合: 呼ばれた手の Summon の進みで、土煙が上がってから弾んで出る（ほかの敵はいつも 1）。
+    def riseOf(turn: Turn, id: Int32): Float64 =
+        turn#events |> List.findMap(ie -> match ie {
+            case (i, Event.EnemySummoned(_, foe, _, _)) if foe == id => Some(Curve.pieces((0.0, 0.0) :: (0.3, 0.0) :: (0.7, 1.15) :: (1.0, 1.0) :: Nil, progressOf(turn, i, Beat.Summon)))
+            case _ => None
+        }) |> Option.getWithDefault(1.0)
+
     def enemyFigure(turn: Turn, t: Float64, heroAt: Vec3.Vec3, moves: List[(Int32, Cell, Cell)], hit: Option[Hit], e: Enemy.Enemy): Option[SceneView.Figure] =
         let h = hit |> Option.getWithDefault({ flash = noFlash(), dying = None, lunge = 0.0 });
         let dying = h#dying |> Option.getWithDefault(0.0);
-        if (dying >= 1.0) None
+        let rise = riseOf(turn, e#id);
+        if (dying >= 1.0 or rise <= 0.0) None
         else {
             let base = Vec3.add(walkingPoint(turn, moves) |> Option.getWithDefault(settledPoint(moves, e)), bodyOffset(e));
             let lunge = Vec3.mul(toward(base, heroAt), 0.3 * h#lunge);
@@ -267,7 +275,7 @@ mod Motion {
             let bob = if (Enemy.isFlying(e#kind)) 0.08 * Num.sin(t * 3.3 + Int32.toFloat64(e#id)) else 0.0;
             let boss = Enemy.isBoss(e#kind);
             // WhyNot: ボスを縮めて消す — 大きい絵がしぼむと岩の巨体に見えない。震えながら床へ沈め、土煙で隠す。
-            let scale = if (boss) 1.0 - 0.25 * dying else 1.0 - dying;
+            let scale = (if (boss) 1.0 - 0.25 * dying else 1.0 - dying) * rise;
             let sway = if (boss) bossSway(turn, t, e, dying) else Vec3.zero();
             Some({ picture = if (e#kind == Enemy.Kind.Shield) Art.shieldBearer(e#facing) else Art.figure(figureOf(e#kind)),
                    at = Vec3.add(Vec3.add(Vec3.add(base, lunge), sway), Vec3.v3(h#flash#shake, (liftOf(e#kind) + bob) * scale, 0.0)),
@@ -418,6 +426,7 @@ mod Motion {
             case (i, Event.EnemySlammed(id))     => Map.get(id, bosses) |> Option.map(e -> slamDust(centerPoint(e), progressOf(turn, i, Beat.Slam))) |> Option.getWithDefault(Nil)
             case (i, Event.EnemySwept(id, top))  => Map.get(id, bosses) |> Option.map(e -> sweepLight(turn#board, e, top, progressOf(turn, i, Beat.Sweep))) |> Option.getWithDefault(Nil)
             case (i, Event.EnemyDied(id, Enemy.Kind.Boss, _)) => Map.get(id, bosses) |> Option.map(e -> fallDust(centerPoint(e), progressOf(turn, i, Beat.Die))) |> Option.getWithDefault(Nil)
+            case (i, Event.EnemySummoned(_, _, _, cell)) => summonDust(point(cell), progressOf(turn, i, Beat.Summon))
             case _ => Nil
         });
         charging ::: fromEvents
@@ -452,6 +461,20 @@ mod Motion {
                 else Some({ at = Vec3.add(point(c), up(0.35)), radius = 0.55 + 0.1 * behind, color = Color.rgb(1.0, 0.35, 0.12),
                             alpha = 0.85 * (1.0 - behind / 3.0), glow = true })
             })
+        }
+
+    /// 仲間を呼ぶ: 印のマスに淡い閃きと、小さな土煙の輪（6 つの円）が上がって薄れる（叩きつけの土煙を 1 マスの大きさにした物）。
+    def summonDust(center: Vec3.Vec3, p: Float64): List[SceneView.Burst] =
+        if (not isActive(p)) Nil
+        else {
+            let flash = { at = Vec3.add(center, up(0.35)), radius = 0.3 + 0.6 * p, color = Color.rgb(0.75, 1.0, 0.85), alpha = 0.8 * (1.0 - p) * (1.0 - p), glow = true };
+            let ring = List.range(0, 6) |> List.map(k -> {
+                let a = Int32.toFloat64(k) * Num.tau() / 6.0 + 0.4;
+                let reach = 0.25 + 0.45 * p;
+                { at = Vec3.add(center, Vec3.v3(reach * Num.cos(a), 0.15 + 0.45 * p, reach * Num.sin(a))), radius = 0.18 + 0.22 * p,
+                  color = Color.rgb(0.45, 0.4, 0.36), alpha = 0.85 * (1.0 - p * p), glow = false }
+            });
+            flash :: ring
         }
 
     /// ボスが倒れる: 体のまわりに土煙が 3 度に分けて上がり、広がって薄れる。

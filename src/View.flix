@@ -70,7 +70,7 @@ mod View {
         { time = time, camera = shaken(turn, World.cameraOf(res, w)), look = lk, floor = Res.floorAt(res, r#floor, r#layout),
           flame = Kit.itemOf("FLAME", res#kit), textures = res#kit#textures,
           hand = FloorMesh.cellPoint(r#hero#at), figures = pose#figures, bursts = pose#bursts,
-          marks = trapMarks(theme, r) ::: (if (foresight) preview |> List.flatMap(markOf(theme)) ::: dangerMarks(theme, r#hero#at, w#foresight#danger) ::: shieldMarks(theme, r) else Nil),
+          marks = trapMarks(theme, r) ::: (if (foresight) preview |> List.flatMap(markOf(theme)) ::: dangerMarks(theme, r#hero#at, w#foresight#danger) ::: shieldMarks(theme, r) ::: summonMarks(theme, r) else Nil),
           lanes = if (foresight) w#foresight#lanes |> List.map(laneOf(theme)) else Nil }
 
     /// 画面の揺れ（ボスの叩きつけ・倒れる）の分だけ目をずらしたカメラ（場面と、場面の上の印が同じ物を使う）。
@@ -436,6 +436,12 @@ mod View {
             { at = FloorMesh.cellPoint(c), color = t#markDanger, stroke = SceneView.Stroke.Fill } :: { at = FloorMesh.cellPoint(c), color = t#markDanger, stroke = SceneView.Stroke.Dashed } :: Nil);
         if (Set.memberOf(hero, danger)) { at = FloorMesh.cellPoint(hero), color = t#markDanger, stroke = SceneView.Stroke.Frame } :: fills else fills
 
+    /// ボスが次の手番に仲間を呼ぶマス（Run.summonMarks）: 呼ぶ色で薄く塗ってふちを引く。
+    /// WhyNot: 敵の予告と同じ破線にする — 体の隣のマスは赤の破線と重なり、どちらの印か読めない。
+    def summonMarks(t: ThemeDoc.Rec, r: Run.Rec): List[SceneView.Mark] =
+        Run.summonMarks(r#enemies) |> List.flatMap(c ->
+            { at = FloorMesh.cellPoint(c), color = t#markSummon, stroke = SceneView.Stroke.Fill } :: { at = FloorMesh.cellPoint(c), color = t#markSummon, stroke = SceneView.Stroke.Frame } :: Nil)
+
     /// 盾持ちが防ぐ側: 足もとから向き facing の側へ、前と左右斜め前（Enemy.guards の 3 方向）にかかる弧を盾の色で描く。
     /// マスのふちを縁取るだけでは、奥を向いた時に体の板に隠れて前がどちらか読めなかった。
     def shieldMarks(t: ThemeDoc.Rec, r: Run.Rec): List[SceneView.Mark] =
@@ -597,6 +603,8 @@ mod View {
             case Run.Event.EnemyWindup(id, Enemy.Intent.Fuse) => say(TextDoc.Line.Fused, enemy(id) :: Nil)
             case Run.Event.EnemyWindup(id, _)   => say(TextDoc.Line.Braced, enemy(id) :: Nil)
             case Run.Event.EnemyExploded(id, _) => say(TextDoc.Line.Exploded, enemy(id) :: Nil)
+            case Run.Event.SummonMarked(id, _)  => say(TextDoc.Line.SummonReady, enemy(id) :: Nil)
+            case Run.Event.EnemySummoned(id, _, _, _) => say(TextDoc.Line.Summoned, enemy(id) :: Nil)
             case Run.Event.HeroHurt(_, 0, _)    => say(TextDoc.Line.Guarded, Nil)
             case Run.Event.HeroHurt(source, n, _) => Run.attackerOf(source) |> Option.flatMap(id -> say(TextDoc.Line.Hurt, enemy(id) :: ("n", "${n}") :: Nil))
             case Run.Event.Ate(kind, n)         => say(TextDoc.Line.Ate, item(kind) :: ("n", "${n}") :: Nil)

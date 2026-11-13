@@ -195,6 +195,10 @@ mod Run {
         case EnemySlammed(Int32)
         /// ボスが帯をなぎ払った（敵の id・帯の上の行）。帯に主人公がいれば続く HeroHurt。
         case EnemySwept(Int32, Int32)
+        /// ボスが次の手番に仲間を呼ぶマスを決めた（ボスの id・マス）。床に印が出る。
+        case SummonMarked(Int32, Cell)
+        /// ボスが仲間を呼んだ（ボスの id・呼んだ敵の id・種類・マス）。呼んだ敵は起きていて、その手番には動かない。
+        case EnemySummoned(Int32, Int32, Enemy.Kind, Cell)
         /// HP が 0 以下になった主人公の身代わりに人形が砕け、HP がこの値になった（倒れない）。
         case DollSaved(Int32)
         /// 主人公が落とし穴から次の階へ落ちた（その手はここで終わる。最後の階なら Cleared）。
@@ -437,6 +441,28 @@ mod Run {
     pub def isBeside(ctx: Ctx, e: Enemy.Enemy, cell: Cell): Bool =
         Enemy.cellsOf(e) |> Set.exists(c -> c != cell and Board.isStepOpen(c, cell, ctx#board))
 
+    /// boss が仲間を cell へ呼べるか: 体の殴れる隣（isBeside）の歩けるマスで、主人公もほかの敵もいない。
+    /// 呼ぶ予告のマスを選ぶ時（summonCell）と、次の手番に本当に呼ぶ時（Step）はどちらもこれを見る。
+    pub def canSummonAt(ctx: Ctx, heroAt: Cell, enemies: List[Enemy.Enemy], boss: Enemy.Enemy, cell: Cell): Bool =
+        isBeside(ctx, boss, cell) and Board.isWalkable(cell, ctx#board) and cell != heroAt and not Map.memberOf(cell, occupancy(enemies))
+
+    /// boss が仲間を呼ぶマス: 呼べるマス（canSummonAt）のうち、主人公からの歩く距離が近い順 → 読む順（上の行から）。無ければ None。
+    pub def summonCell(ctx: Ctx, heroAt: Cell, enemies: List[Enemy.Enemy], boss: Enemy.Enemy): Option[Cell] =
+        let dist = Board.walkDistances(heroAt, ctx#board);
+        let (x, y) = boss#at;
+        List.range(y - 1, y + boss#size + 1) |> List.flatMap(cy -> List.range(x - 1, x + boss#size + 1) |> List.map(cx -> (cx, cy)))
+            |> List.filter(canSummonAt(ctx, heroAt, enemies, boss))
+            |> List.map(c -> (Map.getWithDefault(c, Int32.maxValue(), dist), snd(c), fst(c)))
+            |> List.minimum
+            |> Option.map(match (_, cy, cx) -> (cx, cy))
+
+    /// ボスに呼ばれて生きている敵の数。
+    pub def summonedAlive(enemies: List[Enemy.Enemy]): Int32 = enemies |> List.count(e -> e#summoned)
+
+    /// 仲間を呼ぶ予告のマス（起きたボスの summonAt）。見せる側が床に印を出す。
+    pub def summonMarks(enemies: List[Enemy.Enemy]): List[Cell] =
+        enemies |> List.filter(Enemy.isAwake) |> List.filterMap(e -> e#summonAt)
+
     /// 起きていて主人公に気付ける敵がいるか（ダッシュが止まる・1 歩だけになる）。
     pub def seesAwakeEnemy(ctx: Ctx, runState: State): Bool =
         let r = rec(runState);
@@ -446,6 +472,6 @@ mod Run {
     /// 進行に効く欄の指紋（記録の再生・flow が比べる）。
     pub def fingerprint(runState: State): String =
         let r = rec(runState);
-        let enemies = r#enemies |> List.map(e -> "${e#id}:${e#kind}@${e#at}/${e#hp}/${e#rest}/t${e#turns}/b${e#burn}/${e#facing}/${e#intent}/c${e#cooldown}") |> List.join(",");
+        let enemies = r#enemies |> List.map(e -> "${e#id}:${e#kind}@${e#at}/${e#hp}/${e#rest}/t${e#turns}/b${e#burn}/${e#facing}/${e#intent}/c${e#cooldown}/a${e#away}/s${e#summonAt}/${e#summoned}") |> List.join(",");
         "F${r#floor}.${r#layout}|${r#status}|hero=${r#hero#at}/${r#hero#hp}|sword=${r#hero#sword}|shield=${r#hero#shield}|pack=${r#pack}|enemies=${enemies}|items=${r#items}|traps=${r#traps}|revealed=${r#revealed}|walked=${r#walked}|turns=${r#turns}|fullness=${r#fullness}|pending=${r#pending}|declined=${r#declined}|level=${r#level}/${r#exp}|perks=${r#perks}|coins=${r#coins}"
 }

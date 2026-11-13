@@ -109,6 +109,33 @@
           "label": "ボスが大技の後、次を溜めるまでの一番長い手数",
           "order": 14,
           "min": 0
+        },
+        "summonEvery": {
+          "type": "int",
+          "label": "ボスが仲間を呼ぶまでの、主人公が隣にいない手番が続いた数（0 なら呼ばない）",
+          "order": 15,
+          "min": 0
+        },
+        "summonMax": {
+          "type": "int",
+          "label": "ボスが呼んだ仲間が同時に生きていられる数",
+          "order": 16,
+          "min": 0
+        },
+        "summonKind": {
+          "type": {
+            "enum": [
+              "Jelly",
+              "Bat",
+              "Archer",
+              "Swarm",
+              "Shield",
+              "Charger",
+              "Bomber"
+            ]
+          },
+          "label": "ボスが呼ぶ敵の種類",
+          "order": 17
         }
       }
     }

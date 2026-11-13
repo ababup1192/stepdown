@@ -60,6 +60,8 @@ mod Enemy {
     /// 敵 1 体。id は作った順の番号（同点の時に先に動く）。turns は起きて手番を迎えた数、burn は燃える残りの手の数。
     /// size はマスの幅（ボスは 2×2。at は左上）。facing は最後に歩いた向き（盾持ちは歩く・待つ手番ごとに主人公の方へ 45° ずつ回る。殴る時は変えない）。
     /// cooldown はボスが次の大技を溜めるまでの手の数（0 の手番に溜める。ボスでない敵は使わない）。
+    /// away はボスの手番のうち、主人公が体の隣にいない手番が続いた数（隣に来たら 0）。summonAt はボスが次の手番に仲間を呼ぶマス（床の予告）。
+    /// summoned はボスに呼ばれた敵か（呼んだ敵の生きている数を数える）。
     pub type alias Enemy = {
         id = Int32,
         kind = Kind,
@@ -71,15 +73,22 @@ mod Enemy {
         burn = Int32,
         facing = Board.Dir8,
         intent = Intent,
-        cooldown = Int32
+        cooldown = Int32,
+        away = Int32,
+        summonAt = Option[Cell],
+        summoned = Bool
     }
 
     /// 階の始めの敵（眠っていて、下を向き、溜めていない）。hp は enemies の Doc の強さ。
     pub def make(id: Int32, kind: Kind, at: Cell, hp: Int32): Enemy =
-        { id = id, kind = kind, at = at, size = sizeOf(kind), hp = hp, rest = Rest.Dormant, turns = 0, burn = 0, facing = Board.Dir8.Down, intent = Intent.Idle, cooldown = 0 }
+        { id = id, kind = kind, at = at, size = sizeOf(kind), hp = hp, rest = Rest.Dormant, turns = 0, burn = 0, facing = Board.Dir8.Down, intent = Intent.Idle, cooldown = 0,
+          away = 0, summonAt = None, summoned = false }
 
     /// 全部の種類。
     pub def all(): List[Kind] = Kind.Jelly :: Kind.Bat :: Kind.Archer :: Kind.Swarm :: Kind.Shield :: Kind.Charger :: Kind.Bomber :: Kind.Boss :: Nil
+
+    /// 名前（Kind の名前）から種類を引く。
+    pub def fromName(name: String): Option[Kind] = all() |> List.find(kind -> "${kind}" == name)
 
     /// 体のマスの幅（ボスは 2×2）。
     pub def sizeOf(kind: Kind): Int32 = if (kind == Kind.Boss) 2 else 1

@@ -31,6 +31,7 @@ mod TurnTimeline {
         case Windup        // 敵が身をかがめて技を溜める
         case Slam          // ボスが跳ねて床を叩き、体の周りに土煙が広がる（画面が小さく揺れる）
         case Sweep         // ボスの腕の光が帯の上を体から外へ走る
+        case Summon        // 呼ぶ印のマスに土煙が上がり、呼ばれた敵が弾んで出てくる
         case Trap          // 罠の床が光り、毒矢が主人公へ跳ね上がる
         case Alarm         // 起きかけた敵の頭に「!」が跳ねて出る
         case Potion        // 頭の上で薬の瓶が傾いて空になる
@@ -206,6 +207,7 @@ mod TurnTimeline {
             case Event.HeroHurt(Run.Source.Sweep(_), _, _) =>
                 let row = d#bomb |> Option.map(band -> flashOn(pace, band, pace#arrow * 0.6, i, Sound.Hit)) |> Option.getWithDefault(cue(Sound.Hit, after(Beat.Flash, pace#strike)));
                 add(row :: Nil, d)
+            case Event.EnemySummoned(_, _, _, _) => add(cue(Sound.Puff, after(Beat.Summon, pace#strike * 2.5)) :: Nil, d)
             case Event.EnemyCharged(_, _, _) => { charge = Some((i, Beat.EnemyMove)) | add(cue(Sound.Charge, after(Beat.EnemyMove, pace#step * 1.4)) :: Nil, d) }
             case Event.HeroHurt(Run.Source.Charge(_), _, guarded) =>
                 let sound = if (guarded) Sound.Guard else Sound.Hit;

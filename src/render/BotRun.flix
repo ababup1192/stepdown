@@ -2,7 +2,8 @@
 // 回すのは決まりの関数（Step.step と、その要約の Preview.summarize）だけ。見せる側（World・時刻表）は通さない。
 // 手を選ぶ読みは人と同じく見えている罠だけの Run（Run.asSeen）で回し、選んだ手は本物の Run に当てる。
 // 実行: make bots（SEEDS=<種の数・既定 200、先を読む人だけは 50>・LIMIT=<1 回の手の上限・既定 2000>・ONLY=Random,Avoider,Fighter,Lookahead のどれかで絞る
-//                  ・DEPTH=<先を読む手数・既定 3>・MODE=peek（Run の乱数のまま読む・既定）か sample（乱数を 3 通りに替えて平均））
+//                  ・DEPTH=<先を読む手数・既定 3>・MODE=peek（Run の乱数のまま読む・既定）か sample（乱数を 3 通りに替えて平均）
+//                  ・FROM=floor5（1F からでなく、start の floor5 と同じ持ち物で 5F から始める））
 mod BotRun {
     use fge::{App, Sort}
     use Board.Cell
@@ -43,7 +44,7 @@ mod BotRun {
     type alias Field = { ctx = Ctx, toStairs = Map[Cell, Int32], look = Look, arrived = Int32 }
 
     /// 階を作る Doc と盤。
-    type alias Setup = { docs = Floor.Docs, layouts = Floor.Layouts, look = Look }
+    type alias Setup = { docs = Floor.Docs, layouts = Floor.Layouts, look = Look, fifth = Bool }
 
     def enemyDamage(events: List[Event]): Int32 =
         events |> List.map(e -> match e {
@@ -240,7 +241,9 @@ mod BotRun {
 
     /// 種 seed で 1F から bot が limit 手まで遊んだ (最後の Run, 数え)。階段で降りたら次の階を作って続ける。
     def playSeed(setup: Setup, bot: Bot, limit: Int32, seed: Int64): (Run.State, Tally) =
-        playFloors(setup, bot, limit, Floor.begin(setup#docs, setup#layouts, seed),
+        let first = Floor.begin(setup#docs, setup#layouts, seed);
+        let start = if (setup#fifth) Floor.enter(setup#docs, setup#layouts, Run.of(Starts.seasoned(Run.rec(first))), 5) else first;
+        playFloors(setup, bot, limit, start,
                    { hands = 0, stuck = 0, judged = 0, strikes = 0, cause = "", rng = Rng.mix(seed, salt(bot)) })
 
     def playFloors(setup: Setup, bot: Bot, limit: Int32, runState: Run.State, tally: Tally): (Run.State, Tally) =
@@ -331,7 +334,8 @@ mod BotRun {
         let d = run { Controls.loadDocs() } with Fs.FileRead.runWithIO;
         let setup = { docs = { rules = d#rules, items = d#items, enemies = d#enemies, cards = d#cards, floors = d#floors },
                       layouts = Floor.layoutsOf(d#floors)#layouts,
-                      look = { depth = envInt("DEPTH", 3, env), samples = if (Map.get("MODE", env) == Some("sample")) 3 else 1 } };
+                      look = { depth = envInt("DEPTH", 3, env), samples = if (Map.get("MODE", env) == Some("sample")) 3 else 1 },
+                      fifth = Map.get("FROM", env) == Some("floor5") };
         let limit = envInt("LIMIT", 2000, env);
         let fullnessMax = RulesDoc.rec(d#rules)#fullnessMax;
         let only = Map.getWithDefault("ONLY", "", env);

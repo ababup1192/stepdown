@@ -12,7 +12,7 @@ ENGINE ?= ../..
 
 # 描き出せる場面の名前（source of truth は Shots.names。ここは使い方に出す写し）。
 # 場面を足したら Shots.names と一緒にここも足す。
-SHOTS := title play dead clear quit arrow bomb dirs popups swap levelup_mid levelup chosen use_tilt use_potion use_meat smoke_fly smoke_puff pebble floor2 floor3 thunder guard alarm floor4 charge blast doll floor5 boss_windup boss_slam boss_sweep boss_down
+SHOTS := title play dead clear quit arrow bomb dirs popups swap levelup_mid levelup chosen use_tilt use_potion use_meat smoke_fly smoke_puff pebble floor2 floor3 thunder guard alarm floor4 charge blast doll floor5 boss_windup boss_slam boss_sweep boss_down boss_summon
 
 # ENGINE の場所が違うと include ごと落ち、make は「そんなファイルは無い」としか言わない。
 # 先に自前で見て、直し方の 1 行を出してから止める（この検査が無いと make status も塞がる）。
@@ -58,6 +58,7 @@ video:
 # 自動で遊ぶ 4 人（でたらめ・避ける人・戦う人・先を読む人）の数: クリア率・死亡率・手数・満腹度・レベル・自分から殴った手・判断の割合・予告の時間。
 #   make bots   種の数は SEEDS=<数>（既定 200・先を読む人は 50）・1 回の手の上限は LIMIT=<数>（既定 2000）・ONLY=Fighter などで 1 人に絞る
 #               先を読む人は DEPTH=<手数>（既定 3）・MODE=sample で敵の乱数を 3 通りに替えて平均（既定 peek は Run の乱数のまま読む）
+#               FROM=floor5 で 1F からでなく、start の floor5 と同じ持ち物で 5F から始める
 .PHONY: bots
 bots:
-	SEEDS=$(SEEDS) LIMIT=$(LIMIT) ONLY=$(ONLY) DEPTH=$(DEPTH) MODE=$(MODE) $(HEADLESS_RUN) BotRun.main
+	SEEDS=$(SEEDS) LIMIT=$(LIMIT) ONLY=$(ONLY) DEPTH=$(DEPTH) MODE=$(MODE) FROM=$(FROM) $(HEADLESS_RUN) BotRun.main
