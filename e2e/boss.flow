@@ -1,0 +1,171 @@
+# 5F のボス戦の紹介動画（make video FLOW=e2e/boss.flow）。周回の種は World.fixedSeed（5F の地図は 5b）。
+# 撮らない所: 5F に入り、前室の盾持ちを小爆弾 2 つで、弓兵を鉄の矢で倒し、回復薬と鉄の矢を拾って広間へ続く通路の下へ。
+# 撮る所（in_boss / out_boss）: 通路を上ってボスが起きる → 広間で帯を溜める → 上へよけて空振り
+# → 左の柱の横で帯 → 柱の陰へ下りてかわす → もう一度帯を溜めるが柱の陰のまま → 上へ回って帯をよける
+# → 隣に来たボスへ小爆弾が 2 回出て HP が半分を切り、叩きつけと帯を重ねて溜める → よけきれず叩きつけを受ける
+# → 斜めの隣のボスを剣で 2 回 → もう一度重ねて溜めるのを上へよけて空振り → 寄ってきたボスを殴って倒す → LEVEL UP のカード → Clear。
+start floor5
+expect screen=Play&floor=5&col=3&row=24&hp=30
+# 始まりの部屋から通路を上って前室へ
+tap upRight
+wait 0.6
+tap dashUp
+until !busy max 5
+tap dashUp
+until !busy max 5
+expect col=4&row=19
+tap up
+wait 0.6
+# 起きた盾持ちが寄ってくるのを待つと、隣に来て小爆弾が 2 回出る（爆弾 1 体のカード）
+tap wait
+wait 0.6
+tap up
+wait 0.6
+tap up
+wait 0.6
+expect col=4&row=16&foes=2
+# 列のそろった弓兵を鉄の矢で倒す
+tap wait
+wait 0.6
+tap wait
+wait 0.6
+expect foes=1&bombs=2
+# 右の端の回復薬を拾い、戻りながら鉄の矢を拾う
+tap dashRight
+until !busy max 5
+expect col=13&row=16
+tap upLeft
+wait 0.6
+tap upLeft
+wait 0.6
+tap dashLeft
+until !busy max 5
+expect col=7&row=14&arrows=12&bombs=2
+tap upRight
+wait 0.6
+expect col=8&row=13
+mark in_boss
+wait 1.0
+# 通路を上ると、広間のボスが起きて帯を溜めるが、帯は広間の中だけなので通路には届かない
+tap up
+until !busy max 5
+wait 0.5
+tap up
+until !busy max 5
+wait 0.5
+tap up
+until !busy max 5
+wait 0.5
+expect col=8&row=10
+tap up
+until !busy max 5
+wait 0.4
+# 広間へ。寄ってくるボスへ矢を撃ちながら左へ
+tap upLeft
+until !busy max 5
+wait 0.4
+tap left
+until !busy max 5
+wait 0.4
+tap left
+until !busy max 5
+wait 1.2
+# 主人公の行（ボスと同じ 2 行）に帯。1 段上へよけて空振り
+expect col=5&row=8&hp=30
+tap up
+until !busy max 5
+wait 0.8
+expect col=5&row=7&hp=30
+tap left
+until !busy max 5
+wait 0.4
+tap left
+until !busy max 5
+wait 0.4
+tap left
+until !busy max 5
+wait 1.2
+# 柱の右上で帯（7・8 行）。柱の陰（左下）へ下りてかわす
+expect col=2&row=7&hp=30
+tap down
+until !busy max 5
+wait 0.8
+expect col=2&row=8&hp=30
+# ボスは柱の向こうで止まり、もう一度 8 行に帯を溜めるが、柱の陰のまま空振り
+tap wait
+until !busy max 5
+wait 0.4
+tap wait
+until !busy max 5
+wait 0.4
+tap wait
+until !busy max 5
+wait 1.2
+tap wait
+until !busy max 5
+wait 0.8
+expect col=2&row=8&hp=30
+# 柱の陰を出て上へ回る。帯（5・6 行）をもう 1 段上へよける
+tap up
+until !busy max 5
+wait 0.4
+tap up
+until !busy max 5
+wait 0.4
+tap up
+until !busy max 5
+wait 1.2
+tap up
+until !busy max 5
+wait 0.8
+expect col=2&row=4&hp=30
+# 寄ってきたボスが斜めの隣に来て、小爆弾が出る
+tap wait
+until !busy max 5
+wait 0.4
+tap wait
+until !busy max 5
+wait 0.4
+tap wait
+until !busy max 5
+wait 0.8
+expect col=2&row=4&hp=29
+# 最後の小爆弾で HP が半分を切り、叩きつけと帯を重ねて溜める。よけきれず叩きつけを受ける
+tap wait
+until !busy max 5
+wait 1.2
+tap wait
+until !busy max 5
+wait 0.8
+expect col=2&row=4&hp=19&bombs=0
+# 斜めの隣のボスを剣で 2 回。ボスの拳を受けながら、次の溜めを待つ
+tap downRight
+until !busy max 5
+wait 0.4
+tap downRight
+until !busy max 5
+wait 0.4
+tap wait
+until !busy max 5
+wait 0.4
+tap wait
+until !busy max 5
+wait 1.2
+# HP 2 のボスがもう一度両方を重ねて溜める。1 段上へよけて空振り
+expect col=2&row=4&hp=16
+tap up
+until !busy max 5
+wait 0.8
+expect col=2&row=3&hp=16&foes=1
+# 寄ってきたボスを上から殴って倒す。ボスが震えながら沈む
+tap wait
+until !busy max 5
+wait 0.4
+tap down
+until screen=Cards max 8
+expect foes=0
+wait 2.5
+tap card1
+until screen=Clear max 5
+wait 4.0
+mark out_boss

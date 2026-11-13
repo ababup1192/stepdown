@@ -22,6 +22,7 @@
   "starts": [
     {"name": "title", "doc": "題名の画面（起動の既定）", "args": {}},
     {"name": "play", "doc": "1F の始まり（周回の種は起動の World のまま）", "args": {}},
+    {"name": "floor5", "doc": "5F に入った所（Lv7・鉄の剣と鉄の盾・鉄の矢 8・小爆弾 4・回復薬 1・爆弾 1 体のカード。地図は周回の種で決まる）", "args": {}},
     {"name": "shot:title", "doc": "ギャラリーの場面（gallery/title.png）", "args": {}},
     {"name": "shot:play", "doc": "ギャラリーの場面（gallery/play.png）", "args": {}},
     {"name": "shot:dead", "doc": "ギャラリーの場面（gallery/dead.png）", "args": {}},
