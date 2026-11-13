@@ -35,6 +35,8 @@
   "shieldBlocked": "{enemy}が 盾で ふせいだ",
   "alarmed": "警報が ひびいた！",
   "braced": "{enemy}が 身がまえた！",
+  "summonReady": "{enemy}が なかまを よぼうとしている！",
+  "summoned": "{enemy}が なかまを よんだ！",
   "fused": "{enemy}の 導火線に 火が ついた！",
   "exploded": "{enemy}が はじけた！",
   "dollBroke": "身代わり人形が くだけた！",
