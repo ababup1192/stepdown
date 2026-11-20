@@ -2,7 +2,6 @@
  "id": "sd-clean",
  "title": "片手間迷宮",
  "files": [
-  "assets/cards.schema.json",
   "assets/chars/archer.png",
   "assets/chars/bat.png",
   "assets/chars/blob.png",
@@ -19,8 +18,6 @@
   "assets/chars/shieldbearer_side_left.png",
   "assets/chars/shieldbearer_side_right.png",
   "assets/chars/swarm.png",
-  "assets/enemies.schema.json",
-  "assets/floors.schema.json",
   "assets/fx/levelup.png",
   "assets/icons/arrow.png",
   "assets/icons/bomb.png",
@@ -52,9 +49,6 @@
   "assets/icons/trap_alarm.png",
   "assets/icons/trap_arrow.png",
   "assets/icons/trap_pit.png",
-  "assets/items.schema.json",
-  "assets/keys.schema.json",
-  "assets/look.schema.json",
   "assets/models/kit.glb",
   "assets/models/tex/floor.png",
   "assets/models/tex/floor_b.png",
@@ -62,8 +56,6 @@
   "assets/models/tex/pit.png",
   "assets/models/tex/wall.png",
   "assets/models/tex/wall_top.png",
-  "assets/rules.schema.json",
-  "assets/scenes.schema.json",
   "assets/stepdown.cards.json",
   "assets/stepdown.enemies.json",
   "assets/stepdown.floors.json",
@@ -75,8 +67,6 @@
   "assets/stepdown.scenes.json",
   "assets/stepdown.text.json",
   "assets/stepdown.theme.json",
-  "assets/text.schema.json",
-  "assets/theme.schema.json",
   "font-atlas/default.fontatlas",
   "project.json"
  ],
@@ -411,7 +401,7 @@
  "deferred": [
   {
    "path": "assets/sfx/bgm_harp.wav",
-   "bytes": 749761,
+   "bytes": 749749,
    "names": [
     "bgm_harp"
    ]
@@ -429,10 +419,10 @@
  },
  "wasmBrotli": "classes.wasm.br",
  "boot": {
-  "assets": 3021131,
-  "assetsWire": 2699370,
-  "wasm": 1397446,
-  "wasmWire": 1465717
+  "assets": 2259667,
+  "assetsWire": 1993441,
+  "wasm": 1400806,
+  "wasmWire": 1469077
  },
  "serviceWorker": true
 }
