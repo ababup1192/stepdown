@@ -25,8 +25,7 @@ mod Cam {
 
     /// 注目点 focus を構え rig で見るカメラ。
     def cameraOf(focus: Vec3.Vec3, rig: Rig): Camera3d.Camera3d =
-        { eye = Vec3.sub(focus, Vec3.mul(forwardOf(rig), rig#distance)), yaw = rig#yaw, pitch = rig#pitch, fovY = rig#fovY,
-          near = 0.5, far = 80.0 }
+        { near = 0.5, far = 80.0 | Camera3d.camera(Vec3.sub(focus, Vec3.mul(forwardOf(rig), rig#distance)), rig#yaw, rig#pitch, rig#fovY) }
 
     /// 見せ方の Doc の構えで、盤の点 (x 列, y 行。マス単位) を見るカメラ。注目点は盤の点を奥へ cameraLead だけずらした所。
     pub def ofLook(lk: LookDoc.Rec, x: Float64, y: Float64): Camera3d.Camera3d =

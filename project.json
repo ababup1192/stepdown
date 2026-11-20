@@ -505,6 +505,9 @@
       "swipeDown": "dashDown",
       "swipeLeft": "dashLeft",
       "swipeRight": "dashRight"
-    }
+    },
+    "deferred": [
+      "assets/sfx/bgm_harp.wav"
+    ]
   }
 }
