@@ -506,8 +506,40 @@
       "swipeLeft": "dashLeft",
       "swipeRight": "dashRight"
     },
+    "startupBudget": {
+      "seconds": 17,
+      "why": "タイトルから見せる 3D の迷宮の形（約 0.5 MB）と床・壁の絵、明朝体の字（約 0.6 MB）を起動で取る。1 階で出る敵・アイテムの絵と、歩く・殴る・拾う・食べる音も、押してすぐ使うので起動で取る。"
+    },
+    "// deferred": "押して始めた後に裏で取る素材（出てくる階の順）。BGM の次に、1 階でも敵を倒すか拾ってからでないと出ないレベルアップ・飲み終えた瓶・食べ終えた骨の絵。その後に 2 階から先の敵・アイテム・罠の絵と、その時だけ鳴る音（盾・小石・鉄球・煙・落とし穴・突進・身代わり人形・ボス）。1 階で出る敵とアイテム・食べる・飲む・レベルアップの絵と音は起動時に取る。",
     "deferred": [
-      "assets/sfx/bgm_harp.wav"
+      "assets/sfx/bgm_harp.wav",
+      "assets/fx/levelup.png",
+      "assets/icons/bottle_empty.png",
+      "assets/icons/bone.png",
+      "assets/icons/pebble*.png",
+      "assets/icons/ironball*.png",
+      "assets/icons/smoke.png",
+      "assets/icons/shield.png",
+      "assets/icons/trap_*.png",
+      "assets/sfx/sd_clink.wav",
+      "assets/sfx/sd_guard.wav",
+      "assets/sfx/sd_puff.wav",
+      "assets/sfx/sd_roll.wav",
+      "assets/sfx/sd_pit.wav",
+      "assets/chars/swarm.png",
+      "assets/chars/shieldbearer*.png",
+      "assets/icons/shield_iron.png",
+      "assets/icons/scroll_thunder.png",
+      "assets/chars/charger.png",
+      "assets/chars/bomber.png",
+      "assets/icons/doll.png",
+      "assets/sfx/sd_charge.wav",
+      "assets/sfx/sd_doll.wav",
+      "assets/chars/boss.png",
+      "assets/sfx/sd_boss_*.wav",
+      "assets/sfx/sd_slam.wav",
+      "assets/sfx/sd_sweep.wav",
+      "assets/sfx/sd_eat.wav"
     ]
   }
 }

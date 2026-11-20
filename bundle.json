@@ -1,5 +1,5 @@
 {
- "id": "sd-clean",
+ "id": "stepdown",
  "title": "片手間迷宮",
  "files": [
   "assets/chars/archer.png",
@@ -404,7 +404,368 @@
    "bytes": 749749,
    "names": [
     "bgm_harp"
-   ]
+   ],
+   "arrivalSeconds": 3.824
+  },
+  {
+   "path": "assets/fx/levelup.png",
+   "bytes": 25930,
+   "names": [
+    "fx_levelup"
+   ],
+   "arrivalSeconds": 4.028
+  },
+  {
+   "path": "assets/icons/bottle_empty.png",
+   "bytes": 9894,
+   "names": [
+    "icon_bottle_empty"
+   ],
+   "arrivalSeconds": 4.153
+  },
+  {
+   "path": "assets/icons/bone.png",
+   "bytes": 8072,
+   "names": [
+    "icon_bone"
+   ],
+   "arrivalSeconds": 4.268
+  },
+  {
+   "path": "assets/icons/pebble.png",
+   "bytes": 9674,
+   "names": [
+    "icon_pebble"
+   ],
+   "arrivalSeconds": 4.392
+  },
+  {
+   "path": "assets/icons/pebble_one.png",
+   "bytes": 8900,
+   "names": [
+    "icon_pebble_one"
+   ],
+   "arrivalSeconds": 4.511
+  },
+  {
+   "path": "assets/icons/ironball.png",
+   "bytes": 8084,
+   "names": [
+    "icon_ironball"
+   ],
+   "arrivalSeconds": 4.627
+  },
+  {
+   "path": "assets/icons/ironball_roll1.png",
+   "bytes": 7728,
+   "names": [
+    "icon_ironball_roll1"
+   ],
+   "arrivalSeconds": 4.74
+  },
+  {
+   "path": "assets/icons/ironball_roll2.png",
+   "bytes": 7580,
+   "names": [
+    "icon_ironball_roll2"
+   ],
+   "arrivalSeconds": 4.853
+  },
+  {
+   "path": "assets/icons/ironball_roll3.png",
+   "bytes": 7656,
+   "names": [
+    "icon_ironball_roll3"
+   ],
+   "arrivalSeconds": 4.966
+  },
+  {
+   "path": "assets/icons/ironball_roll4.png",
+   "bytes": 7552,
+   "names": [
+    "icon_ironball_roll4"
+   ],
+   "arrivalSeconds": 5.079
+  },
+  {
+   "path": "assets/icons/ironball_roll5.png",
+   "bytes": 7628,
+   "names": [
+    "icon_ironball_roll5"
+   ],
+   "arrivalSeconds": 5.192
+  },
+  {
+   "path": "assets/icons/ironball_roll6.png",
+   "bytes": 7502,
+   "names": [
+    "icon_ironball_roll6"
+   ],
+   "arrivalSeconds": 5.305
+  },
+  {
+   "path": "assets/icons/ironball_roll7.png",
+   "bytes": 7656,
+   "names": [
+    "icon_ironball_roll7"
+   ],
+   "arrivalSeconds": 5.418
+  },
+  {
+   "path": "assets/icons/smoke.png",
+   "bytes": 7944,
+   "names": [
+    "icon_smoke"
+   ],
+   "arrivalSeconds": 5.533
+  },
+  {
+   "path": "assets/icons/shield.png",
+   "bytes": 24312,
+   "names": [
+    "icon_shield"
+   ],
+   "arrivalSeconds": 5.729
+  },
+  {
+   "path": "assets/icons/trap_alarm.png",
+   "bytes": 17110,
+   "names": [
+    "icon_trap_alarm"
+   ],
+   "arrivalSeconds": 5.89
+  },
+  {
+   "path": "assets/icons/trap_arrow.png",
+   "bytes": 13790,
+   "names": [
+    "icon_trap_arrow"
+   ],
+   "arrivalSeconds": 6.034
+  },
+  {
+   "path": "assets/icons/trap_pit.png",
+   "bytes": 11480,
+   "names": [
+    "icon_trap_pit"
+   ],
+   "arrivalSeconds": 6.166
+  },
+  {
+   "path": "assets/sfx/sd_clink.wav",
+   "bytes": 1188,
+   "names": [
+    "sd_clink"
+   ],
+   "arrivalSeconds": 6.247
+  },
+  {
+   "path": "assets/sfx/sd_guard.wav",
+   "bytes": 1560,
+   "names": [
+    "sd_guard"
+   ],
+   "arrivalSeconds": 6.33
+  },
+  {
+   "path": "assets/sfx/sd_puff.wav",
+   "bytes": 2117,
+   "names": [
+    "sd_puff"
+   ],
+   "arrivalSeconds": 6.416
+  },
+  {
+   "path": "assets/sfx/sd_roll.wav",
+   "bytes": 2405,
+   "names": [
+    "sd_roll"
+   ],
+   "arrivalSeconds": 6.503
+  },
+  {
+   "path": "assets/sfx/sd_pit.wav",
+   "bytes": 3144,
+   "names": [
+    "sd_pit"
+   ],
+   "arrivalSeconds": 6.593
+  },
+  {
+   "path": "assets/chars/swarm.png",
+   "bytes": 9866,
+   "names": [
+    "chr_swarm"
+   ],
+   "arrivalSeconds": 6.718
+  },
+  {
+   "path": "assets/chars/shieldbearer.png",
+   "bytes": 47740,
+   "names": [
+    "chr_shieldbearer"
+   ],
+   "arrivalSeconds": 7.031
+  },
+  {
+   "path": "assets/chars/shieldbearer_back.png",
+   "bytes": 40884,
+   "names": [
+    "chr_shieldbearer_back"
+   ],
+   "arrivalSeconds": 7.311
+  },
+  {
+   "path": "assets/chars/shieldbearer_back34_left.png",
+   "bytes": 13034,
+   "names": [
+    "chr_shieldbearer_back34_left"
+   ],
+   "arrivalSeconds": 7.451
+  },
+  {
+   "path": "assets/chars/shieldbearer_back34_right.png",
+   "bytes": 13260,
+   "names": [
+    "chr_shieldbearer_back34_right"
+   ],
+   "arrivalSeconds": 7.592
+  },
+  {
+   "path": "assets/chars/shieldbearer_front34_left.png",
+   "bytes": 46430,
+   "names": [
+    "chr_shieldbearer_front34_left"
+   ],
+   "arrivalSeconds": 7.899
+  },
+  {
+   "path": "assets/chars/shieldbearer_front34_right.png",
+   "bytes": 46342,
+   "names": [
+    "chr_shieldbearer_front34_right"
+   ],
+   "arrivalSeconds": 8.206
+  },
+  {
+   "path": "assets/chars/shieldbearer_side_left.png",
+   "bytes": 34846,
+   "names": [
+    "chr_shieldbearer_side_left"
+   ],
+   "arrivalSeconds": 8.455
+  },
+  {
+   "path": "assets/chars/shieldbearer_side_right.png",
+   "bytes": 34788,
+   "names": [
+    "chr_shieldbearer_side_right"
+   ],
+   "arrivalSeconds": 8.704
+  },
+  {
+   "path": "assets/icons/shield_iron.png",
+   "bytes": 17798,
+   "names": [
+    "icon_shield_iron"
+   ],
+   "arrivalSeconds": 8.868
+  },
+  {
+   "path": "assets/icons/scroll_thunder.png",
+   "bytes": 16820,
+   "names": [
+    "icon_scroll_thunder"
+   ],
+   "arrivalSeconds": 9.027
+  },
+  {
+   "path": "assets/chars/charger.png",
+   "bytes": 15718,
+   "names": [
+    "chr_charger"
+   ],
+   "arrivalSeconds": 9.181
+  },
+  {
+   "path": "assets/chars/bomber.png",
+   "bytes": 46444,
+   "names": [
+    "chr_bomber"
+   ],
+   "arrivalSeconds": 9.488
+  },
+  {
+   "path": "assets/icons/doll.png",
+   "bytes": 14900,
+   "names": [
+    "icon_doll"
+   ],
+   "arrivalSeconds": 9.638
+  },
+  {
+   "path": "assets/sfx/sd_charge.wav",
+   "bytes": 1747,
+   "names": [
+    "sd_charge"
+   ],
+   "arrivalSeconds": 9.721
+  },
+  {
+   "path": "assets/sfx/sd_doll.wav",
+   "bytes": 2703,
+   "names": [
+    "sd_doll"
+   ],
+   "arrivalSeconds": 9.81
+  },
+  {
+   "path": "assets/chars/boss.png",
+   "bytes": 28478,
+   "names": [
+    "chr_boss"
+   ],
+   "arrivalSeconds": 10.027
+  },
+  {
+   "path": "assets/sfx/sd_boss_fall.wav",
+   "bytes": 2039,
+   "names": [
+    "sd_boss_fall"
+   ],
+   "arrivalSeconds": 10.112
+  },
+  {
+   "path": "assets/sfx/sd_boss_windup.wav",
+   "bytes": 1985,
+   "names": [
+    "sd_boss_windup"
+   ],
+   "arrivalSeconds": 10.197
+  },
+  {
+   "path": "assets/sfx/sd_slam.wav",
+   "bytes": 2200,
+   "names": [
+    "sd_slam"
+   ],
+   "arrivalSeconds": 10.283
+  },
+  {
+   "path": "assets/sfx/sd_sweep.wav",
+   "bytes": 2005,
+   "names": [
+    "sd_sweep"
+   ],
+   "arrivalSeconds": 10.368
+  },
+  {
+   "path": "assets/sfx/sd_eat.wav",
+   "bytes": 2529,
+   "names": [
+    "sd_eat"
+   ],
+   "arrivalSeconds": 10.456
   }
  ],
  "splash": {
@@ -415,14 +776,27 @@
   "fontSize": 10,
   "ascent": 9,
   "descent": 2,
-  "cellH": 11
+  "cellH": 11,
+  "afterTap": {
+   "mode": "engine",
+   "minSeconds": 1.2,
+   "maxSeconds": 3
+  }
  },
  "wasmBrotli": "classes.wasm.br",
  "boot": {
-  "assets": 2259667,
-  "assetsWire": 1993441,
-  "wasm": 1400806,
-  "wasmWire": 1469077
+  "assets": 1609979,
+  "assetsWire": 1342528,
+  "wasm": 1447758,
+  "wasmWire": 1516029
  },
- "serviceWorker": true
+ "serviceWorker": true,
+ "startupBudget": {
+  "seconds": 17,
+  "why": "タイトルから見せる 3D の迷宮の形（約 0.5 MB）と床・壁の絵、明朝体の字（約 0.6 MB）を起動で取る。1 階で出る敵・アイテムの絵と、歩く・殴る・拾う・食べる音も、押してすぐ使うので起動で取る。"
+ },
+ "checks": {
+  "title4g": "ok",
+  "tapNoRecord": true
+ }
 }

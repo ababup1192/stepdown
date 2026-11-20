@@ -2,7 +2,7 @@
 // 何をどう返すかは docs/web-export.md の「起動の始まりと 2 回目からの起動」。
 "use strict";
 
-var FGE_GAME_ID = "sd-clean";
+var FGE_GAME_ID = "stepdown";
 var FGE_SCOPE = self.registration.scope;
 var FGE_SCOPE_PATH = new URL(FGE_SCOPE).pathname;
 var FGE_PREFIX = "fge-sw:" + FGE_GAME_ID + ":" + FGE_SCOPE_PATH + ":";
