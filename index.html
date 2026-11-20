@@ -119,6 +119,62 @@
     .fge-pad-right { right: 0; justify-content: center; padding-right: max(var(--fge-edge), env(safe-area-inset-right)); }
   }
 </style>
+<script>
+(function () {
+  var baked = "8d8e17cf84dc";
+  var preload = [["bundle.json", "fetch"], ["classes.wasm.br", "fetch"], ["brotli-decode.js", "script"], ["wasm-gc-runtime.js", "script"], ["fge-web.js", "script"]];
+  var warmed = "";
+  function warm(v) {
+    if (warmed === v) return;
+    warmed = v;
+    preload.forEach(function (p) {
+      var l = document.createElement("link");
+      l.rel = "preload";
+      l.as = p[1];
+      l.href = p[0] + "?v=" + encodeURIComponent(v);
+      if (p[1] === "fetch") l.crossOrigin = "anonymous";
+      document.head.appendChild(l);
+    });
+  }
+  var checked = new Promise(function (resolve) {
+    var guess = { v: baked, known: false };
+    setTimeout(function () { resolve(guess); }, 3000);
+    try {
+      fetch("version.txt", { cache: "no-store" })
+        .then(function (r) { return r.ok ? r.text() : ""; })
+        .then(function (t) {
+          t = t.trim();
+          resolve(/^[0-9a-f]{6,64}$/.test(t) ? { v: t, known: true } : guess);
+        }, function () { resolve(guess); });
+    } catch (e) { resolve(guess); }
+  });
+  var sw = null;
+  try {
+    var c = navigator.serviceWorker && navigator.serviceWorker.controller;
+    if (c && c.scriptURL === new URL("sw.js", location.href).href && !/[?&]sw=0(&|$)/.test(location.search)) sw = c;
+  } catch (e) { sw = null; }
+  var nav = performance.getEntriesByType ? performance.getEntriesByType("navigation")[0] : null;
+  if (sw || (nav && nav.transferSize > 0)) warm(baked);
+  if (!sw) {
+    window.fgeBootVersion = checked.then(function (c) { warm(c.v); return c.v; });
+    return;
+  }
+  window.fgeBootVersion = Promise.resolve(baked);
+  checked.then(function (c) {
+    if (c.v === baked) {
+      if (c.known) sw.postMessage({ type: "fge-sw-drop", keep: c.v });
+      return;
+    }
+    if (typeof fgeAudio !== "undefined" && fgeAudio.started) return;
+    try {
+      var last = Number(sessionStorage.getItem("fge-sw-reload-at:" + location.pathname) || 0);
+      if (Date.now() - last < 60000) return;
+      sessionStorage.setItem("fge-sw-reload-at:" + location.pathname, String(Date.now()));
+    } catch (e) { return; }
+    location.reload();
+  });
+})();
+</script>
 </head>
 <body>
 <canvas id="fge-canvas" tabindex="0"></canvas>
@@ -144,26 +200,14 @@
 </div>
 <div id="fge-error" style="display: none"></div>
 <script>
-(function () {
-  var baked = "f9e19d3c1003";
-  var started = false;
-  function boot(v) {
-    if (started) return;
-    started = true;
-    ["wasm-gc-runtime.js", "fge-web.js"].forEach(function (name) {
-      var s = document.createElement("script");
-      s.src = name + "?v=" + encodeURIComponent(v || baked);
-      s.async = false;
-      document.body.appendChild(s);
-    });
-  }
-  setTimeout(function () { boot(baked); }, 3000);
-  try {
-    fetch("version.txt", { cache: "no-store" })
-      .then(function (r) { return r.ok ? r.text() : ""; })
-      .then(function (t) { boot(/^[0-9a-f]{6,64}$/.test(t.trim()) ? t.trim() : baked); }, function () { boot(baked); });
-  } catch (e) { boot(baked); }
-})();
+fgeBootVersion.then(function (v) {
+  ["wasm-gc-runtime.js", "fge-web.js"].forEach(function (name) {
+    var s = document.createElement("script");
+    s.src = name + "?v=" + encodeURIComponent(v);
+    s.async = false;
+    document.body.appendChild(s);
+  });
+});
 </script>
 </body>
 </html>
