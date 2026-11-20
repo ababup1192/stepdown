@@ -408,6 +408,15 @@
   "assets/sfx/sd_windup.wav": "assets/sfx/sd_windup.webm",
   "font-atlas/default.fontatlas": "font-atlas/default.fontatlas-webp"
  },
+ "deferred": [
+  {
+   "path": "assets/sfx/bgm_harp.wav",
+   "bytes": 749761,
+   "names": [
+    "bgm_harp"
+   ]
+  }
+ ],
  "splash": {
   "startPrompt": "Tap to start",
   "logo": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAEAAAABACAYAAACqaXHeAAAFOUlEQVR42uRbXWgcVRQ+M/m12TR04yotSIuhvgmmaH2qYmPbrZQWDPjgQ6tRURBSqD8Y8KVQqLQqGBAsajQ+FBR8EIr5aeqDebNgC9IXS0UpWDRki+6mJmmSlTPlTO/M3pm5P2c22cmBIUsyzM73feee890zmWbQiFzXvVVgjurKMvclYa5801E9180aeIyOzk3K9+qsBvA0wetmg1Nv4PUEr0KEux7Axy0Ldz2Ap2jf0FmNJSDL4JeXl6QkuPX48rUCPnYJNHq11wEvZoG7XpUPENBIJocLPGWBsxbBO26T1XVUlE9tCXCAb+7MewcRkRZ4dgK4wFOIn9MAz0oA15rf1NMLL05c9n6KyyEN8GwEcIAPq5978KFUlWcjgLPao+pbXv7I+7z9yBupg7cmgBM8qb9zx0bv59ZCq78M0gJvRQAneFrn9Up7awK4TQ6qj2o//eZQXcEbEcANPkn9cCvkBK/tBOPA37djL+zvLmrfQGtbB5RaAbrfPlDzt9lT5yC/CLC4MBf4/djsONy4+D1P9tmAP7Lnw1Xx+R7Rxbtkj4wPpktAGLwPvAowOnXMKv0Lj/RB7/Ez0A0Af8wsetWf4pL7C1yf/hpu/zMTmfoD+4ZhoDhsTIRrCn70/DFr8LS+CXTui0nt64xMDPrAiQg2AuLAcwUWP1SeFDcNUxJcVfAtXQVW8NT6yPFNvX8ysVOoktCe32xHgKzgPb9zCL668FZqra/y268156naYTFQILxXYwLiWh2XBwir/9f1eSkJKnaYdR4QBZCz3cnS+c/PjsLNa5dYW6VqLXBV1eUsfKgqtj5ZUEG0CZ126Jqm9isHzljt+ijtr45+UKN+mATZZAgL3WuHPvcP471AEvi4CkydQTf9ac+PJMiKn0q8sOsEfPLdS94RSXZLm70ROtx3usbz44Fx8NGj/med4icGqr9ULmkvBQRO6pf+m5FUbIDDu0/z7AbP/nS3Rx/a0u8dGPl7Ct5nlSIpa31Y/OICSaDzm5qapSTggfcRXgpnL57k2wugF6f49Nyrfg34cvrdwN9U1N+4+/XA71F9m/a6+bFnAhlBMV+6kf5ITJa6qnXk3x8+9oufzR6ftsWmhbDZ9IspE3RaHxU/0fRwmKu4QphqBuju+mQZlKQ+uUWTp0SpZoBuiOr3TP0IPdv6ISdMkGgyVInInpnLFxqTAFnrm/79W2/9i4UKjc3BvhOeN7j/gfa6TZfctNPfa5dPnqopfrICisSILrHhCUD1UVUxOItf3QjQcXvU1uKKlkrxC2eB7pNi8gfWBIzNjmuNuxEYuTZU/8rWx+8Yk6sL/rZXVX2bpbA/X4Sx0rg9AX//PGk0jHj2qePxrbGlLXDExa5t/VYmiaUGJPl9Ao/q9+O67yr46stqQ/jATiF7OkRZgBsv2X5AOgzZpz4YdVT/szpuIiwqP1Achkpnh1fRxeof2Mtvb9NSEjtH78rDkCvPJQ47CPzIxCAvATqjMdw99gycjz1HhwSsH9dG9twZdircrSp4bQKiyKis3IJvJt/xUrSlq+Clc5T6pllwZeiJwBOi5/a+BzlngxFoFicYl4oqz/lRVV0SxEDCWcyaSQZE9XDKAPLvuiEjjoxT2DqzuVVdApIMDLU0XeOiMntYur3ATwBovGOjOrhQbVec32kS87fKjv8aSRIJad7IagSCVzZCWQMvdYJRLxVlETypn5gBWVZeSoCYBVkFL6oPUe8Nyt6uyiL4yCUgOzGL4EHl1dlGz4YkMZWVbjQiVLPY5b5gI4HH+D8AAP//U6SdWb893dIAAAAASUVORK5CYII=",
@@ -417,5 +426,12 @@
   "ascent": 9,
   "descent": 2,
   "cellH": 11
+ },
+ "wasmBrotli": "classes.wasm.br",
+ "boot": {
+  "assets": 3021131,
+  "assetsWire": 2699370,
+  "wasm": 1397627,
+  "wasmWire": 1465898
  }
 }
