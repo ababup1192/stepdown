@@ -58,6 +58,7 @@
       "doc-refs.json",
       "doc-shape.json",
       "explain-error.json",
+      "export-web.json",
       "f32.json",
       "fallback.json",
       "flix-reserved.json",
