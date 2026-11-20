@@ -1,9 +1,9 @@
 // Controls — キー・タップを World の手（1 歩・待つ・ダッシュ・決定）へ写す（純粋）と、Doc の読み直し。
 // どのキーがどの操作かは KeysDoc（stepdown.keys.json）が決める。1 フレームに当てる操作は 1 つだけ。
-// タップは Tap（離したコマで確定・方向は床との交点）、スワイプは project.json の web.touchGestures がダッシュのキーへ読み替える。
+// タップは Tap（マウスは押したコマ・指は離したコマで確定・方向は床との交点）、スワイプは project.json の web.touchGestures がダッシュのキーへ読み替える。
 mod Controls {
 
-    use fge::{App, AudioMixer, AudioMixerDoc, DocTable, LoadProgress, Resources, Vec2}
+    use fge::{App, AudioMixer, AudioMixerDoc, Display, DocTable, LoadProgress, Resources, Vec2}
     use fge::GameEngine.Key
     use Board.{Dir, Dir8}
 
@@ -14,19 +14,20 @@ mod Controls {
 
     def act(frame: App.Frame, res: Res.Res, w: World.World): World.World =
         let pressed = key -> App.justPressed(key, frame);
-        if (World.isAskingQuit(w))
-            (if (pressed(Key.Enter)) World.answerQuit(true, w)
-             else if (pressed(Key.Escape)) World.answerQuit(false, w)
-             else w)
-        else if (pressed(Key.Escape)) World.askQuit(w)
-        else {
-            let command = commandOf(frame, KeysDoc.rec(res#keys));
-            let tapped = Tap.pressedAt({ clicked = frame#mouseClicked, cursor = frame#cursor, dashed = Option.exists(isDash, command) });
-            match (command, tapped) {
-                case (Some(c), _)     => apply(res, c, w)
-                case (None, Some(at)) => tapCommand(res, at, w) |> Option.map(c -> apply(res, c, w)) |> Option.getWithDefault(w)
-                case _                => w
-            }
+        let command = commandOf(frame, KeysDoc.rec(res#keys));
+        let touch = frame#sizeClass != Display.SizeClass.Large;
+        let pointer = { clicked = frame#mouseClicked, down = frame#mouseDown, cursor = frame#cursor, dashed = Option.exists(isDash, command) };
+        let (press, tapped) = Tap.track(touch, pointer, w#press);
+        let held = { press = press | w };
+        if (World.isAskingQuit(held))
+            (if (pressed(Key.Enter)) World.answerQuit(true, held)
+             else if (pressed(Key.Escape)) World.answerQuit(false, held)
+             else held)
+        else if (pressed(Key.Escape)) World.askQuit(held)
+        else match (command, tapped) {
+            case (Some(c), _)     => apply(res, c, held)
+            case (None, Some(at)) => tapCommand(res, at, held) |> Option.map(c -> apply(res, c, held)) |> Option.getWithDefault(held)
+            case _                => held
         }
 
     /// キーが表す操作。Choose は選ぶ場面のカードの何枚目か（数字のキー 1〜4。並びの決まりなので割り当ての Doc には載せない）。

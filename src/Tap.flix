@@ -1,5 +1,6 @@
 // Tap — 画面のタップを盤の入力へ読む（純粋）。
-//   押したコマでそのまま 1 手にする。離すまで待つとスワイプとの見分けは付くが、指を置いていた分だけ動き出しが遅れる。
+//   マウスは押したコマでそのまま 1 手にする。離すまで待つとスワイプとの見分けは付くが、押していた分だけ動き出しが遅れる。
+//   指の端末（frame#sizeClass が Large でない）は、押したコマの次のコマに離れていた時だけ 1 手にし、押したまま続いたら捨てる。
 //   同じコマにダッシュの操作（スワイプ）が来たら捨てる。
 //   方向: 押した点からのレイが床（y = 0）と交わる所の、主人公のマスから見た向きを 45° ずつの 8 つに分ける。主人公のマスの中（半径 tapWaitRadius）と、主人公の体の上（待つのアイコン・半径 tapWaitPx）は待つ。
 //   体の上を床へ写すと奥のマスに当たり「上」になってしまうので、体の上は床へ写す前に画面の距離で見る。
@@ -9,12 +10,21 @@ mod Tap {
     use Board.{Cell, Dir8}
     use Run.Input
 
-    /// 1 コマのポインタ: 押したコマか・今の所・同じコマにダッシュの操作が来たか。
-    pub type alias Pointer = { clicked = Bool, cursor = Vec2.Vec2, dashed = Bool }
+    /// 1 コマのポインタ: 押したコマか・押しているか・今の所・同じコマにダッシュの操作が来たか。
+    pub type alias Pointer = { clicked = Bool, down = Bool, cursor = Vec2.Vec2, dashed = Bool }
 
     /// このコマで盤の入力にするタップの点（押したコマだけ）。
     pub def pressedAt(pointer: Pointer): Option[Vec2.Vec2] =
         if (pointer#clicked and not pointer#dashed) Some(pointer#cursor) else None
+
+    /// 1 コマ進めた (離すのを待つタップの点, このコマで盤の入力にするタップの点)。touch = 指の端末か。
+    // WhyNot: 指で押したコマに 1 手にしない — ブラウザ版は指のタップを離した時の 1 コマだけの押しで渡すが、
+    //   横に払うと払い始めから押したままのマウスに見せる。押したコマで取ると、払いの途中の指の向きへ 1 歩出てからダッシュになる。
+    // WhyNot: 動いた距離で捨てない — 払いの押し始めは指がもう動いた後の点なので、離すまで指を止めると距離が出ない。
+    pub def track(touch: Bool, pointer: Pointer, press: Option[Vec2.Vec2]): (Option[Vec2.Vec2], Option[Vec2.Vec2]) =
+        if (not touch) (None, pressedAt(pointer))
+        else if (pointer#down) (pressedAt(pointer), None)
+        else (None, press |> Option.filter(_ -> not pointer#dashed))
 
     /// 盤の入力にする所か（下の UI の帯 bandTop より上）。
     pub def isOnBoard(bandTop: Float64, point: Vec2.Vec2): Bool = point#y < bandTop

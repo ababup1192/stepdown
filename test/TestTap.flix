@@ -10,7 +10,17 @@ mod TestTap {
     // ══════════════════════════════════════════════════════
 
     def pointer(clicked: Bool, x: Float64, y: Float64, dashed: Bool): Tap.Pointer =
-        { clicked = clicked, cursor = { x = x, y = y }, dashed = dashed }
+        { clicked = clicked, down = clicked, cursor = { x = x, y = y }, dashed = dashed }
+
+    /// 指の端末で、押したまま (clicked, down) のコマを順に流し、盤の入力にしたタップの点を並べる。
+    def touchTaps(frames: List[(Bool, Bool, Float64, Bool)]): List[(Float64, Float64)] =
+        let step = (acc, f) -> {
+            let (press, taps) = acc;
+            let (clicked, down, x, dashed) = f;
+            let (next, tapped) = Tap.track(true, { clicked = clicked, down = down, cursor = { x = x, y = 200.0 }, dashed = dashed }, press);
+            (next, taps ::: (xy(tapped) |> Option.toList))
+        };
+        snd(List.foldLeft(step, (None, Nil), frames))
 
     def xy(point: Option[Vec2.Vec2]): Option[(Float64, Float64)] = point |> Option.map(q -> (q#x, q#y))
 
@@ -28,6 +38,27 @@ mod TestTap {
     @Test
     def testSwipeInTheSameFrameDiscardsTheTap(): Unit \ Assert =
         Assert.assertEq(expected = None, xy(Tap.pressedAt(pointer(true, 100.0, 200.0, true))))
+
+    /// 指の端末: 押したコマの次のコマに離れていたら、押した所がタップの点になる。
+    @Test
+    def testTouchTapIsTakenWhenReleasedOnTheNextFrame(): Unit \ Assert =
+        Assert.assertEq(expected = (100.0, 200.0) :: Nil, touchTaps((true, true, 100.0, false) :: (false, false, 100.0, false) :: Nil))
+
+    /// 指の端末: 押したまま次のコマへ続いた（横に払っている）ら、タップにしない。払い終えのダッシュのコマでも出ない。
+    @Test
+    def testTouchPressHeldAcrossFramesIsNotATap(): Unit \ Assert =
+        Assert.assertEq(expected = Nil,
+            touchTaps((true, true, 100.0, false) :: (false, true, 140.0, false) :: (false, true, 180.0, false) :: (false, false, 180.0, true) :: Nil))
+
+    /// 指の端末: 離したコマにダッシュの操作が来たら、タップは捨てる。
+    @Test
+    def testTouchReleaseWithADashDiscardsTheTap(): Unit \ Assert =
+        Assert.assertEq(expected = Nil, touchTaps((true, true, 100.0, false) :: (false, false, 100.0, true) :: Nil))
+
+    /// マウスは押したコマでタップの点になり、離すのを待たない。
+    @Test
+    def testMouseTapIsTakenOnThePressFrame(): Unit \ Assert =
+        Assert.assertEq(expected = Some((100.0, 200.0)), xy(snd(Tap.track(false, pointer(true, 100.0, 200.0, false), None))))
 
     // ══════════════════════════════════════════════════════
     // 点から入力へ

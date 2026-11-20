@@ -13,7 +13,7 @@
 // ダッシュは列を始めに全部計算し、1 歩見せ始めるごとにその歩の Run を run にする。ダッシュ中の入力は次の歩で止めるだけ（溜めない）。
 mod World {
 
-    use fge::{App, Camera3d, Clock, Timeline}
+    use fge::{App, Camera3d, Clock, Timeline, Vec2}
     use Board.{Cell, Dir}
     use Run.Input
 
@@ -70,6 +70,7 @@ mod World {
     ///   shown     … 今見せている 1 手
     ///   queued    … 見せている間に来た手（1 つまで）
     ///   foresight … 予告（run が変わった時だけ作り直す）
+    ///   press     … 指の端末で押して、離すのを待っているタップの点
     ///   seed      … 周回の種
     ///   realNow   … このコマの実時間（App が配る frame#realNow の写し。松明の揺らぎと待機の揺れに使う）
     ///   popups    … 浮かぶ数（実時間で動く。Cards の間も止まらない）
@@ -85,6 +86,7 @@ mod World {
         cam = Cam,
         clock = Clock.Clock[Play],
         foresight = Foresight,
+        press = Option[Vec2.Vec2],
         quit = Quit,
         seed = Int64,
         realNow = Clock.Time[Clock.Real],
@@ -105,7 +107,7 @@ mod World {
     pub def initial(res: Res.Res, seed: Int64): World =
         let runState = Floor.begin(Res.floorDocs(res), res#layouts, seed);
         { runState = runState, screen = Screen.Title, shown = shownOf(runState), queued = None,
-          cam = camOf(runState), clock = Clock.start(), foresight = foresightOf(res, runState),
+          cam = camOf(runState), clock = Clock.start(), foresight = foresightOf(res, runState), press = None,
           quit = Quit.Playing, seed = seed, realNow = Clock.zero(),
           popups = Nil, trail = Popup.still(Run.heroOf(runState)#hp), cardsAt = Clock.never(), chosen = None, veilAt = Clock.never() }
 
