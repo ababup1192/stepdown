@@ -39,12 +39,89 @@ function fgeQueryPairs() {
   return out;
 }
 
-// WhyNot: 普段の起動で見ない — getError は GPU の待ちになり、1 コマが何倍にも延びる。
-function fgeQueryParam(name) { return new URLSearchParams(location.search).get(name); }
+// 頁の旗（?fge= と道具が入れる window.fgeDev。読み手は書き出しが index.html の頭に埋める fge-switches.js・docs/web-export.md の「頁の旗」）。
+// WhyNot: 読み手が無い頁で止めない — 書き出しを通さずに置いた頁でも、旗の効かない普段の起動として遊べる。
+var fgeSwitches = (function () {
+  if (typeof fgePageSwitches !== "function") {
+    console.error("[fge] 頁の旗の読み手（fge-switches.js）が index.html に無い — 旗は効かない（bin/fge export-web で書き出し直す）");
+    return { fps: false, backend: "", net: "", sw: true, input: "", orientation: "", size: "", glcheck: false, loadtime: false,
+             capture: 0, deferred: "", usedAssets: false, webgpuFail: "", errors: false };
+  }
+  var read = fgePageSwitches();
+  read.legacy.forEach(function (l) { console.warn("[fge] ?" + l.from + " は ?fge=" + l.to + " に替わった（次の版で読まなくなる）"); });
+  if (read.unknown.length > 0) console.warn("[fge] ?fge= の知らない語を捨てた: " + read.unknown.join(","));
+  return read.switches;
+})();
 
+// ?fge=errors: console の誤りと知らせ・止まった理由・GPU の名前と上限を画面の下に重ねる（コンソールを開けないスマホで確かめる時）。
+// WhyNot: console.log を全部は重ねない — [loadtime] などの毎回の行で誤りが流れて読めなくなる。描き手の行と、誤りの語を含む行（シェーダーの組み立ての失敗は println で出る）だけ拾う。
+// WhyNot: 上限は描き手の文脈から読まない — 描き手の準備で落ちた時ほど要る数で、別の canvas と adapter から読めば準備の成否に左右されない。
+var fgeErrorLines = [];
+function fgeWireErrorOverlay() {
+  if (!fgeSwitches.errors) return;
+  var el = null;
+  var show = function () {
+    if (el === null) {
+      if (!document.body) return;
+      el = document.createElement("pre");
+      // WhyNot: 欄で指を受けない — スマホでは十字ボタンと決定の上に重なり、遊んで確かめられなくなる。読むのはスクリーンショットで足りるので、新しい行を上に置く。
+      el.style.cssText = "position:fixed;left:0;right:0;bottom:0;max-height:45vh;overflow:hidden;margin:0;z-index:10000;padding:6px 8px;" +
+        "font:11px/1.35 monospace;color:#fff;background:rgba(0,0,0,.72);white-space:pre-wrap;word-break:break-all;pointer-events:none";
+      document.body.appendChild(el);
+    }
+    var gpu = fgeErrorLines.filter(function (l) { return l.indexOf("[gpu]") >= 0; });
+    var rest = fgeErrorLines.filter(function (l) { return l.indexOf("[gpu]") < 0; }).reverse();
+    el.textContent = gpu.concat(rest).join("\n");
+  };
+  var add = function (kind, args) {
+    var text = Array.prototype.map.call(args, function (a) { return a && a.stack ? a.stack : String(a); }).join(" ");
+    fgeErrorLines.push(kind + " " + text);
+    if (fgeErrorLines.length > 200) fgeErrorLines.shift();
+    show();
+  };
+  ["error", "warn", "log"].forEach(function (k) {
+    var orig = console[k].bind(console);
+    console[k] = function () {
+      orig.apply(null, arguments);
+      var first = String(arguments[0]);
+      if (k !== "log" || /^\[(webgpu|backend|gpu)\]|error|fail|bug|shader|誤り|失敗|落ち|読めない|止ま/i.test(first)) add(k === "log" ? "i" : k === "warn" ? "W" : "E", arguments);
+    };
+  });
+  window.addEventListener("error", function (e) { add("E", [e.message + " @" + e.filename + ":" + e.lineno]); });
+  window.addEventListener("unhandledrejection", function (e) { add("E", [e.reason && e.reason.stack || e.reason]); });
+  try {
+    var gl = document.createElement("canvas").getContext("webgl2");
+    if (gl) {
+      var dbg = gl.getExtension("WEBGL_debug_renderer_info");
+      var p = function (n) { return n + "=" + gl.getParameter(gl[n]); };
+      add("i", ["[gpu] webgl2 " + (dbg ? gl.getParameter(dbg.UNMASKED_RENDERER_WEBGL) : gl.getParameter(gl.RENDERER)),
+        p("MAX_TEXTURE_IMAGE_UNITS"), p("MAX_VERTEX_TEXTURE_IMAGE_UNITS"), p("MAX_COMBINED_TEXTURE_IMAGE_UNITS"),
+        p("MAX_VERTEX_UNIFORM_VECTORS"), p("MAX_FRAGMENT_UNIFORM_VECTORS"), p("MAX_UNIFORM_BLOCK_SIZE"),
+        p("MAX_TEXTURE_SIZE"), p("MAX_ARRAY_TEXTURE_LAYERS"), p("MAX_VERTEX_ATTRIBS"), p("MAX_VARYING_VECTORS"),
+        "float_rt=" + !!gl.getExtension("EXT_color_buffer_float")]);
+    } else add("W", ["[gpu] webgl2 の文脈を取れない"]);
+  } catch (err) { add("W", ["[gpu] webgl2 の上限を読めない: " + err]); }
+  if (navigator.gpu) {
+    navigator.gpu.requestAdapter().then(function (a) {
+      if (!a) { add("W", ["[gpu] webgpu の adapter を取れない"]); return; }
+      var i = a.info || {};
+      var keys = ["maxStorageBuffersPerShaderStage", "maxStorageBuffersInVertexStage", "maxStorageBuffersInFragmentStage",
+        "maxSampledTexturesPerShaderStage", "maxSamplersPerShaderStage", "maxUniformBuffersPerShaderStage", "maxBindGroups",
+        "maxStorageBufferBindingSize", "maxUniformBufferBindingSize", "maxTextureDimension2D", "maxTextureArrayLayers",
+        "maxVertexBuffers", "maxVertexAttributes", "maxInterStageShaderVariables", "maxColorAttachmentBytesPerSample"];
+      add("i", ["[gpu] webgpu " + [i.vendor, i.architecture, i.device, i.description].filter(Boolean).join(" ")]
+        .concat(keys.filter(function (k) { return typeof a.limits[k] === "number"; }).map(function (k) { return k + "=" + a.limits[k]; }))
+        .concat(["core=" + a.features.has("core-features-and-limits")]));
+    }, function (err) { add("W", ["[gpu] webgpu の adapter で誤り: " + err]); });
+  } else add("i", ["[gpu] navigator.gpu が無い"]);
+  if (!document.body) document.addEventListener("DOMContentLoaded", show);
+}
+fgeWireErrorOverlay();
+
+// WhyNot: 普段の起動で見ない — getError は GPU の待ちになり、1 コマが何倍にも延びる。
 var fgeGlCheck = { calls: 0, errors: 0, seen: Object.create(null), counts: Object.create(null) };
 function fgeCheckedGl(gl) {
-  if (fgeQueryParam("glcheck") !== "1") return gl;
+  if (!fgeSwitches.glcheck) return gl;
   var wrapped = Object.create(null);
   return new Proxy(gl, {
     get: function (target, name) {
@@ -93,7 +170,7 @@ function fgeTexImageArgbLevel(level, w, h, argb, from) {
   fgeGl.texImage2D(fgeGl.TEXTURE_2D, level, fgeGl.RGBA8, w, h, 0, fgeGl.RGBA, fgeGl.UNSIGNED_BYTE, out.subarray(0, n * 4));
 }
 
-var fgeDecodeTimes = fgeQueryParam("loadtime") === "1" ? { count: 0, ms: 0 } : null;
+var fgeDecodeTimes = fgeSwitches.loadtime ? { count: 0, ms: 0 } : null;
 
 var fgeReadFramebuffer = null;
 function fgeReadTextureArgb(texture, w, h, argb) {
@@ -226,7 +303,7 @@ function fgeDecodeImage(bytes, done) {
 
 // ── canvas ──
 var fgeCanvas = null;
-var fgeCaptureFrame = parseInt(fgeQueryParam("capture") || "0", 10) || 0;
+var fgeCaptureFrame = fgeSwitches.capture;
 var fgeCaptureDesign = null;
 var fgeDrawnFrames = 0;
 function fgeFrameDrawn() {
@@ -244,7 +321,7 @@ function fgeFrameDrawn() {
   window.fgeCaptureReady = true;
 }
 
-// WebGPU で描く頁の ?capture=<n>: n コマ目の画素は wasm が中間の texture から読み、ここへ置く（下の行から・fgeFrameDrawn と同じ形）。
+// WebGPU で描く頁の旗 capture:<n>: n コマ目の画素は wasm が中間の texture から読み、ここへ置く（下の行から・fgeFrameDrawn と同じ形）。
 // WhyNot: 中間の texture の alpha をそのまま渡さない — canvas は opaque（WebGL2 の alpha: false と同じ）で、見える絵の alpha はいつも 1。
 function fgePublishCapture(rgba, w, h, renderer) {
   for (var a = 3; a < rgba.length; a += 4) rgba[a] = 255;
@@ -265,6 +342,7 @@ var fgePassBits = new Int32Array(6);
 var fgePassFloats = new Float32Array(fgePassBits.buffer);
 function fgeRunPass(pass, ops, count, end) {
   var o = fgePassObj, f = fgePassFloats, bits = fgePassBits;
+  var u32 = null;
   for (var i = 0; i < count;) {
     switch (ops[i]) {
       case 1: pass.setPipeline(o(ops[i + 1])); i += 2; break;
@@ -278,18 +356,19 @@ function fgeRunPass(pass, ops, count, end) {
       case 7: pass.setStencilReference(ops[i + 1]); i += 2; break;
       case 8: pass.draw(ops[i + 1], ops[i + 2], ops[i + 3], ops[i + 4]); i += 5; break;
       case 9: pass.drawIndexed(ops[i + 1], ops[i + 2], ops[i + 3], ops[i + 4], ops[i + 5]); i += 6; break;
+      case 10:
+        if (u32 === null) u32 = new Uint32Array(ops.buffer, ops.byteOffset, ops.length);
+        pass.setBindGroup(ops[i + 1], o(ops[i + 2]), u32, i + 4, ops[i + 3]); i += 4 + ops[i + 3]; break;
       default: throw new Error("fgeRunPass: 知らない命令 " + ops[i] + "（" + i + " 番目）");
     }
   }
   if (end) pass.end();
 }
 
-// ── 描き手の選び分け（既定は WebGPU・?backend=webgl2 か ?backend=gl で WebGL2）──
+// ── 描き手の選び分け（既定は WebGPU・?fge=webgl2 か ?fge=gl で WebGL2）──
 // WhyNot: navigator.gpu の無い頁で WebGPU を頼まない — wasm は WebGPU を知らないブラウザでも読めるが、頼めば GL へ戻すまでに一手間かかる。
-// WhyNot: 知らない ?backend の値で止めない — 古い頁の ?backend=webgpu も、打ち間違いも、既定の WebGPU で開く。
 var fgeBackendFallbackKey = "fge-backend-fallback";
-var fgeBackendParam = fgeQueryParam("backend");
-var fgeAskedWebGl2 = fgeBackendParam === "webgl2" || fgeBackendParam === "gl";
+var fgeAskedWebGl2 = fgeSwitches.backend === "webgl2";
 var fgeWantWebGpu = !fgeAskedWebGl2 && !!navigator.gpu;
 var fgeWebGpuTaken = false;
 (function () {
@@ -299,7 +378,7 @@ var fgeWebGpuTaken = false;
     if (why) sessionStorage.removeItem(fgeBackendFallbackKey);
   } catch (e) { /* sessionStorage を使えない頁 */ }
   if (why) console.warn("[backend] 前の頁で WebGPU を使えなかった: " + why + " — WebGL2 で開き直した");
-  else if (fgeAskedWebGl2) console.log("[backend] webgl2: ?backend=" + fgeBackendParam + " で選んだ");
+  else if (fgeAskedWebGl2) console.log("[backend] webgl2: 頁の旗（?fge=webgl2）で選んだ");
   else if (!navigator.gpu) console.warn("[backend] WebGPU を使えない: このブラウザには navigator.gpu が無い — WebGL2 で起動する");
 })();
 
@@ -316,9 +395,9 @@ function fgeInitWebGl2() {
 }
 
 // WebGPU を使えなかった時: 理由を console に出して WebGL2 の文脈を取る。canvas が既に webgpu の文脈を持っていれば同じ canvas から WebGL2 は取れないので、
-// ?backend=webgl2 の URL で開き直し（理由は sessionStorage に残して開き直した頁でも出す）、偽を返す。
+// ?fge= に webgl2 を足した URL で開き直し（理由は sessionStorage に残して開き直した頁でも出す）、偽を返す。
 // WhyNot: canvas を作り直して続けない — 入力と大きさの購読を全部付け直すことになる。
-// WhyNot: 開き直す URL から ?backend を外さない — 既定が WebGPU なので、外すと同じ所で落ちて開き直しを繰り返す。
+// WhyNot: 開き直す URL を webgl2 の語なしで作らない — 既定が WebGPU なので、無いと同じ所で落ちて開き直しを繰り返す。
 // WhyNot: 起動の前に全部を判定しない — device と WGSL の pipeline は wasm の main の中で作るまで落ちるか分からない。
 // 準備（webgpu の文脈を取る前）で落ちればその場で WebGL2 を取り、取った後に落ちた時だけ開き直す。
 function fgeFallbackToWebGl2(reason) {
@@ -326,7 +405,7 @@ function fgeFallbackToWebGl2(reason) {
   if (window.fgeWebGpuTaken) {
     try { sessionStorage.setItem(fgeBackendFallbackKey, reason); } catch (e) { /* sessionStorage を使えない頁 */ }
     var url = new URL(location.href);
-    url.searchParams.set("backend", "webgl2");
+    url.search = fgeSearchWithWord(url.search, "webgl2", "backend");
     location.replace(url.toString());
     return false;
   }
@@ -348,6 +427,27 @@ function fgeCopyImageBitmap(device, path, buffer, row) {
   device.queue.submit([encoder.finish()]);
   texture.destroy();
   return "";
+}
+
+// 3D の場面の絵（key = fgePlatformKey の字）の ImageBitmap。
+function fgePlatformBitmap(key) { return fgeImages.get(key.slice(0, key.lastIndexOf("@"))); }
+// 3D の場面の絵を width × height の ImageBitmap で持っているか（閉じた bitmap は幅が 0）。
+function fgeHasPlatformImage(key, width, height) {
+  var bmp = fgePlatformBitmap(key);
+  return !!bmp && bmp.width === width && bmp.height === height;
+}
+// 3D の場面の絵を texture のレベル 0 へ写す（fgeTexImagePlatform の WebGPU の版）。絵が無い・大きさが texture と違う・同期に投げたら偽。
+// 知らせは呼ぶ側（WebGpuMaterials）が絵ごとに 1 回だけ出す。
+function fgeCopyPlatformImage(device, key, texture) {
+  var bmp = fgePlatformBitmap(key);
+  if (!bmp || bmp.width !== texture.width || bmp.height !== texture.height) return false;
+  try {
+    device.queue.copyExternalImageToTexture({ source: bmp }, { texture: texture, premultipliedAlpha: false }, [bmp.width, bmp.height]);
+    return true;
+  } catch (e) {
+    console.warn("[fge] 絵 " + key + " を写せない: " + (e && e.message || e));
+    return false;
+  }
 }
 
 // 人の決定（device lost）: WebGL の文脈を失った時と同じく、戻すのは頁の読み直しとセーブから。
@@ -413,6 +513,7 @@ function fgeBeginFrame() {
   if (fgeUsedAssets !== null) fgeUsedAssets.frame++;
   fgeFrameLatch = fgeLatch;
   fgeLatch = Object.create(null);
+  fgeTouchClickNext();
   fgePointer.frameLatch = fgePointer.latch;
   fgePointer.latch = [false, false, false];
 }
@@ -429,12 +530,9 @@ var fgeSwallow = { ArrowUp: 1, ArrowDown: 1, ArrowLeft: 1, ArrowRight: 1, Space:
 // ── 指の端末（パッド・タップ・ジェスチャー）──
 // 束の web の設定（bin/fge export-web が project.json の web から作る。キーは KeyboardEvent.code に解いてある）。
 var fgeWeb = { virtualPad: null, touchGestures: null, orientation: "any" };
-// 主な pointer が指の端末か。?input=touch|mouse で上書きできる（PC で指の並べ方を確かめる時）。
+// 主な pointer が指の端末か。?fge=touch|mouse で上書きできる（PC で指の並べ方を確かめる時）。
 var fgeCoarseQuery = window.matchMedia ? window.matchMedia("(pointer: coarse)") : null;
-var fgeInputOverride = (function () {
-  var m = /[?&]input=(touch|mouse)\b/.exec(location.search);
-  return m ? m[1] : null;
-})();
+var fgeInputOverride = fgeSwitches.input || null;
 function fgeIsCoarse() {
   if (fgeInputOverride) return fgeInputOverride === "touch";
   return !!(fgeCoarseQuery && fgeCoarseQuery.matches);
@@ -449,19 +547,13 @@ var fgeScreenShortSide = (function () {
   var sides = [screen.width, screen.height, innerWidth, innerHeight].filter(function (v) { return v > 0; });
   return sides.length ? Math.min.apply(null, sides) : 1000;
 })();
-var fgeSizeOverride = (function () {
-  var m = /[?&]size=(small|medium|large)\b/.exec(location.search);
-  return m ? m[1] : "";
-})();
+var fgeSizeOverride = fgeSwitches.size;
 
-// 縦の design を選ぶか（WebLayer が起動の時に 1 回だけ聞く）。?orientation=portrait|landscape があればそれ（PC で縦を確かめる時）、
-// 無ければスマホ（区分 Small と同じ: 指の端末で短い辺が 600 CSS px 未満・?size=small）で、今の画面が縦長か。
+// 縦の design を選ぶか（WebLayer が起動の時に 1 回だけ聞く）。?fge=portrait|landscape があればそれ（PC で縦を確かめる時）、
+// 無ければスマホ（区分 Small と同じ: 指の端末で短い辺が 600 CSS px 未満・?fge=small）で、今の画面が縦長か。
 // WhyNot: マウスの端末で窓が縦長なだけでは縦にしない — PC で開発者の道具を横に付けた窓や縦置きのモニタで、横の画面が変わってしまう。
 // WhyNot: タブレットを縦に持った時は縦にしない — 縦の design の下限（9:16）より太い 3:4 の画面で左右に帯が出て、横の design の時と見た目が大きく変わる。
-var fgeOrientationOverride = (function () {
-  var m = /[?&]orientation=(portrait|landscape)\b/.exec(location.search);
-  return m ? m[1] : "";
-})();
+var fgeOrientationOverride = fgeSwitches.orientation;
 function fgeWantsPortrait() {
   if (fgeOrientationOverride) return fgeOrientationOverride === "portrait";
   var phone = fgeSizeOverride ? fgeSizeOverride === "small" : (fgeCoarseAtBoot && fgeScreenShortSide < 600);
@@ -490,7 +582,7 @@ function fgeUsePortraitDesign(aspect) {
 }
 
 fgePointer.touch = fgeCoarseAtBoot;
-var fgePad = { fingers: new Map(), targets: [], dpad: null, stick: null };
+var fgePad = { fingers: new Map(), targets: [], dpad: null, stick: null, placed: [] };
 function fgePadSync() {
   var held = Object.create(null);
   fgePad.fingers.forEach(function (f) { if (f.code) held[f.code] = true; });
@@ -529,8 +621,9 @@ function fgeStickBegin(f, x, y) {
   f.restX = r.left + r.width / 2;
   f.restY = r.top + r.height / 2;
   f.radius = Math.max(1, r.width * 0.4);
-  f.cx = x;
-  f.cy = y;
+  // WhyNot: 置き場所を書いたスティックを指の所へ動かさない — ゲームの HUD が同じ所に台の絵を描いていて、台だけがずれて見える。
+  f.cx = fgePad.stick.fixed ? f.restX : x;
+  f.cy = fgePad.stick.fixed ? f.restY : y;
   f.x = x;
   f.y = y;
 }
@@ -595,8 +688,46 @@ function fgePadAim(f, x, y) {
   }
 }
 
+function fgeMakeStick(fixed) {
+  var base = document.createElement("div");
+  base.className = "fge-stick";
+  var knob = document.createElement("div");
+  knob.className = "fge-stick-knob";
+  base.appendChild(knob);
+  fgePad.stick = { el: base, knob: knob, fixed: fixed };
+  return base;
+}
+function fgeMakePadButton(b, i) {
+  var el = document.createElement("div");
+  el.className = "fge-pad-button fge-pad-button-" + i;
+  el.textContent = b.label;
+  fgePad.targets.push({ el: el, code: b.code, dir: null });
+  return el;
+}
+// 置き場所を書いた物は、それぞれが指を受ける 1 枚（丸より fgePlaceSlop だけ広い）として canvas の上に重ねる。
+var fgePlaceSlop = 12;
+function fgePlaceZone(pad, child, place) {
+  var zone = document.createElement("div");
+  zone.className = "fge-pad-place" + (place.visible ? "" : " fge-pad-ghost");
+  child.style.inset = fgePlaceSlop + "px";
+  zone.appendChild(child);
+  pad.appendChild(zone);
+  fgePad.placed.push({ zone: zone, place: place });
+  return zone;
+}
 function fgeBuildPad(cfg) {
   var pad = document.getElementById("fge-pad");
+  var placed = !!cfg.stickPlace || (cfg.buttons || []).some(function (b) { return !!b.place; });
+  if (placed) {
+    // bin/fge export-web が「全部に置き場所」か「どれにも無い」かを確かめてある。
+    var zones = [];
+    if (cfg.stick) zones.push({ el: fgePlaceZone(pad, fgeMakeStick(true), cfg.stickPlace), stick: true });
+    (cfg.buttons || []).forEach(function (b, i) {
+      zones.push({ el: fgePlaceZone(pad, fgeMakePadButton(b, i), b.place), stick: false });
+    });
+    zones.forEach(function (z) { fgePadListen(z.el, z.stick); });
+    return;
+  }
   var left = document.createElement("div");
   left.className = "fge-pad-zone fge-pad-left";
   var right = document.createElement("div");
@@ -614,50 +745,56 @@ function fgeBuildPad(cfg) {
     });
     left.appendChild(dpad);
   }
-  if (cfg.stick) {
-    var base = document.createElement("div");
-    base.className = "fge-stick";
-    var knob = document.createElement("div");
-    knob.className = "fge-stick-knob";
-    base.appendChild(knob);
-    fgePad.stick = { el: base, knob: knob };
-    left.appendChild(base);
-  }
+  if (cfg.stick) left.appendChild(fgeMakeStick(false));
   var buttons = document.createElement("div");
   buttons.className = "fge-pad-buttons";
-  (cfg.buttons || []).forEach(function (b, i) {
-    var el = document.createElement("div");
-    el.className = "fge-pad-button fge-pad-button-" + i;
-    el.textContent = b.label;
-    buttons.appendChild(el);
-    fgePad.targets.push({ el: el, code: b.code, dir: null });
-  });
+  (cfg.buttons || []).forEach(function (b, i) { buttons.appendChild(fgeMakePadButton(b, i)); });
   right.appendChild(buttons);
   pad.appendChild(left);
   pad.appendChild(right);
-  [left, right].forEach(function (zone) {
-    zone.addEventListener("pointerdown", function (e) {
-      e.preventDefault();
-      fgeNotePointer(e);
-      // WhyNot: 暗黙の capture を当てにしない — マウスで確かめる時は capture されず、指を滑らせた後の move が帯の外へ逃げる。
-      try { zone.setPointerCapture(e.pointerId); } catch (err) { /* 押し終えた指 */ }
-      var f = { kind: fgeInDpad(e.clientX, e.clientY) ? "dpad" : "button", dir: null, code: null };
-      // WhyNot: 2 本目の指でスティックを掴み直さない — 1 本目の向きが途中で別の指の向きへ跳ぶ。2 本目はゾーンの中のボタンを探すだけ。
-      if (zone === left && fgePad.stick && !fgeStickFinger()) fgeStickBegin(f, e.clientX, e.clientY);
-      fgePadAim(f, e.clientX, e.clientY);
-      fgePad.fingers.set(e.pointerId, f);
-      fgePadSync();
-    });
-    zone.addEventListener("pointermove", function (e) {
-      var f = fgePad.fingers.get(e.pointerId);
-      if (!f) return;
-      fgePadAim(f, e.clientX, e.clientY);
-      fgePadSync();
-    });
-    var lift = function (e) { if (fgePad.fingers.delete(e.pointerId)) fgePadSync(); };
-    zone.addEventListener("pointerup", lift);
-    zone.addEventListener("pointercancel", lift);
-    zone.addEventListener("lostpointercapture", lift);
+  fgePadListen(left, true);
+  fgePadListen(right, false);
+}
+// stickZone: このゾーンで最初に置いた指がスティックを掴む。
+function fgePadListen(zone, stickZone) {
+  zone.addEventListener("pointerdown", function (e) {
+    e.preventDefault();
+    fgeNotePointer(e);
+    // WhyNot: 暗黙の capture を当てにしない — マウスで確かめる時は capture されず、指を滑らせた後の move が帯の外へ逃げる。
+    try { zone.setPointerCapture(e.pointerId); } catch (err) { /* 押し終えた指 */ }
+    var f = { kind: fgeInDpad(e.clientX, e.clientY) ? "dpad" : "button", dir: null, code: null };
+    // WhyNot: 2 本目の指でスティックを掴み直さない — 1 本目の向きが途中で別の指の向きへ跳ぶ。2 本目はゾーンの中のボタンを探すだけ。
+    if (stickZone && fgePad.stick && !fgeStickFinger()) fgeStickBegin(f, e.clientX, e.clientY);
+    fgePadAim(f, e.clientX, e.clientY);
+    fgePad.fingers.set(e.pointerId, f);
+    fgePadSync();
+  });
+  zone.addEventListener("pointermove", function (e) {
+    var f = fgePad.fingers.get(e.pointerId);
+    if (!f) return;
+    fgePadAim(f, e.clientX, e.clientY);
+    fgePadSync();
+  });
+  var lift = function (e) { if (fgePad.fingers.delete(e.pointerId)) fgePadSync(); };
+  zone.addEventListener("pointerup", lift);
+  zone.addEventListener("pointercancel", lift);
+  zone.addEventListener("lostpointercapture", lift);
+}
+// 置き場所（design px・角から丸の中心まで）を CSS px へ。design は canvas の中に縦横比を保って真ん中に収まる（描き手の余りの黒と同じ）。
+function fgePlacePad() {
+  if (!fgePad.placed.length || !fgeCaptureDesign) return;
+  var r = fgeCanvas.getBoundingClientRect();
+  var d = fgeCaptureDesign;
+  var k = Math.min(r.width / d.w, r.height / d.h);
+  var ox = r.left + (r.width - d.w * k) / 2, oy = r.top + (r.height - d.h * k) / 2;
+  fgePad.placed.forEach(function (p) {
+    var pl = p.place;
+    var cx = pl.anchor === "TopRight" || pl.anchor === "BottomRight" ? d.w - pl.x : pl.x;
+    var cy = pl.anchor === "BottomLeft" || pl.anchor === "BottomRight" ? d.h - pl.y : pl.y;
+    var half = pl.size * k / 2 + fgePlaceSlop;
+    p.zone.style.left = (ox + cx * k - half) + "px";
+    p.zone.style.top = (oy + cy * k - half) + "px";
+    p.zone.style.width = p.zone.style.height = (half * 2) + "px";
   });
 }
 
@@ -670,57 +807,135 @@ function fgeApplyLayout() {
   if (body.classList.contains("fge-pad-on") !== padOn) fgePadReleaseAll();
   body.classList.toggle("fge-touch", coarse);
   body.classList.toggle("fge-pad-on", padOn);
+  body.classList.toggle("fge-pad-overlay", padOn && fgePad.placed.length > 0);
   body.classList.toggle("fge-want-landscape", fgeWeb.orientation === "landscape");
   body.classList.toggle("fge-want-portrait", fgeWeb.orientation === "portrait");
   // WhyNot: orientationchange を待たない — 発火の時にはまだ前の向きの大きさのままの端末がある。大きさの変化（resize）で見る。
   var orientation = innerWidth >= innerHeight ? "landscape" : "portrait";
   if (fgeLastOrientation !== null && orientation !== fgeLastOrientation) fgePadReleaseAll();
   fgeLastOrientation = orientation;
+  if (padOn) fgePlacePad();
 }
 
 // canvas の上の指: 離した時にタップ（その位置のクリック）・縦のドラッグはホイール・横に払うとスワイプ・長押し。
 // 縦のドラッグは、離した時に縦へ払った形なら swipeUp / swipeDown のキーも出す（ホイールは動かしている間に出したまま）。
 // 横のドラッグの間は、マウスの左ボタンを押したまま動かすのと同じに見せる（横と決まった所で押し始め、位置は指に付いて動く。離すと押しも離れる）。
 // スライダーを指で動かせるように。
+// ゲームがマウスの取り込みを頼んでいる間（一人称の視点など）は、ドラッグは縦横とも取り込んだマウスの動きと同じに見せる（ホイール・払い・左ボタンにしない）。
 // 長押しは、動かさずに fgeLongPressMs 以上置いてから離した時に出す（離した時のタップの代わり）。
-// 主な指（isPrimary）だけを追う。
+// 動かさずに置いている間（ホイール・払い・長押しに決まる前）は、置いた所で左ボタンを押している状態にする（押した拍は離した時のまま）。
+// 長押しのボタンで続けて何かをする形を指でも効かせる。置いている指が 2 本ならカーソルは後に置いた指の所。
+// ジェスチャーを追うのは canvas に最初に置いた指 1 本。追っている間に置いた別の指は、タップ（大きく動かさずに離す）だけをクリックにする。
+// WhyNot: isPrimary で選ばない — パッド（virtualPad）に置いた指が主な指になり、パッドを持ったまま押した canvas の指が全部捨てられる。
+// WhyNot: 2 本目の指のドラッグ・払い・長押しを追わない — マウスの位置と左ボタンは 1 つしか無く、2 本のドラッグは 1 つのカーソルに混ざる。
 var fgeTouchSlop = 16;
 var fgeWheelStep = 40;
 var fgeSwipeMin = 60;
 var fgeLongPressMs = 650;
 var fgeEdgeMargin = 24;
 var fgeGesture = null;
+var fgeExtraTaps = new Map();
+var fgeTouchOrder = 0;
+var fgeTouchHolding = false;
+// 指の今の状態から、左ボタンの押している状態とカーソルを作り直す。
+function fgeTouchSyncHold() {
+  if (fgeGesture && fgeGesture.mode === "swipe") { fgeTouchHolding = false; return; }
+  // WhyNot: 視点のドラッグに入った後も左ボタンを押したままにしない — 置いた時の押しが残り、ドラッグの間ずっと押した扱いになる。
+  if (fgeGesture && fgeGesture.mode === "look") { if (fgeTouchHolding) fgePointer.buttons[0] = false; fgeTouchHolding = false; return; }
+  var best = null;
+  if (fgeGesture && fgeGesture.mode === "tap" && !fgeGesture.held) best = fgeGesture;
+  fgeExtraTaps.forEach(function (t) { if (!t.moved && (best === null || t.order > best.order)) best = t; });
+  if (best !== null) {
+    fgePointer.x = best.px;
+    fgePointer.y = best.py;
+    fgePointer.buttons[0] = true;
+    fgeTouchHolding = true;
+  } else if (fgeTouchHolding) {
+    // WhyNot: 指が押していない時に落とさない — マウスも付いた端末で、押したままのマウスの左ボタンが離れる。
+    fgePointer.buttons[0] = false;
+    fgeTouchHolding = false;
+  }
+}
+// 同じコマに来た 2 つ目からのタップ。1 コマに 1 つずつ出す（frame#cursor と frame#mouseClicked は 1 つしか無い）。
+var fgeTapQueue = [];
+function fgeTouchClick(x, y) {
+  if (fgePointer.latch[0] || fgeTapQueue.length > 0) { fgeTapQueue.push({ x: x, y: y }); return; }
+  fgePointer.x = x;
+  fgePointer.y = y;
+  fgePointer.latch[0] = true;
+}
+function fgeTouchClickNext() {
+  if (fgePointer.latch[0]) return;
+  // クリックを出したコマの後は、置いたままの指の所へカーソルを戻す。
+  if (fgeTapQueue.length === 0) { if (fgeTouchHolding) fgeTouchSyncHold(); return; }
+  var t = fgeTapQueue.shift();
+  fgePointer.x = t.x;
+  fgePointer.y = t.y;
+  fgePointer.latch[0] = true;
+}
+function fgeDropGesture(g) {
+  if (g.timer) clearTimeout(g.timer);
+  if (g.mode === "swipe") fgePointer.buttons[0] = false;
+  if (fgeGesture === g) fgeGesture = null;
+}
+// 離した合図（pointerup・pointercancel）の来なかった指を捨てる。
+function fgeTouchForget() {
+  if (fgeGesture) fgeDropGesture(fgeGesture);
+  fgeExtraTaps.clear();
+  fgeTapQueue = [];
+  fgeTouchSyncHold();
+}
 function fgeGestureKey(name) {
   var g = fgeWeb.touchGestures;
   return g && g[name] ? g[name] : null;
 }
 function fgeTapKey(code) { fgeLatch[code] = true; }
 function fgeGestureDown(e, canvasXY) {
-  if (!e.isPrimary) return;
-  if (fgeGesture && fgeGesture.timer) clearTimeout(fgeGesture.timer);
-  var g = { id: e.pointerId, x0: e.clientX, y0: e.clientY, lastY: e.clientY, px: canvasXY.x, py: canvasXY.y,
-            mode: "tap", wheelRest: 0, wheelSign: 0, timer: 0, held: false };
+  // 主な指が置かれた時は、前の指が全部離れている。
+  if (e.isPrimary) fgeTouchForget();
+  if (fgeGesture) {
+    // WhyNot: 横のドラッグ中に置いた指を受けない — 左ボタンを押したままのカーソルが 2 本目の指の所へ跳び、ドラッグしている物がそこへ飛ぶ。
+    if (fgeGesture.mode === "swipe") return;
+    fgeExtraTaps.set(e.pointerId, { x0: e.clientX, y0: e.clientY, px: canvasXY.x, py: canvasXY.y, moved: false, order: ++fgeTouchOrder });
+    fgeTouchSyncHold();
+    return;
+  }
+  var g = { id: e.pointerId, x0: e.clientX, y0: e.clientY, lastY: e.clientY, px: canvasXY.x, py: canvasXY.y, lastPx: canvasXY.x, lastPy: canvasXY.y,
+            mode: "tap", wheelRest: 0, wheelSign: 0, timer: 0, held: false, order: ++fgeTouchOrder };
   if (fgeGestureKey("longPress")) {
     g.timer = setTimeout(function () {
       // WhyNot: 置いている間に出さない — スライダーのつまみに指を置いて少し止めてから動かすと、戻るが出て画面が閉じる。
-      if (fgeGesture === g && g.mode === "tap") g.held = true;
+      if (fgeGesture === g && g.mode === "tap") { g.held = true; fgeTouchSyncHold(); }
     }, fgeLongPressMs);
   }
   fgeGesture = g;
+  fgeTouchSyncHold();
 }
 function fgeGestureMove(e, canvasXY) {
+  var t = fgeExtraTaps.get(e.pointerId);
+  if (t) {
+    var tx = e.clientX - t.x0, ty = e.clientY - t.y0;
+    if (!t.moved && tx * tx + ty * ty > fgeTouchSlop * fgeTouchSlop) { t.moved = true; fgeTouchSyncHold(); }
+    return;
+  }
   var g = fgeGesture;
   if (!g || g.id !== e.pointerId) return;
   var dx = e.clientX - g.x0, dy = e.clientY - g.y0;
   if (g.mode === "tap" && dx * dx + dy * dy > fgeTouchSlop * fgeTouchSlop) {
-    g.mode = Math.abs(dy) > Math.abs(dx) ? "scroll" : "swipe";
+    // WhyNot: 取り込みの間は縦をホイールにしない — 視点を上下に向ける指が、開いていない一覧のホイールに化けて上下が回らない。
+    g.mode = fgeMouseCapture.wanted ? "look" : Math.abs(dy) > Math.abs(dx) ? "scroll" : "swipe";
     if (g.timer) { clearTimeout(g.timer); g.timer = 0; }
+    fgeTouchSyncHold();
   }
   if (g.mode === "swipe") {
     // WhyNot: 押した拍（latch）を立てない — 横に払っただけで、払い始めの所のボタンが押される。
     fgePointer.x = canvasXY.x;
     fgePointer.y = canvasXY.y;
     fgePointer.buttons[0] = true;
+  }
+  if (g.mode === "look" && document.hasFocus()) {
+    fgePointer.dx += canvasXY.x - g.lastPx;
+    fgePointer.dy += canvasXY.y - g.lastPy;
   }
   if (g.mode === "scroll") {
     // 指を下へ引くと上へ回したホイール（前の行へ）。1 回のドラッグの中で、最初に出た向きと逆の刻みは捨てる（開いた直後に閉じない）。
@@ -733,20 +948,27 @@ function fgeGestureMove(e, canvasXY) {
     }
   }
   g.lastY = e.clientY;
+  g.lastPx = canvasXY.x;
+  g.lastPy = canvasXY.y;
 }
 function fgeGestureUp(e) {
+  var t = fgeExtraTaps.get(e.pointerId);
+  if (t) {
+    fgeExtraTaps.delete(e.pointerId);
+    fgeTouchSyncHold();
+    // WhyNot: 横のドラッグ中はクリックにしない — 左ボタンを押したままのカーソルが 2 本目の指の所へ跳び、ドラッグしている物がそこへ飛ぶ。
+    if (!t.moved && !(fgeGesture && fgeGesture.mode === "swipe")) fgeTouchClick(t.px, t.py);
+    return;
+  }
   var g = fgeGesture;
   if (!g || g.id !== e.pointerId) return;
-  fgeGesture = null;
-  if (g.timer) clearTimeout(g.timer);
-  if (g.mode === "swipe") fgePointer.buttons[0] = false;
+  fgeDropGesture(g);
+  fgeTouchSyncHold();
   if (g.mode === "tap" && g.held) {
     fgeTapKey(fgeGestureKey("longPress"));
   } else if (g.mode === "tap") {
     // WhyNot: 離した所で押さない — 指を離す時のずれで隣のボタンを押す。押した時の位置に戻してから押す。
-    fgePointer.x = g.px;
-    fgePointer.y = g.py;
-    fgePointer.latch[0] = true;
+    fgeTouchClick(g.px, g.py);
   } else if (g.mode === "swipe") {
     var dx = e.clientX - g.x0, dy = e.clientY - g.y0;
     // WhyNot: 画面の端から始まった払いをスワイプにしない — Android・iOS の「戻る」のジェスチャーと同じ指の動きで、両方が起きる。
@@ -766,11 +988,20 @@ function fgeGestureUp(e) {
   }
 }
 function fgeGestureCancel(e) {
-  var g = fgeGesture;
-  if (!g || g.id !== e.pointerId) return;
-  if (g.timer) clearTimeout(g.timer);
-  if (g.mode === "swipe") fgePointer.buttons[0] = false;
-  fgeGesture = null;
+  if (fgeExtraTaps.delete(e.pointerId)) { fgeTouchSyncHold(); return; }
+  if (fgeGesture && fgeGesture.id === e.pointerId) { fgeDropGesture(fgeGesture); fgeTouchSyncHold(); }
+}
+// iOS の WebKit は pointerup・pointercancel を落とすことがある。touch の event の今触れている指に canvas の指が 1 本も無ければ、残った追い先を捨てる。
+// WhyNot: すぐ捨てない — touchend が pointerup より先に来る端末で、離したタップが消える。
+function fgeTouchPrune(e) {
+  for (var i = 0; i < e.touches.length; i++) if (e.touches[i].target === fgeCanvas) return;
+  if (!fgeGesture && fgeExtraTaps.size === 0) return;
+  var g = fgeGesture, ids = Array.from(fgeExtraTaps.keys());
+  setTimeout(function () {
+    if (g && fgeGesture === g) fgeDropGesture(g);
+    ids.forEach(function (id) { fgeExtraTaps.delete(id); });
+    fgeTouchSyncHold();
+  }, 100);
 }
 
 function fgeNotePointer(e) { fgePointer.touch = e.pointerType === "touch"; }
@@ -790,7 +1021,8 @@ function fgeRequestMouseCapture() {
 function fgeSetMouseCaptured(on) {
   var c = fgeMouseCapture;
   c.wanted = on;
-  if (on) { fgeRequestMouseCapture(); return; }
+  // WhyNot: 最後の操作が指なら宣言の所で頼まない — 直前のタップの許しが残っていて Android の Chrome は lock を掛け、指が全部 canvas へ吸われて画面のパッドに届かない。
+  if (on) { if (!fgePointer.touch) fgeRequestMouseCapture(); return; }
   if (document.pointerLockElement === fgeCanvas) { c.releasing = true; document.exitPointerLock(); }
 }
 function fgeWireMouseCapture() {
@@ -805,7 +1037,8 @@ function fgeWireMouseCapture() {
     if (!locked) c.releasing = false;
   });
   document.addEventListener("pointerlockerror", function () { fgeMouseCapture.asking = false; });
-  window.addEventListener("mousedown", fgeRequestMouseCapture);
+  // WhyNot: mousedown で頼まない — Android の Chrome は指のタップにも互換の mousedown を出し、lock が掛かると指が全部 canvas へ吸われて画面のパッドに届かない。
+  window.addEventListener("pointerdown", function (e) { if (e.pointerType === "mouse") fgeRequestMouseCapture(); });
   // WhyNot: Esc で頼み直さない — Esc で放した状態の Esc（メニューの閉じる）で、また掛かる。
   window.addEventListener("keydown", function (e) { if (e.code !== "Escape") fgeRequestMouseCapture(); });
 }
@@ -819,10 +1052,10 @@ function fgeWireInput() {
     fgeAudio.wake();
   });
   window.addEventListener("keyup", function (e) { fgeKeys[e.code] = false; });
-  window.addEventListener("blur", function () { fgeReleaseAll(); fgePadReleaseAll(); });
+  window.addEventListener("blur", function () { fgeReleaseAll(); fgePadReleaseAll(); fgeTouchForget(); });
   window.addEventListener("focus", fgeReleaseAll);
   document.addEventListener("visibilitychange", function () {
-    if (document.hidden) { fgeReleaseAll(); fgePadReleaseAll(); }
+    if (document.hidden) { fgeReleaseAll(); fgePadReleaseAll(); fgeTouchForget(); }
     fgeAudio.onVisibility();
   });
   var scale = function () {
@@ -851,7 +1084,9 @@ function fgeWireInput() {
     fgeNotePointer(e);
     if (e.pointerType === "touch") {
       // WhyNot: 指は押した時にクリックにしない — 縦に払う（バックログ）・長押しと見分けられない。離した時に決める。
-      if (e.isPrimary) fgeGestureDown(e, place(e));
+      // WhyNot: 暗黙の capture を当てにしない — iOS の WebKit は capture の外の move を届けない。
+      try { fgeCanvas.setPointerCapture(e.pointerId); } catch (err) { /* 押し終えた指 */ }
+      fgeGestureDown(e, toCanvas(e));
       return;
     }
     place(e);
@@ -865,6 +1100,8 @@ function fgeWireInput() {
     if (e.button >= 0 && e.button < 3) fgePointer.buttons[e.button] = false;
   });
   window.addEventListener("pointercancel", function (e) { if (e.pointerType === "touch") fgeGestureCancel(e); });
+  window.addEventListener("touchend", fgeTouchPrune, { passive: true });
+  window.addEventListener("touchcancel", fgeTouchPrune, { passive: true });
   fgeCanvas.addEventListener("wheel", function (e) {
     e.preventDefault();
     var unit = e.deltaMode === 1 ? 1 : e.deltaMode === 2 ? 3 : 1 / 100;
@@ -882,10 +1119,10 @@ function fgeWireInput() {
   });
 }
 
-// ── 使った素材の記録（?usedAssets=1。書き出しが後回しの候補を出すのに window.fgeUsedAssets を読む）──
+// ── 使った素材の記録（頁の旗 usedAssets。書き出しが後回しの候補を出すのに window.fgeUsedAssets を読む）──
 // 形は go/exportweb_titleassets.go の webUsedAssets。
 // WhyNot: 読んだファイルは early に入れない — 後回しの物を読みに来るのは、届いたかを見てから読む裏の読み込み（BackgroundLoad）で、届く前の読みは「無い」で返るだけ。
-var fgeUsedAssets = fgeQueryParam("usedAssets") === "1" ? { frame: 0, texture: {}, sound: {}, file: {}, early: {} } : null;
+var fgeUsedAssets = fgeSwitches.usedAssets ? { frame: 0, texture: {}, sound: {}, file: {}, early: {} } : null;
 window.fgeUsedAssets = fgeUsedAssets;
 function fgeNoteUsed(kind, joined) {
   if (fgeNet4g && kind !== "file") fgeNoteMissingSkips(kind, joined);
@@ -902,10 +1139,10 @@ function fgeNoteUsed(kind, joined) {
   });
 }
 
-// ── ?net=4g: 後回しの 1 本ずつを、書き出しが見積もった 4G で届く秒（bundle.json の arrivalSeconds）まで渡さない ──
-// 秒は押した時から数える（開いてすぐ押した人が一番待つ形）。?capture= の頁は main を呼ぶ時から。
+// ── 頁の旗 net:4g（?fge=4g）: 後回しの 1 本ずつを、書き出しが見積もった 4G で届く秒（bundle.json の arrivalSeconds）まで渡さない ──
+// 秒は押した時から数える（開いてすぐ押した人が一番待つ形）。撮る頁（旗 capture）は main を呼ぶ時から。
 // WhyNot: 頁の fetch を遅らせて回線をまねない — 手元のサーバーは速すぎ、Chrome の回線の絞りは Service Worker の取り物に掛からない。届いたと見せる時刻だけを見積もりに合わせる。
-var fgeNet4g = fgeQueryParam("net") === "4g";
+var fgeNet4g = fgeSwitches.net === "4g";
 var fgeNetClock = { at: -1, waiters: [] };
 function fgeNetStartClock() {
   if (fgeNetClock.at >= 0) return;
@@ -920,7 +1157,7 @@ function fgeNetGate(e) {
   });
 }
 // window.fgeMissingWaits: engine の待ちごとに { reason, kind（pressed = 押した所へ戻して待った・stopped = 前の World のまま止まった）, names, firstFrame, frames, seconds }。
-// window.fgeMissingSkips: 届く前に描かずに・鳴らさずに進んだ名前ごとに { name, kind（texture・sound）, why（placeholder・skip・gaveUp）, frame }（?net=4g の頁だけ）。
+// window.fgeMissingSkips: 届く前に描かずに・鳴らさずに進んだ名前ごとに { name, kind（texture・sound）, why（placeholder・skip・gaveUp）, frame }（旗 net:4g の頁だけ）。
 // WhyNot: 待ちの記録を際限なく積まない — 長く遊ぶ頁で、控えの外の待ちを繰り返すと配列が育ち続ける。
 var fgeMissingLimit = 200;
 window.fgeMissingWaits = [];
@@ -1017,6 +1254,45 @@ function fgeHoldImage(path, done) {
   }, function (e) { console.warn("[fge] 絵 " + p + " を解けない: " + (e && e.message || e)); finish(); });
 }
 
+// バイト bytes（glb の中の絵）を ImageBitmap に解いて id の道で持つ（fgeHoldImage のバイトの版）。done は必ず後から 1 回呼ぶ。
+// WhyNot: 解いた画素を wasm へ読み戻さない — 読み戻しと 3 回の写しと SHA-256 が、束が届いたコマに乗る。描き手は道の絵と同じく ImageBitmap から GPU へ上げる。
+function fgeHoldImageBytes(id, bytes, done) {
+  var p = fgeNormPath(id);
+  var label = "[loadtime] hold " + p + "（" + bytes.length + " バイト）";
+  if (fgeDecodeTimes !== null) console.time(label);
+  var finish = function () { if (fgeDecodeTimes !== null) console.timeEnd(label); done(); };
+  createImageBitmap(new Blob([bytes], { type: fgeImageTypeOfBytes(bytes) }), { premultiplyAlpha: "none", colorSpaceConversion: "none" }).then(function (bitmap) {
+    fgeImages.set(p, bitmap);
+    finish();
+  }, function (e) { console.warn("[fge] 絵 " + p + " を解けない: " + (e && e.message || e)); finish(); });
+}
+
+// 届いた glb（path・bytes）の中の絵を、届いた時に ImageBitmap へ解いておく（id は Gltf.fromGlbTexturedKeyedUsingOptions が
+// versionedKey の key で作る "<fgePlatformKey(path)>#image<番号>"）。待たない。解けない絵は飛ばす（wasm が読む時に解く）。
+// WhyNot: wasm が読む時まで待たない — 絵 1 枚ごとに createImageBitmap を待つ間ゲームのループが止まり、束が届いたコマに絵の枚数だけ乗る。
+function fgePreholdGlbImages(path, bytes) {
+  if (!/\.glb$/i.test(path) || !bytes || bytes.length < 20) return;
+  try {
+    var view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
+    if (view.getUint32(0, true) !== 0x46546C67) return;
+    var jsonLength = view.getUint32(12, true);
+    var json = JSON.parse(new TextDecoder().decode(bytes.subarray(20, 20 + jsonLength)));
+    var binStart = 20 + jsonLength + 8;
+    var key = fgePlatformKey(path);
+    (json.images || []).forEach(function (image, k) {
+      var bv = image.bufferView === undefined ? null : (json.bufferViews || [])[image.bufferView];
+      if (!bv) return;
+      var start = binStart + (bv.byteOffset || 0);
+      var part = bytes.subarray(start, start + bv.byteLength);
+      var id = fgeNormPath(key + "#image" + k);
+      if (fgeImages.has(id)) return;
+      createImageBitmap(new Blob([part], { type: fgeImageTypeOfBytes(part) }), { premultiplyAlpha: "none", colorSpaceConversion: "none" }).then(function (bitmap) {
+        if (fgeImages.has(id)) bitmap.close(); else fgeImages.set(id, bitmap);
+      }, function () { /* wasm が読む時に解き直して知らせる */ });
+    });
+  } catch (e) { /* 壊れた glb は wasm が読む時に知らせる */ }
+}
+
 // ── 音 ──
 var fgeAudio = {
   ctx: null, master: null, sounds: new Map(), manifestSeconds: new Map(), wasRunning: false, started: false,
@@ -1085,6 +1361,12 @@ function fgeRing(size) {
       var at = function (q) { return s[Math.min(n - 1, Math.floor(q * n))]; };
       var sum = s.reduce(function (a, b) { return a + b; }, 0);
       return { frames: n, mean: +(sum / n).toFixed(3), median: +at(0.5).toFixed(3), p95: +at(0.95).toFixed(3), max: +s[n - 1].toFixed(3) };
+    },
+    // 通し番号 from 以降に入れた値の最大（輪に残っている分だけ）。
+    maxSince: function (from) {
+      var lo = Math.max(from, this.count - this.values.length), m = -1;
+      for (var i = lo; i < this.count; i++) m = Math.max(m, this.values[i % this.values.length]);
+      return m < 0 ? null : +m.toFixed(1);
     },
     reset: function () { this.count = 0; }
   };
@@ -1161,7 +1443,7 @@ function fgeSplashDeferredRatio() {
   var all = 0, got = 0;
   fgeDeferred.entries.forEach(function (e) {
     all += e.bytes;
-    if (e.state === "downloaded" || e.state === "loaded" || e.state === "released") got += e.bytes;
+    if (e.state === "parsing" || e.state === "downloaded" || e.state === "loaded" || e.state === "released") got += e.bytes;
   });
   return all > 0 ? got / all : null;
 }
@@ -1287,15 +1569,16 @@ function fgeAfterTapMarkSeen() {
   try { window.localStorage.setItem(fgeAfterTapSeenKey(), "1"); } catch (e) { /* 持てない頁は次も待つ物が残る時だけ出す */ }
 }
 // WhyNot: fgeDeferredArrived（絵は上げ終えて loaded）で切らない — main が動く前は誰も上げないので、ロゴが上限まで残る。バイトが手元に来たら切る。
+// parsing（glb を Worker で解いている）もバイトは手元にあるので切る（数えないと Worker の起動と parse の分だけロゴが長く出る）。
 function fgeAfterTapSettled(e) {
-  return e.state === "downloaded" || e.state === "loaded" || e.state === "released" || (e.state === "failed" && e.permanent);
+  return e.state === "parsing" || e.state === "downloaded" || e.state === "loaded" || e.state === "released" || (e.state === "failed" && e.permanent);
 }
 function fgeAfterTapPending(cfg) {
   var groups = cfg.waitFor || [];
   return fgeDeferred.entries.filter(function (e) { return e.group !== "" && groups.indexOf(e.group) >= 0 && !fgeAfterTapSettled(e); });
 }
 function fgeAfterTapCodeReady() { return fgeCode.state === "none" || fgeCode.state === "loaded"; }
-// 待つ物がそろうまでの見込みの秒。?net=4g は書き出しの見積もり（押した時から数える）・ふつうは残りのバイトを今までの取る速さで割る。
+// 待つ物がそろうまでの見込みの秒。旗 net:4g は書き出しの見積もり（押した時から数える）・ふつうは残りのバイトを今までの取る速さで割る。
 // WhyNot: 速さを細かく測らない（Service Worker の取り物や取りかけの分も数える）— 外れても速く見積もる側、つまりロゴを出さない側（待たせない側）に倒れる。
 function fgeAfterTapRemainingSeconds(cfg) {
   if (!fgeAfterTapCodeReady()) return Infinity;
@@ -1331,6 +1614,7 @@ function fgeAfterTapEnd() {
   if (fgeAfterTap.off) fgeAfterTap.off();
   fgeLatch = Object.create(null);
   fgePointer.latch = [false, false, false];
+  fgeTapQueue = [];
   fgeAfterTapMarkSeen();
   fgeSplash.drawn = "";
   fgeSplashDraw();
@@ -1458,7 +1742,12 @@ function fgeSplashPlacePrompt() {
   el.style.top = y.toFixed(1) + "px";
   el.style.fontSize = size.toFixed(1) + "px";
 }
+// 起動の時刻（performance.now の ms）。書き出しの確かめ（押した後の速さの測り）が読む: readyAt「タッチして開始」が出た・
+// tapAt 押した操作を受けた・tapEventAt その操作が起きた（event.timeStamp）・tapPaintAt 押した後の最初の rAF（波紋が描ける所）・firstFrameAt 最初のコマ。
+// WhyNot: 押した後の最初の rAF を押した処理の頭の時刻で代えない — main は押した処理と同じタスクで走るので、波紋が画面に出るのは main が手を返した後になる。
+window.fgeBootTimes = { readyAt: -1, tapAt: -1, tapEventAt: -1, tapPaintAt: -1, firstFrameAt: -1 };
 function fgeSplashReady() {
+  window.fgeBootTimes.readyAt = performance.now();
   fgeSplash.ready = true;
   fgeProgress("ready", 1, 1);
   fgeShow("fge-start", true);
@@ -1489,18 +1778,22 @@ function fgeSplashTapped(e) {
 }
 function fgeShow(id, on) { var el = document.getElementById(id); if (el) el.style.display = on ? "" : "none"; }
 function fgeWireFpsOverlay() {
-  if (fgeQueryParam("fps") !== "1") return;
+  if (!fgeSwitches.fps) return;
   var el = document.createElement("div");
   el.style.cssText = "position:fixed;left:8px;top:calc(8px + env(safe-area-inset-top,0px));z-index:9999;padding:4px 8px;font:14px/1.3 monospace;color:#fff;background:rgba(0,0,0,.65);pointer-events:none";
   document.body.appendChild(el);
   // WhyNot: 頼んだ描き手（fgeWantWebGpu）を出さない — WebGPU を頼んでも準備で落ちれば WebGL2 で描いている。文脈を取れたかで言う。
   var backend = window.fgeWebGpuTaken ? "webgpu" : "webgl2";
-  var frames = 0, since = performance.now();
+  // WhyNot: cpu の中央値だけを出さない — 止まりのコマは中央値に出ず、コンソールで fgeStats.summary() を打たないと見えない（直近 2 秒の最大も出す）。
+  var frames = 0, since = performance.now(), marks = [];
   var tick = function (now) {
     frames++;
     if (now - since >= 500) {
-      var cpu = fgeStats.cpuRing.summary();
-      el.textContent = (frames * 1000 / (now - since)).toFixed(1) + " fps / cpu " + (cpu.frames ? cpu.median : "-") + " ms / " + backend;
+      var ring = fgeStats.cpuRing, cpu = ring.summary();
+      marks.push(ring.count);
+      if (marks.length > 5) marks.shift();
+      var peak = ring.maxSince(marks[0]);
+      el.textContent = (frames * 1000 / (now - since)).toFixed(1) + " fps / cpu " + (cpu.frames ? cpu.median : "-") + " ms (max " + (peak === null ? "-" : peak) + ") / " + backend;
       frames = 0; since = now;
     }
     requestAnimationFrame(tick);
@@ -1536,6 +1829,7 @@ function fgeFramePresented() {
   setTimeout(function () { fgeShow("fge-boot", false); }, 250);
 }
 function fgeStarted() {
+  window.fgeBootTimes.firstFrameAt = performance.now();
   fgeSplash.running = false;
   fgeWireFpsOverlay();
   if (fgeDecodeTimes !== null) console.log("[loadtime] 最初のコマまで " + performance.now().toFixed(0) + " ms");
@@ -1558,6 +1852,7 @@ window.addEventListener("unhandledrejection", function (e) { fgeError("止まり
 
 // ── 起動 ──
 var fgeGameId = "game";
+var fgeBundle = null;
 // WhyNot: 取った物の記録を 250 本（ブラウザの既定）で止めない — 素材の多いゲームは起動の前に超え、Service Worker へ送る URL（fgeServiceWorkerReport）が欠ける。
 try { performance.setResourceTimingBufferSize(4000); } catch (e) { /* 決められない版 */ }
 // WhyNot: 素材と wasm を版なしの URL で取らない — 置き先のキャッシュで、古い wasm と新しい素材が混ざる。版は index.html が付けた ?v= を使う。
@@ -1596,7 +1891,7 @@ async function fgeFetchBytes(path, signal) {
 
 // 書き出しが替えた配る道（WebP・Opus・gzip）。素材の表と画像の表には論理の道（project.json の道）で入れる。
 var fgeTranscoded = {};
-// 取ったバイトの和（?loadtime=1 の「押すまでに取った量」。wasm は TeaVM の load が取るので入らない）。
+// 取ったバイトの和（旗 loadtime の「押すまでに取った量」。wasm は TeaVM の load が取るので入らない）。
 var fgeLoadLog = { bytes: 0, count: 0, tapped: false };
 function fgeServedPath(path) { return fgeTranscoded[path] || path; }
 // WhyNot: .gz を名前だけで解かない — 置き先によっては Content-Encoding: gzip を付けて配り、fetch が既に解いた中身が届く。
@@ -1670,7 +1965,7 @@ function fgeBitmapOf(bytes, path) {
 }
 
 // ── 後回しの素材（bundle.json の deferred）──
-// 状態は queued → downloading → downloaded（files は素材の表・絵は ImageBitmap にある）→ loaded（絵は WebLayer が登録した・音は解いた）。
+// 状態は queued → downloading →（glb を Web Worker で解く間は parsing →）downloaded（files は素材の表・絵は ImageBitmap にある）→ loaded（絵は WebLayer が登録した・音は解いた）。
 // 取れなければ failed。failed は間を置いて queued へ戻す（4xx は戻さない）。
 // 解き終えて生のバイトを捨てた files は released（stateOf は queued と言い、頼まれたら取り直す）。
 var fgeDeferred = { entries: [], byPath: new Map(), byName: new Map(), queue: [], running: 0, started: false, wasmReady: false, bootReady: false, hiddenAt: -1 };
@@ -1789,8 +2084,9 @@ function fgeDeferredRelease(joined) {
   String(joined).split("\n").forEach(function (path) {
     var p = fgeNormPath(path);
     var e = fgeDeferred.byPath.get(p);
-    if (!e || fgeHeldImages.has(p) || !fgeAssets.has(p)) return;
+    if (!e || e.state === "parsing" || fgeHeldImages.has(p) || !fgeAssets.has(p)) return;
     fgeAssets.delete(p);
+    fgeGlbParsed.delete(fgePlatformKey(p));
     if (e.state === "downloaded" || e.state === "loaded") {
       e.arrivedAtRelease = fgeDeferredArrived(e);
       e.state = "released";
@@ -1808,6 +2104,7 @@ function fgeDeferredStart() {
   if (fgeDeferred.started || !fgeDeferred.wasmReady || !fgeDeferred.bootReady) return;
   fgeDeferred.started = true;
   fgeDeferred.queue = fgeDeferred.entries.filter(function (e) { return e.state === "queued"; });
+  if (fgeDeferred.entries.some(fgeGlbWorkerWants)) fgeGlbWorkerEnsure();
   fgeDeferredPump();
 }
 function fgeDeferredPump() {
@@ -1863,13 +2160,182 @@ async function fgeDeferredReceive(e, gen, signal) {
   var gate = fgeNetGate(e);
   if (gate) await gate;
   if (e.gen !== gen) return;
-  if (e.file) fgeAssets.set(e.path, bytes);
+  if (e.file) {
+    fgeAssets.set(e.path, bytes);
+    // WhyNot: Worker の parse を待ってから取る枠を返さない — 枠をふさぐと、後ろの素材の取り始めが parse の分だけ遅れる。
+    if (!e.image && fgeGlbWorkerParse(e, gen, bytes)) return;
+    fgePreholdGlbImages(e.path, bytes);
+  }
   if (e.image) {
     var bitmap = await fgeBitmapOf(bytes, e.path);
     if (e.gen !== gen) { bitmap.close(); return; }
     fgeImages.set(e.path, bitmap);
   }
   e.state = "downloaded";
+}
+
+// ── 後回しの glb を Web Worker で解く（解く側は fge-glb-worker.js・wasm の側は WebLayer.Internal.GlbWorker）──
+// 届いた glb を Worker で parse し終えてから downloaded にする。メインの wasm は Model3d.decode で結果を引いて組むだけ。
+// Worker を使えない時（?fge=noworker・sandbox の iframe や CSP で作れない・落ちた・返らない）は今の道（メインで parse）で読む。
+// WhyNot: Worker を常に起こしておかない — 2 つ目の wasm の instance がメモリを持ち続ける。頼みが 10 秒無ければ止め、次の glb で起こし直す。
+var fgeGlbParsed = new Map();
+var fgeGlbWorker = { worker: null, state: "off", nextId: 1, pending: new Map(), idleTimer: null, gltf: null, warned: false };
+var fgeGlbWorkerIdleMs = 10000;
+var fgeGlbWorkerTimeoutMs = 30000;
+
+function fgeGlbWorkerExpected() { return fgeDeferred.entries.some(fgeGlbWorkerWants); }
+
+// 頁の wasm が読み込みの間に 1 度、受け渡しの道（積む → つなぐ → 表から写す）を通す時の入れ物（Worker の中の物と同じ形）。
+var fgeGlbWorkerResult = null;
+function fgeGlbLocalBegin() { fgeGlbWorkerResult = { strings: [], ints: null, floats: null, f64s: [], i32s: [], images: [] }; }
+function fgeGlbLocalStore(key) {
+  var r = fgeGlbWorkerResult;
+  fgeGlbWorkerResult = null;
+  var f64 = fgeGlbJoin(r.f64s, Float64Array);
+  var i32 = fgeGlbJoin(r.i32s, Int32Array);
+  fgeGlbParsed.set(fgeNormPath(key), { text: r.strings.join(""), strLens: new Int32Array(r.strings.map(function (s) { return s.length; })),
+                                       ints: r.ints, floats: r.floats, f64: f64.all, f64Lens: f64.lens, i32: i32.all, i32Lens: i32.lens });
+}
+// 配列の並びを 1 本につなぎ、長さの並びを添える（fge-glb-worker.js の同じ名前の関数と同じ形）。
+// WhyNot: Worker の JS と 1 つのファイルに寄せない — Worker は頁の fge-web.js を読めない（頭で window と document に触る）。
+function fgeGlbJoin(arrays, Kind) {
+  var lens = new Int32Array(arrays.length);
+  var total = 0;
+  arrays.forEach(function (a, i) { lens[i] = a.length; total += a.length; });
+  var all = new Kind(total);
+  var at = 0;
+  arrays.forEach(function (a) { all.set(a, at); at += a.length; });
+  return { all: all, lens: lens };
+}
+function fgeGlbParsedHas(key) { return fgeGlbParsed.has(fgeNormPath(key)); }
+function fgeGlbParsedOf(key) { return fgeGlbParsed.get(fgeNormPath(key)); }
+
+function fgeGlbWorkerWants(e) {
+  return e.file && !e.image && /\.glb$/i.test(e.path) && !fgeSwitches.noworker && fgeGlbWorker.state !== "broken" && typeof Worker === "function";
+}
+
+// project.json の "gltf" の値の字（Worker の wasm が Model3d.loader と同じ読み方で選択肢にする）。
+function fgeGlbWorkerGltf() {
+  if (fgeGlbWorker.gltf !== null) return fgeGlbWorker.gltf;
+  var text = "";
+  try {
+    var b = fgeAssets.get("project.json");
+    var gltf = b === undefined ? undefined : JSON.parse(fgeDecoder.decode(b)).gltf;
+    text = gltf === undefined ? "" : JSON.stringify(gltf);
+  } catch (err) { text = ""; }
+  fgeGlbWorker.gltf = text;
+  return text;
+}
+
+function fgeGlbWorkerWarn(why) {
+  if (fgeGlbWorker.warned) return;
+  fgeGlbWorker.warned = true;
+  console.warn("[fge] glb を Web Worker で解けない — メインで解く（止まりが出る）: " + why);
+}
+
+function fgeGlbWorkerEnsure() {
+  var w = fgeGlbWorker;
+  if (w.worker !== null || w.state === "broken") return;
+  try {
+    // WhyNot: ?sw=0（?fge=nosw）の頁の Worker の道に旗を付けずに起こさない — Service Worker が Worker の取る物を壊れたキャッシュから返す。
+    var url = fgeVersioned("fge-glb-worker.js");
+    w.worker = new Worker(fgeSwitches.sw === false ? url + (url.indexOf("?") >= 0 ? "&" : "?") + "sw=0" : url);
+  } catch (err) {
+    w.state = "broken";
+    fgeGlbWorkerWarn("Worker を作れない（" + (err && err.message || err) + "）");
+    return;
+  }
+  w.state = "starting";
+  w.worker.onmessage = fgeGlbWorkerOnMessage;
+  w.worker.onerror = function (ev) { ev.preventDefault(); fgeGlbWorkerBreak("Worker の誤り: " + (ev.message || ev)); };
+  var bundle = fgeBundle || {};
+  w.worker.postMessage({ type: "init", runtimeUrl: fgeVersioned("wasm-gc-runtime.js"), wasmUrl: fgeVersioned("classes.wasm"),
+                         brotliUrl: bundle.wasmBrotli ? fgeVersioned(bundle.wasmBrotli) : null, brotliDecoderUrl: fgeVersioned("brotli-decode.js") });
+  fgeGlbWorkerIdle();
+}
+
+// 頼む。頼めたら e を parsing にして真（届いた結果か失敗で downloaded へ移す）。
+function fgeGlbWorkerParse(e, gen, bytes) {
+  if (!fgeGlbWorkerWants(e)) return false;
+  fgeGlbWorkerEnsure();
+  var w = fgeGlbWorker;
+  if (w.worker === null) return false;
+  var id = w.nextId++;
+  var copy = bytes.slice();
+  var timer = setTimeout(function () { fgeGlbWorkerBreak(fgeGlbWorkerTimeoutMs / 1000 + " 秒返らない（" + e.path + "）"); }, fgeGlbWorkerTimeoutMs);
+  e.state = "parsing";
+  w.pending.set(id, { e: e, gen: gen, bytes: bytes, timer: timer });
+  if (w.idleTimer !== null) { clearTimeout(w.idleTimer); w.idleTimer = null; }
+  w.worker.postMessage({ type: "parse", id: id, bytes: copy.buffer, gltf: fgeGlbWorkerGltf() }, [copy.buffer]);
+  return true;
+}
+
+// 頼み p を今の道（メインで parse）へ戻す。
+function fgeGlbWorkerFallBack(p) {
+  clearTimeout(p.timer);
+  if (p.e.gen !== p.gen || p.e.state !== "parsing") return;
+  fgePreholdGlbImages(p.e.path, p.bytes);
+  p.e.state = "downloaded";
+  fgeDeferredNote(p.e);
+}
+
+// Worker を止め、残りの頼みを全部メインへ戻す（この頁ではもう Worker を使わない）。
+function fgeGlbWorkerBreak(why) {
+  var w = fgeGlbWorker;
+  fgeGlbWorkerWarn(why);
+  w.state = "broken";
+  if (w.worker !== null) { w.worker.terminate(); w.worker = null; }
+  if (w.idleTimer !== null) { clearTimeout(w.idleTimer); w.idleTimer = null; }
+  var pending = Array.from(w.pending.values());
+  w.pending.clear();
+  pending.forEach(fgeGlbWorkerFallBack);
+}
+
+function fgeGlbWorkerIdle() {
+  var w = fgeGlbWorker;
+  if (w.pending.size > 0 || w.worker === null) return;
+  if (w.idleTimer !== null) clearTimeout(w.idleTimer);
+  w.idleTimer = setTimeout(function () {
+    w.idleTimer = null;
+    if (w.pending.size > 0 || w.worker === null) return;
+    // WhyNot: まだ取っている glb がある間は止めない — 4G で 10 秒より後に届くと、起こしたばかりの Worker を止めて wasm を起こし直す。
+    if (fgeDeferred.entries.some(function (e) { return fgeGlbWorkerWants(e) && (e.state === "queued" || e.state === "downloading"); })) { fgeGlbWorkerIdle(); return; }
+    w.worker.terminate();
+    w.worker = null;
+    if (w.state !== "broken") w.state = "off";
+  }, fgeGlbWorkerIdleMs);
+}
+
+function fgeGlbWorkerCloseImages(m) {
+  (m.images || []).forEach(function (g) { g.bitmap.close(); });
+}
+
+function fgeGlbWorkerOnMessage(ev) {
+  var m = ev.data;
+  var w = fgeGlbWorker;
+  if (m.type === "log") { (m.level === "error" ? console.error : console.warn)("[glb-worker] " + m.text); return; }
+  if (m.type === "ready") { if (w.state === "starting") w.state = "ready"; return; }
+  if (m.type === "broken") { fgeGlbWorkerBreak("wasm を起こせない（" + m.why + "）"); return; }
+  var p = w.pending.get(m.id);
+  if (!p) { fgeGlbWorkerCloseImages(m); return; }
+  w.pending.delete(m.id);
+  if (m.type === "failed") {
+    fgeGlbWorkerFallBack(p);
+  } else if (p.e.gen === p.gen && p.e.state === "parsing") {
+    clearTimeout(p.timer);
+    var key = fgePlatformKey(p.e.path);
+    fgeGlbParsed.set(key, { text: m.text, strLens: m.strLens, ints: m.ints, floats: m.floats, f64: m.f64, f64Lens: m.f64Lens, i32: m.i32, i32Lens: m.i32Lens });
+    m.images.forEach(function (g) {
+      var id = fgeNormPath(key + "#image" + g.index);
+      if (fgeImages.has(id)) g.bitmap.close(); else fgeImages.set(id, g.bitmap);
+    });
+    p.e.state = "downloaded";
+    fgeDeferredNote(p.e);
+  } else {
+    clearTimeout(p.timer);
+    fgeGlbWorkerCloseImages(m);
+  }
+  fgeGlbWorkerIdle();
 }
 function fgeDeferredRestart(e) {
   e.gen++;
@@ -2061,6 +2527,7 @@ function fgeNameWasmFrames(text) {
 async function fgeBoot() {
   fgeCanvas = document.getElementById("fge-canvas");
   var bundle = JSON.parse(fgeDecoder.decode(await fgeFetchBytes("bundle.json")));
+  fgeBundle = bundle;
   document.title = bundle.title || document.title;
   fgeGameId = bundle.id || "game";
   fgeWeb.virtualPad = bundle.virtualPad || null;
@@ -2112,7 +2579,11 @@ async function fgeBoot() {
   });
   fgeBootProgressInit(bundle, total);
   var jobs = files.map(function (path) {
-    return async function () { fgeAssets.set(fgeNormPath(path), await fgeFetchAsset(path)); };
+    return async function () {
+      var bytes = await fgeFetchAsset(path);
+      fgeAssets.set(fgeNormPath(path), bytes);
+      fgePreholdGlbImages(fgeNormPath(path), bytes);
+    };
   }).concat(sounds.map(function (s) {
     return async function () {
       var buffer;
@@ -2154,6 +2625,7 @@ async function fgeBoot() {
   if (fgeCaptureFrame <= 0) await new Promise(function (resolve) {
     var go = function (e) {
       if (e.type === "pointerup" && e.pointerType === "mouse") return;
+      fgeNoteTapTime(e);
       // iOS の消音スイッチで WebAudio が黙らないように（Safari 17 以降）。
       try { if (navigator.audioSession) navigator.audioSession.type = "playback"; } catch (e) { /* 無い版 */ }
       fgeAudio.ctx.resume();
@@ -2182,11 +2654,11 @@ async function fgeBoot() {
   fgeWireMouseCapture();
   var teavm = await wasmLoad;
   if (teavm === null) return;
-  if (fgeQueryParam("deferred") === "all") {
+  if (fgeSwitches.deferred === "all") {
     var waitUntil = performance.now() + 60000;
     while (!fgeDeferredAllArrived()) {
       if (performance.now() > waitUntil) {
-        fgeError("&deferred=all: 60 秒待っても届かない後回しの素材がある: " + fgeDeferred.entries.filter(function (e) {
+        fgeError("頁の旗 deferred:all: 60 秒待っても届かない後回しの素材がある: " + fgeDeferred.entries.filter(function (e) {
           return !(e.state === "loaded" || e.state === "downloaded" || (e.state === "failed" && e.permanent));
         }).map(function (e) { return e.path + "（" + e.state + "）"; }).join("・"));
         return;
@@ -2205,13 +2677,13 @@ async function fgeBoot() {
 // ── Service Worker（2 回目からの起動。中身は engine_web/js/fge-sw.js・docs/web-export.md の「起動の始まりと 2 回目からの起動」）──
 // WhyNot: 起動の前に登録しない — 登録と Service Worker の起動が、起動の素材や wasm と回線と CPU を取り合う。
 // WhyNot: 登録や外す処理の例外で起動を止めない — Service Worker が無くても頁は今まで通り動く。sandbox の iframe では navigator.serviceWorker を読むだけで例外になる。
-// WhyNot: ?capture= の頁では登録しない — 描き出しの検査が前の書き出しのキャッシュを持ち越さないように。
+// WhyNot: 撮る頁（旗 capture）では登録しない — 描き出しの検査が前の書き出しのキャッシュを持ち越さないように。
 // WhyNot: updateViaCache を既定にしない — 直した sw.js が置き場の max-age の間届かず、壊れた Service Worker が残る。開くたびに sw.js の確かめが 1 本増える。
 // WhyNot: Service Worker を通らなかった物（workerStart が 0）だけを送らない — ドメインの根の別のゲームの Service Worker を通った物も、自分のキャッシュには無い。
 function fgeServiceWorkerStart(bundle) {
   if (!("serviceWorker" in navigator) || fgeCaptureFrame > 0) return;
   var scope = new URL("./", location.href).href;
-  if (!bundle.serviceWorker || fgeQueryParam("sw") === "0") {
+  if (!bundle.serviceWorker || !fgeSwitches.sw) {
     fgeServiceWorkerRemove(scope);
     return;
   }
@@ -2259,10 +2731,17 @@ function fgeServiceWorkerReport(scope) {
   } catch (e) { /* 観られない版は次に開いた時に入る */ }
 }
 
+function fgeNoteTapTime(e) {
+  var t = window.fgeBootTimes;
+  t.tapAt = performance.now();
+  t.tapEventAt = e && e.timeStamp > 0 ? e.timeStamp : t.tapAt;
+  requestAnimationFrame(function () { t.tapPaintAt = performance.now(); });
+}
+
 function fgeNoteTap() {
   if (fgeDecodeTimes === null || fgeLoadLog.tapped) return;
   fgeLoadLog.tapped = true;
-  var got = fgeDeferred.entries.filter(function (e) { return e.state === "downloaded" || e.state === "loaded"; });
+  var got = fgeDeferred.entries.filter(function (e) { return e.state === "parsing" || e.state === "downloaded" || e.state === "loaded"; });
   var deferredBytes = got.reduce(function (a, e) { return a + e.bytes; }, 0);
   console.log("[loadtime] 押すまでに取った量 " + fgeLoadLog.bytes + " B（起動の素材 " + (fgeLoadLog.bytes - deferredBytes) + " B・後回し " + got.length + "/" +
     fgeDeferred.entries.length + " 本 " + deferredBytes + " B・wasm は別）at " + performance.now().toFixed(0) + " ms");

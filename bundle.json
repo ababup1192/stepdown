@@ -401,11 +401,11 @@
  "deferred": [
   {
    "path": "assets/sfx/bgm_harp.wav",
-   "bytes": 749749,
+   "bytes": 755525,
    "names": [
     "bgm_harp"
    ],
-   "arrivalSeconds": 3.824
+   "arrivalSeconds": 3.853
   },
   {
    "path": "assets/fx/levelup.png",
@@ -413,7 +413,7 @@
    "names": [
     "fx_levelup"
    ],
-   "arrivalSeconds": 4.028
+   "arrivalSeconds": 4.057
   },
   {
    "path": "assets/icons/bottle_empty.png",
@@ -421,7 +421,7 @@
    "names": [
     "icon_bottle_empty"
    ],
-   "arrivalSeconds": 4.153
+   "arrivalSeconds": 4.182
   },
   {
    "path": "assets/icons/bone.png",
@@ -429,7 +429,7 @@
    "names": [
     "icon_bone"
    ],
-   "arrivalSeconds": 4.268
+   "arrivalSeconds": 4.297
   },
   {
    "path": "assets/icons/pebble.png",
@@ -437,7 +437,7 @@
    "names": [
     "icon_pebble"
    ],
-   "arrivalSeconds": 4.392
+   "arrivalSeconds": 4.42
   },
   {
    "path": "assets/icons/pebble_one.png",
@@ -445,7 +445,7 @@
    "names": [
     "icon_pebble_one"
    ],
-   "arrivalSeconds": 4.511
+   "arrivalSeconds": 4.54
   },
   {
    "path": "assets/icons/ironball.png",
@@ -453,7 +453,7 @@
    "names": [
     "icon_ironball"
    ],
-   "arrivalSeconds": 4.627
+   "arrivalSeconds": 4.655
   },
   {
    "path": "assets/icons/ironball_roll1.png",
@@ -461,7 +461,7 @@
    "names": [
     "icon_ironball_roll1"
    ],
-   "arrivalSeconds": 4.74
+   "arrivalSeconds": 4.769
   },
   {
    "path": "assets/icons/ironball_roll2.png",
@@ -469,7 +469,7 @@
    "names": [
     "icon_ironball_roll2"
    ],
-   "arrivalSeconds": 4.853
+   "arrivalSeconds": 4.882
   },
   {
    "path": "assets/icons/ironball_roll3.png",
@@ -477,7 +477,7 @@
    "names": [
     "icon_ironball_roll3"
    ],
-   "arrivalSeconds": 4.966
+   "arrivalSeconds": 4.995
   },
   {
    "path": "assets/icons/ironball_roll4.png",
@@ -485,7 +485,7 @@
    "names": [
     "icon_ironball_roll4"
    ],
-   "arrivalSeconds": 5.079
+   "arrivalSeconds": 5.108
   },
   {
    "path": "assets/icons/ironball_roll5.png",
@@ -493,7 +493,7 @@
    "names": [
     "icon_ironball_roll5"
    ],
-   "arrivalSeconds": 5.192
+   "arrivalSeconds": 5.221
   },
   {
    "path": "assets/icons/ironball_roll6.png",
@@ -501,7 +501,7 @@
    "names": [
     "icon_ironball_roll6"
    ],
-   "arrivalSeconds": 5.305
+   "arrivalSeconds": 5.334
   },
   {
    "path": "assets/icons/ironball_roll7.png",
@@ -509,7 +509,7 @@
    "names": [
     "icon_ironball_roll7"
    ],
-   "arrivalSeconds": 5.418
+   "arrivalSeconds": 5.447
   },
   {
    "path": "assets/icons/smoke.png",
@@ -517,7 +517,7 @@
    "names": [
     "icon_smoke"
    ],
-   "arrivalSeconds": 5.533
+   "arrivalSeconds": 5.562
   },
   {
    "path": "assets/icons/shield.png",
@@ -525,7 +525,7 @@
    "names": [
     "icon_shield"
    ],
-   "arrivalSeconds": 5.729
+   "arrivalSeconds": 5.758
   },
   {
    "path": "assets/icons/trap_alarm.png",
@@ -533,7 +533,7 @@
    "names": [
     "icon_trap_alarm"
    ],
-   "arrivalSeconds": 5.89
+   "arrivalSeconds": 5.919
   },
   {
    "path": "assets/icons/trap_arrow.png",
@@ -541,7 +541,7 @@
    "names": [
     "icon_trap_arrow"
    ],
-   "arrivalSeconds": 6.034
+   "arrivalSeconds": 6.063
   },
   {
    "path": "assets/icons/trap_pit.png",
@@ -549,47 +549,47 @@
    "names": [
     "icon_trap_pit"
    ],
-   "arrivalSeconds": 6.166
+   "arrivalSeconds": 6.195
   },
   {
    "path": "assets/sfx/sd_clink.wav",
-   "bytes": 1188,
+   "bytes": 1179,
    "names": [
     "sd_clink"
    ],
-   "arrivalSeconds": 6.247
+   "arrivalSeconds": 6.276
   },
   {
    "path": "assets/sfx/sd_guard.wav",
-   "bytes": 1560,
+   "bytes": 1563,
    "names": [
     "sd_guard"
    ],
-   "arrivalSeconds": 6.33
+   "arrivalSeconds": 6.359
   },
   {
    "path": "assets/sfx/sd_puff.wav",
-   "bytes": 2117,
+   "bytes": 2126,
    "names": [
     "sd_puff"
    ],
-   "arrivalSeconds": 6.416
+   "arrivalSeconds": 6.444
   },
   {
    "path": "assets/sfx/sd_roll.wav",
-   "bytes": 2405,
+   "bytes": 2394,
    "names": [
     "sd_roll"
    ],
-   "arrivalSeconds": 6.503
+   "arrivalSeconds": 6.531
   },
   {
    "path": "assets/sfx/sd_pit.wav",
-   "bytes": 3144,
+   "bytes": 3146,
    "names": [
     "sd_pit"
    ],
-   "arrivalSeconds": 6.593
+   "arrivalSeconds": 6.622
   },
   {
    "path": "assets/chars/swarm.png",
@@ -597,7 +597,7 @@
    "names": [
     "chr_swarm"
    ],
-   "arrivalSeconds": 6.718
+   "arrivalSeconds": 6.746
   },
   {
    "path": "assets/chars/shieldbearer.png",
@@ -605,7 +605,7 @@
    "names": [
     "chr_shieldbearer"
    ],
-   "arrivalSeconds": 7.031
+   "arrivalSeconds": 7.06
   },
   {
    "path": "assets/chars/shieldbearer_back.png",
@@ -613,7 +613,7 @@
    "names": [
     "chr_shieldbearer_back"
    ],
-   "arrivalSeconds": 7.311
+   "arrivalSeconds": 7.34
   },
   {
    "path": "assets/chars/shieldbearer_back34_left.png",
@@ -621,7 +621,7 @@
    "names": [
     "chr_shieldbearer_back34_left"
    ],
-   "arrivalSeconds": 7.451
+   "arrivalSeconds": 7.48
   },
   {
    "path": "assets/chars/shieldbearer_back34_right.png",
@@ -629,7 +629,7 @@
    "names": [
     "chr_shieldbearer_back34_right"
    ],
-   "arrivalSeconds": 7.592
+   "arrivalSeconds": 7.621
   },
   {
    "path": "assets/chars/shieldbearer_front34_left.png",
@@ -637,7 +637,7 @@
    "names": [
     "chr_shieldbearer_front34_left"
    ],
-   "arrivalSeconds": 7.899
+   "arrivalSeconds": 7.928
   },
   {
    "path": "assets/chars/shieldbearer_front34_right.png",
@@ -645,7 +645,7 @@
    "names": [
     "chr_shieldbearer_front34_right"
    ],
-   "arrivalSeconds": 8.206
+   "arrivalSeconds": 8.235
   },
   {
    "path": "assets/chars/shieldbearer_side_left.png",
@@ -653,7 +653,7 @@
    "names": [
     "chr_shieldbearer_side_left"
    ],
-   "arrivalSeconds": 8.455
+   "arrivalSeconds": 8.484
   },
   {
    "path": "assets/chars/shieldbearer_side_right.png",
@@ -661,7 +661,7 @@
    "names": [
     "chr_shieldbearer_side_right"
    ],
-   "arrivalSeconds": 8.704
+   "arrivalSeconds": 8.733
   },
   {
    "path": "assets/icons/shield_iron.png",
@@ -669,7 +669,7 @@
    "names": [
     "icon_shield_iron"
    ],
-   "arrivalSeconds": 8.868
+   "arrivalSeconds": 8.897
   },
   {
    "path": "assets/icons/scroll_thunder.png",
@@ -677,7 +677,7 @@
    "names": [
     "icon_scroll_thunder"
    ],
-   "arrivalSeconds": 9.027
+   "arrivalSeconds": 9.056
   },
   {
    "path": "assets/chars/charger.png",
@@ -685,7 +685,7 @@
    "names": [
     "chr_charger"
    ],
-   "arrivalSeconds": 9.181
+   "arrivalSeconds": 9.21
   },
   {
    "path": "assets/chars/bomber.png",
@@ -693,7 +693,7 @@
    "names": [
     "chr_bomber"
    ],
-   "arrivalSeconds": 9.488
+   "arrivalSeconds": 9.517
   },
   {
    "path": "assets/icons/doll.png",
@@ -701,23 +701,23 @@
    "names": [
     "icon_doll"
    ],
-   "arrivalSeconds": 9.638
+   "arrivalSeconds": 9.666
   },
   {
    "path": "assets/sfx/sd_charge.wav",
-   "bytes": 1747,
+   "bytes": 1750,
    "names": [
     "sd_charge"
    ],
-   "arrivalSeconds": 9.721
+   "arrivalSeconds": 9.75
   },
   {
    "path": "assets/sfx/sd_doll.wav",
-   "bytes": 2703,
+   "bytes": 2696,
    "names": [
     "sd_doll"
    ],
-   "arrivalSeconds": 9.81
+   "arrivalSeconds": 9.839
   },
   {
    "path": "assets/chars/boss.png",
@@ -725,47 +725,47 @@
    "names": [
     "chr_boss"
    ],
-   "arrivalSeconds": 10.027
+   "arrivalSeconds": 10.056
   },
   {
    "path": "assets/sfx/sd_boss_fall.wav",
-   "bytes": 2039,
+   "bytes": 2024,
    "names": [
     "sd_boss_fall"
    ],
-   "arrivalSeconds": 10.112
+   "arrivalSeconds": 10.141
   },
   {
    "path": "assets/sfx/sd_boss_windup.wav",
-   "bytes": 1985,
+   "bytes": 1983,
    "names": [
     "sd_boss_windup"
    ],
-   "arrivalSeconds": 10.197
+   "arrivalSeconds": 10.226
   },
   {
    "path": "assets/sfx/sd_slam.wav",
-   "bytes": 2200,
+   "bytes": 2192,
    "names": [
     "sd_slam"
    ],
-   "arrivalSeconds": 10.283
+   "arrivalSeconds": 10.312
   },
   {
    "path": "assets/sfx/sd_sweep.wav",
-   "bytes": 2005,
+   "bytes": 2018,
    "names": [
     "sd_sweep"
    ],
-   "arrivalSeconds": 10.368
+   "arrivalSeconds": 10.397
   },
   {
    "path": "assets/sfx/sd_eat.wav",
-   "bytes": 2529,
+   "bytes": 2525,
    "names": [
     "sd_eat"
    ],
-   "arrivalSeconds": 10.456
+   "arrivalSeconds": 10.485
   }
  ],
  "splash": {
@@ -787,14 +787,15 @@
  "boot": {
   "assets": 1609979,
   "assetsWire": 1342528,
-  "wasm": 1447758,
-  "wasmWire": 1516029
+  "wasm": 1527321,
+  "wasmWire": 1595592
  },
  "serviceWorker": true,
  "startupBudget": {
   "seconds": 17,
   "why": "タイトルから見せる 3D の迷宮の形（約 0.5 MB）と床・壁の絵、明朝体の字（約 0.6 MB）を起動で取る。1 階で出る敵・アイテムの絵と、歩く・殴る・拾う・食べる音も、押してすぐ使うので起動で取る。"
  },
+ "engineVersion": "0.118.0",
  "checks": {
   "title4g": "ok",
   "tapNoRecord": true
